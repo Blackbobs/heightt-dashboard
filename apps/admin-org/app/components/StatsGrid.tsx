@@ -1,54 +1,126 @@
 "use client";
 
+import { useAdminDashboard } from "@/hooks/admin/useAdminStudents";
+import { useAdminFinancialOverview } from "@/hooks/admin/useAdminFinance";
+import { useUserOrganizations } from "@/hooks/admin/useAdminOrganizations";
+import { Loader2, Users, Coins, Wallet, Clock } from "lucide-react";
+
 interface StatCardProps {
   label: string;
   value: string;
   change: string;
   trend: "up" | "down" | "neutral";
+  icon: React.ReactNode;
+  iconBg: string;
 }
 
-function StatCard({ label, value, change, trend }: StatCardProps) {
+function StatCard({
+  label,
+  value,
+  change,
+  trend,
+  icon,
+  iconBg,
+}: StatCardProps) {
   const trendColor =
     trend === "up"
-      ? "var(--color-success)"
+      ? "text-emerald-600"
       : trend === "down"
-      ? "var(--color-destructive)"
-      : "var(--color-muted-foreground)";
+        ? "text-red-600"
+        : "text-slate-400";
 
-  const trendIcon =
-    trend === "up"
-      ? "fas fa-arrow-up"
-      : trend === "down"
-      ? "fas fa-arrow-down"
-      : "fas fa-minus";
+  const trendIcon = trend === "up" ? "↑" : trend === "down" ? "↓" : "—";
 
   return (
     <div
-      className="bg-white border rounded-[var(--radius-card)] p-5 md:p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      className="bg-white border rounded-xl p-5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
       style={{ borderColor: "var(--color-border)" }}
     >
-      <div className="text-[13px] font-medium mb-1" style={{ color: "var(--color-muted-foreground)" }}>
-        {label}
+      <div className="flex items-center justify-between mb-2">
+        <div
+          className={cn(
+            "w-9 h-9 rounded-lg flex items-center justify-center",
+            iconBg,
+          )}
+        >
+          {icon}
+        </div>
+        <span className={cn("text-xs font-medium", trendColor)}>
+          {trendIcon} {change}
+        </span>
       </div>
-      <div className="text-[26px] md:text-[28px] font-bold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-        {value}
-      </div>
-      <div className="mt-1.5 inline-flex items-center gap-1 text-[13px] font-medium" style={{ color: trendColor }}>
-        <i className={trendIcon} />
-        {change}
-      </div>
+      <div className="text-2xl font-bold text-slate-900">{value}</div>
+      <div className="text-xs text-slate-500 mt-0.5">{label}</div>
     </div>
   );
 }
 
-const stats = [
-  { label: "Total Students", value: "1,240", change: "12% this month", trend: "up" as const },
-  { label: "Total Collected", value: "₦4.5M", change: "8.5% this month", trend: "up" as const },
-  { label: "Pending Payments", value: "₦320K", change: "3.2% this month", trend: "down" as const },
-  { label: "Active Dues", value: "4", change: "2 new this month", trend: "up" as const },
-];
+export function StatsGrid() {
+  const { data: orgs, isLoading: orgsLoading } = useUserOrganizations();
+  const organizationId = orgs?.[0]?.organizationId;
 
-export default function StatsGrid() {
+  const { data: overview, isLoading: overviewLoading } =
+    useAdminFinancialOverview(organizationId || "");
+  const { data: dashboard, isLoading: dashboardLoading } = useAdminDashboard();
+
+  const isLoading = orgsLoading || overviewLoading || dashboardLoading;
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="bg-white border rounded-xl p-5 animate-pulse"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-9 h-9 rounded-lg bg-slate-200" />
+              <div className="w-12 h-4 bg-slate-200 rounded" />
+            </div>
+            <div className="w-20 h-7 bg-slate-200 rounded" />
+            <div className="w-16 h-4 bg-slate-200 rounded mt-0.5" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const stats = [
+    {
+      label: "Total Students",
+      value: dashboard?.statistics?.total?.toLocaleString() || "0",
+      change: "12% this month",
+      trend: "up" as const,
+      icon: <Users className="w-4 h-4 text-blue-600" />,
+      iconBg: "bg-blue-50",
+    },
+    {
+      label: "Total Collections",
+      value: `₦${(overview?.totalCollections || 0).toLocaleString()}`,
+      change: "8.5% this month",
+      trend: "up" as const,
+      icon: <Wallet className="w-4 h-4 text-emerald-600" />,
+      iconBg: "bg-emerald-50",
+    },
+    {
+      label: "Pending Payments",
+      value: `₦${(overview?.totalOutstanding || 0).toLocaleString()}`,
+      change: "3.2% this month",
+      trend: "down" as const,
+      icon: <Clock className="w-4 h-4 text-amber-600" />,
+      iconBg: "bg-amber-50",
+    },
+    {
+      label: "Active Dues",
+      value: overview?.totalDues?.toString() || "0",
+      change: "2 new this month",
+      trend: "up" as const,
+      icon: <Coins className="w-4 h-4 text-purple-600" />,
+      iconBg: "bg-purple-50",
+    },
+  ];
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
       {stats.map((stat) => (

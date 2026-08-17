@@ -1,24 +1,45 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { usePermissions, ROLE_PRESETS, type RoleKey } from "../context/PermissionContext";
+import { useState } from 'react';
+import { Menu, Bell, ChevronDown, User as UserIcon, LogOut, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAdminLogout } from '@/hooks/admin/useAdminAuth';
+import { OrganizationSwitcher } from './OrganizationSwitcher';
+import { useAdminContext } from './AdminContext';
 
 interface HeaderProps {
   pageTitle: string;
-  pageSubtitle: string;
+  pageSubtitle?: string;
   onMenuToggle: () => void;
 }
 
-export default function Header({ pageTitle, pageSubtitle, onMenuToggle }: HeaderProps) {
-  const { role, setRole, permissions } = usePermissions();
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+export function Header({ pageTitle, pageSubtitle, onMenuToggle }: HeaderProps) {
+  const logoutMutation = useAdminLogout();
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const { user, scopes, selectedScopeId, switchOrganization, isLoading } = useAdminContext();
 
-  const currentRoleInfo = ROLE_PRESETS[role];
+  const getInitials = () => {
+    if (!user?.profile) return 'A';
+    const firstName = user.profile.firstName || '';
+    const lastName = user.profile.lastName || '';
+    return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase() || 'A';
+  };
+
+  const getDisplayName = () => {
+    if (!user?.profile) return 'Admin';
+    const firstName = user.profile.firstName || '';
+    const lastName = user.profile.lastName || '';
+    return `${firstName} ${lastName}`.trim() || user.username || 'Admin';
+  };
+
+  const handleLogout = async () => {
+    await logoutMutation.mutateAsync();
+  };
 
   return (
     <header
-      className="sticky top-0 z-50 min-h-[64px] bg-white border-b flex items-center justify-between px-3 sm:px-6 md:px-8 py-2"
-      style={{ borderColor: "var(--color-border)" }}
+      className="sticky top-0 z-40 min-h-[64px] bg-white border-b flex items-center justify-between px-3 sm:px-6 py-2"
+      style={{ borderColor: 'var(--color-border)' }}
     >
       {/* Left Column: Menu Button & Title */}
       <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
@@ -27,126 +48,118 @@ export default function Header({ pageTitle, pageSubtitle, onMenuToggle }: Header
           onClick={onMenuToggle}
           aria-label="Toggle sidebar"
         >
-          <i className="fas fa-bars" />
+          <Menu className="w-4 h-4" />
         </button>
         <div className="min-w-0">
-          <h1
-            className="text-base sm:text-lg md:text-xl font-bold tracking-tight truncate leading-snug"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          <h1 className="text-base sm:text-lg md:text-xl font-bold tracking-tight truncate leading-snug text-slate-900">
             {pageTitle}
           </h1>
-          <p
-            className="text-[11px] sm:text-xs md:text-[13px] truncate leading-none mt-0.5"
-            style={{ color: "var(--color-muted-foreground)" }}
-          >
-            {pageSubtitle}
-          </p>
+          {pageSubtitle && (
+            <p className="text-[11px] sm:text-xs md:text-[13px] truncate leading-none mt-0.5 text-slate-500">
+              {pageSubtitle}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Right Column: Role Switcher, Notifications, Profile */}
+      {/* Center: Organization Switcher */}
+      <div className="hidden lg:flex items-center">
+        <OrganizationSwitcher
+          scopes={scopes}
+          selectedScopeId={selectedScopeId || undefined}
+          onSelect={switchOrganization}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Right Column: Actions */}
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-        {/* Role Switcher Widget */}
-        <div className="relative">
-          <button
-            onClick={() => setRoleDropdownOpen((v) => !v)}
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 border rounded-lg text-xs font-semibold cursor-pointer transition-all duration-200 bg-slate-50 hover:bg-slate-100 font-sans"
-            style={{
-              borderColor: "var(--color-border)",
-              color: "var(--color-foreground)",
-            }}
-            title="Switch demo role to test permission-based UI filtering"
-          >
-            <i className="fas fa-user-shield text-blue-600 text-xs sm:text-sm flex-shrink-0" />
-            <span className="hidden md:inline text-slate-500">Role:</span>
-            <span className="font-bold text-blue-700 max-w-[80px] sm:max-w-none truncate">
-              {currentRoleInfo.name.replace("Department ", "")}
-            </span>
-            <span className="hidden sm:inline-block text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono font-semibold">
-              {permissions.length} perms
-            </span>
-            <i className="fas fa-chevron-down text-[10px] text-slate-400 flex-shrink-0" />
-          </button>
-
-          {roleDropdownOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setRoleDropdownOpen(false)}
-              />
-              <div
-                className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border p-2 z-20 animate-fade-in"
-                style={{ borderColor: "var(--color-border)" }}
-              >
-                <div className="px-3 py-2 border-b mb-1" style={{ borderColor: "var(--color-border)" }}>
-                  <div className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Testing Permissions
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    Switch role to see action buttons hide or appear dynamically
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  {(Object.keys(ROLE_PRESETS) as RoleKey[]).map((rKey) => {
-                    const preset = ROLE_PRESETS[rKey];
-                    const isSelected = rKey === role;
-                    return (
-                      <button
-                        key={rKey}
-                        onClick={() => {
-                          setRole(rKey);
-                          setRoleDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-lg border-none cursor-pointer transition-colors font-sans ${
-                          isSelected
-                            ? "bg-blue-50 text-blue-900 font-semibold"
-                            : "hover:bg-slate-50 text-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs">
-                          <span>{preset.name}</span>
-                          {isSelected && <i className="fas fa-check text-blue-600 text-xs" />}
-                        </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">
-                          {preset.description}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
-          )}
+        {/* Organization Switcher (Mobile) */}
+        <div className="lg:hidden">
+          <OrganizationSwitcher
+            scopes={scopes}
+            selectedScopeId={selectedScopeId || undefined}
+            onSelect={switchOrganization}
+            isLoading={isLoading}
+          />
         </div>
 
         {/* Notifications */}
         <button
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border-none bg-transparent flex items-center justify-center text-sm sm:text-base cursor-pointer relative transition-all duration-200 hover:bg-slate-100 flex-shrink-0"
-          style={{ color: "var(--color-muted-foreground)" }}
-          onClick={() => alert("Notifications panel would open here")}
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border-none bg-transparent flex items-center justify-center text-sm sm:text-base cursor-pointer relative transition-all duration-200 hover:bg-slate-100 flex-shrink-0 text-slate-500"
+          onClick={() => alert('Notifications panel would open here')}
           aria-label="Notifications"
         >
-          <i className="fas fa-bell" />
-          <span
-            className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white"
-            style={{ background: "var(--color-destructive)" }}
-          />
+          <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: 'var(--color-destructive)' }} />
         </button>
 
-        {/* Profile */}
-        <div className="flex items-center gap-2 py-1 pl-1 pr-1 sm:pr-2 rounded-lg font-sans flex-shrink-0">
-          <div
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-xs"
-            style={{ background: "var(--color-primary)" }}
+        {/* Profile Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setProfileDropdownOpen((v) => !v)}
+            className="flex items-center gap-2 py-1 pl-1 pr-2 rounded-lg border-none hover:bg-slate-50 cursor-pointer transition-colors"
           >
-            JD
-          </div>
-          <div className="hidden lg:block text-left">
-            <div className="text-xs font-bold text-slate-900 leading-tight">John Doe</div>
-            <div className="text-[10px] text-slate-400">{currentRoleInfo.name}</div>
-          </div>
+            <div
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-sm"
+              style={{ background: 'var(--color-primary)' }}
+            >
+              {getInitials()}
+            </div>
+            <div className="hidden lg:block text-left">
+              <div className="text-xs font-bold text-slate-900 leading-tight">
+                {getDisplayName()}
+              </div>
+              <div className="text-[10px] text-slate-400">Administrator</div>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden lg:block" />
+          </button>
+
+          {/* Dropdown Menu */}
+          {profileDropdownOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setProfileDropdownOpen(false)} />
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border p-1.5 z-20 animate-fade-in" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <div className="text-sm font-bold text-slate-900">{getDisplayName()}</div>
+                  <div className="text-xs text-slate-500">{user?.email || 'admin@heightt.com'}</div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    // Navigate to settings
+                  }}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors border-none cursor-pointer"
+                >
+                  <SettingsIcon className="w-4 h-4 text-slate-400" />
+                  <span>Settings</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    // Show help
+                  }}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors border-none cursor-pointer"
+                >
+                  <HelpCircle className="w-4 h-4 text-slate-400" />
+                  <span>Help & Support</span>
+                </button>
+
+                <div className="border-t my-1" style={{ borderColor: 'var(--color-border)' }} />
+
+                <button
+                  onClick={handleLogout}
+                  disabled={logoutMutation.isPending}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors border-none cursor-pointer disabled:opacity-50"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{logoutMutation.isPending ? 'Logging out...' : 'Logout'}</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -1,24 +1,29 @@
 "use client";
 
-interface Transaction {
-  id: string;
-  name: string;
-  description: string;
-  amount: string;
-  type: "in" | "out";
-}
+import { useAdminTransactions } from "@/hooks/admin/useAdminFinance";
+import { ArrowDown, ArrowUp, Loader2 } from "lucide-react";
 
-const transactions: Transaction[] = [
-  { id: "1", name: "Departmental Dues", description: "John D. • 2 min ago", amount: "+₦5,000", type: "in" },
-  { id: "2", name: "Lab Maintenance", description: "Withdrawal • 1 hour ago", amount: "-₦200,000", type: "out" },
-  { id: "3", name: "Faculty Week Fees", description: "Sarah K. • 3 hours ago", amount: "+₦3,200", type: "in" },
-  { id: "4", name: "Tech Fest Tickets", description: "Mike R. • 5 hours ago", amount: "+₦12,500", type: "in" },
-];
+export function TransactionsList() {
+  const { data, isLoading } = useAdminTransactions({ limit: 5 });
 
-export default function TransactionsList() {
+  if (isLoading) {
+    return (
+      <div
+        className="bg-white border rounded-xl p-5"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-[#1a5cff] animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  const transactions = data?.data || [];
+
   return (
     <div
-      className="bg-white border rounded-[var(--radius-card)] overflow-hidden"
+      className="bg-white border rounded-xl overflow-hidden"
       style={{ borderColor: "var(--color-border)" }}
     >
       {/* Card Header */}
@@ -26,62 +31,83 @@ export default function TransactionsList() {
         className="flex items-center justify-between px-5 py-4 border-b"
         style={{ borderColor: "var(--color-border)" }}
       >
-        <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: "var(--color-foreground)" }}>
-          <i className="fas fa-clock-rotate-left" style={{ color: "var(--color-muted-foreground)" }} />
-          Recent Transactions
+        <h3 className="text-base font-semibold flex items-center gap-2 text-slate-900">
+          <span>Recent Transactions</span>
         </h3>
-        <button
-          className="text-[13px] font-medium border-none bg-transparent cursor-pointer font-sans transition-all duration-200"
-          style={{ color: "var(--color-primary)" }}
-          onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}
-        >
+        <button className="text-sm font-medium border-none bg-transparent cursor-pointer text-[#1a5cff] hover:underline">
           View all
         </button>
       </div>
 
       {/* Transactions */}
       <div className="px-5 py-2">
-        {transactions.map((tx, i) => (
-          <div
-            key={tx.id}
-            className="flex items-center gap-3 py-3"
-            style={{
-              borderBottom: i < transactions.length - 1 ? `1px solid var(--color-border)` : "none",
-            }}
-          >
-            {/* Icon */}
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm"
-              style={{
-                background: tx.type === "in" ? "#DCFCE7" : "#FEE2E2",
-                color: tx.type === "in" ? "var(--color-success)" : "var(--color-destructive)",
-              }}
-            >
-              <i className={tx.type === "in" ? "fas fa-arrow-down" : "fas fa-arrow-up"} />
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate" style={{ color: "var(--color-foreground)" }}>
-                {tx.name}
-              </div>
-              <div className="text-xs truncate" style={{ color: "var(--color-muted-foreground)" }}>
-                {tx.description}
-              </div>
-            </div>
-
-            {/* Amount */}
-            <div
-              className="text-sm font-semibold flex-shrink-0"
-              style={{
-                color: tx.type === "in" ? "var(--color-success)" : "var(--color-destructive)",
-              }}
-            >
-              {tx.amount}
-            </div>
+        {transactions.length === 0 ? (
+          <div className="py-6 text-center text-sm text-slate-400">
+            No transactions found
           </div>
-        ))}
+        ) : (
+          transactions.map((tx: any, i: number) => {
+            const isCredit = tx.type === "CREDIT" || tx.type === "IN";
+            const isPending = tx.status === "PENDING";
+
+            return (
+              <div
+                key={tx.id}
+                className="flex items-center gap-3 py-3"
+                style={{
+                  borderBottom:
+                    i < transactions.length - 1
+                      ? "1px solid var(--color-border)"
+                      : "none",
+                }}
+              >
+                {/* Icon */}
+                <div
+                  className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm",
+                    isCredit
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "bg-red-50 text-red-600",
+                  )}
+                >
+                  {isCredit ? (
+                    <ArrowDown className="w-4 h-4" />
+                  ) : (
+                    <ArrowUp className="w-4 h-4" />
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate text-slate-900">
+                    {tx.description || tx.type}
+                  </div>
+                  <div className="text-xs text-slate-400 truncate">
+                    {tx.reference} •{" "}
+                    {new Date(tx.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+
+                {/* Amount */}
+                <div className="text-right flex-shrink-0">
+                  <div
+                    className={cn(
+                      "text-sm font-semibold",
+                      isCredit ? "text-emerald-600" : "text-slate-900",
+                    )}
+                  >
+                    {isCredit ? "+" : "-"}₦{tx.amount.toLocaleString()}
+                  </div>
+                  {isPending && (
+                    <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                      Pending
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

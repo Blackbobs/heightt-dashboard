@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 export type Permission =
   // Dues
@@ -60,7 +60,8 @@ export const ROLE_PRESETS: Record<RoleKey, RolePreset> = {
   SECRETARY: {
     key: "SECRETARY",
     name: "Department Secretary",
-    description: "Can create dues, add students, & write announcements (No deletes / withdrawals)",
+    description:
+      "Can create dues, add students, & write announcements (No deletes / withdrawals)",
     permissions: [
       "DUE_VIEW",
       "DUE_CREATE",
@@ -99,11 +100,19 @@ interface PermissionContextType {
   hasPermission: (permission: Permission) => boolean;
 }
 
-const PermissionContext = createContext<PermissionContextType | undefined>(undefined);
+const PermissionContext = createContext<PermissionContextType | undefined>(
+  undefined,
+);
 
-export function PermissionProvider({ children }: { children: React.ReactNode }) {
+export function PermissionProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [role, setRoleState] = useState<RoleKey>("HEAD");
-  const [permissions, setPermissions] = useState<Permission[]>(ROLE_PRESETS.HEAD.permissions);
+  const [permissions, setPermissions] = useState<Permission[]>(
+    ROLE_PRESETS.HEAD.permissions,
+  );
 
   const setRole = (newRole: RoleKey) => {
     setRoleState(newRole);

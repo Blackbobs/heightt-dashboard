@@ -1,23 +1,32 @@
 "use client";
 
-interface Announcement {
-  id: string;
-  title: string;
-  time: string;
-  status: "published" | "draft";
-}
+import { useAdminAnnouncements } from "@/hooks/admin/useAdminAnnouncements";
+import { Megaphone, Loader2 } from "lucide-react";
 
-const announcements: Announcement[] = [
-  { id: "1", title: "Departmental Meeting", time: "Today, 2:00 PM", status: "published" },
-  { id: "2", title: "Lab Maintenance Schedule", time: "Yesterday, 10:30 AM", status: "published" },
-  { id: "3", title: "Faculty Week Updates", time: "2 days ago", status: "draft" },
-  { id: "4", title: "New Dues Structure", time: "3 days ago", status: "published" },
-];
+export function AnnouncementsList() {
+  const { data, isLoading } = useAdminAnnouncements({
+    limit: 5,
+    isPublished: true,
+  });
 
-export default function AnnouncementsList() {
+  if (isLoading) {
+    return (
+      <div
+        className="bg-white border rounded-xl p-5"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 text-[#1a5cff] animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  const announcements = data?.data || [];
+
   return (
     <div
-      className="bg-white border rounded-[var(--radius-card)] overflow-hidden"
+      className="bg-white border rounded-xl overflow-hidden"
       style={{ borderColor: "var(--color-border)" }}
     >
       {/* Card Header */}
@@ -25,50 +34,56 @@ export default function AnnouncementsList() {
         className="flex items-center justify-between px-5 py-4 border-b"
         style={{ borderColor: "var(--color-border)" }}
       >
-        <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: "var(--color-foreground)" }}>
-          <i className="fas fa-bullhorn" style={{ color: "var(--color-muted-foreground)" }} />
+        <h3 className="text-base font-semibold flex items-center gap-2 text-slate-900">
+          <Megaphone className="w-4 h-4 text-slate-400" />
           Announcements
         </h3>
-        <button
-          className="text-[13px] font-medium border-none bg-transparent cursor-pointer font-sans transition-all duration-200"
-          style={{ color: "var(--color-primary)" }}
-          onMouseEnter={(e) => { e.currentTarget.style.textDecoration = "underline"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.textDecoration = "none"; }}
-        >
+        <button className="text-sm font-medium border-none bg-transparent cursor-pointer text-[#1a5cff] hover:underline">
           View all
         </button>
       </div>
 
       {/* Announcements */}
       <div className="px-5 py-2">
-        {announcements.map((ann, i) => (
-          <div
-            key={ann.id}
-            className="py-3"
-            style={{
-              borderBottom: i < announcements.length - 1 ? `1px solid var(--color-border)` : "none",
-            }}
-          >
-            <div className="text-sm font-semibold mb-1" style={{ color: "var(--color-foreground)" }}>
-              {ann.title}
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
-                {ann.time}
-              </span>
-              <span
-                className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full"
-                style={
-                  ann.status === "published"
-                    ? { background: "#DCFCE7", color: "var(--color-success)" }
-                    : { background: "var(--color-muted)", color: "var(--color-muted-foreground)" }
-                }
-              >
-                {ann.status === "published" ? "Published" : "Draft"}
-              </span>
-            </div>
+        {announcements.length === 0 ? (
+          <div className="py-6 text-center text-sm text-slate-400">
+            No announcements found
           </div>
-        ))}
+        ) : (
+          announcements.map((ann: any, i: number) => (
+            <div
+              key={ann.id}
+              className="py-3"
+              style={{
+                borderBottom:
+                  i < announcements.length - 1
+                    ? "1px solid var(--color-border)"
+                    : "none",
+              }}
+            >
+              <div className="text-sm font-semibold text-slate-900 mb-1">
+                {ann.title}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">
+                  {ann.publishedAt
+                    ? new Date(ann.publishedAt).toLocaleDateString()
+                    : "Draft"}
+                </span>
+                <span
+                  className={cn(
+                    "text-[10px] font-semibold px-2.5 py-0.5 rounded-full",
+                    ann.isPublished
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "bg-slate-100 text-slate-500",
+                  )}
+                >
+                  {ann.isPublished ? "Published" : "Draft"}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -3,18 +3,50 @@
 import React from "react";
 import Link from "next/link";
 import { useApp } from "../context/AppContext";
+import { usePlatformDashboardAnalytics } from "@/hooks/platform/usePlatformAnalytics";
 
 export default function DashboardView() {
   const {
     institutions,
     organizations,
-    users,
     administrators,
     auditLogs,
     maintenance,
-    hasPermission,
-    currentUser,
   } = useApp();
+
+  const {
+    data: dashboard,
+    isLoading,
+    refetch,
+  } = usePlatformDashboardAnalytics();
+
+  // Extract data from the dashboard response
+  const summary = dashboard?.summary || {};
+  const revenueData = dashboard?.revenue || {};
+  const studentData = dashboard?.students || {};
+  const orgData = dashboard?.organizations || {};
+  const recentActivities = dashboard?.recentActivities || [];
+
+  // Use data from API or fallback to context data
+  const totalInstitutions = institutions.length;
+  const totalOrganizations = orgData.totalOrganizations || organizations.length;
+  const totalStudents = summary.totalStudents || 0;
+  const totalAdministrators = administrators.length;
+  const totalTransactions = revenueData.totalTransactions || 0;
+  const totalRevenue = revenueData.totalRevenueFormatted || "₦0.00";
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-[#1a5cff] border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-[#5b6d89] font-medium">
+            Loading dashboard...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="platform-dashboard">
@@ -37,18 +69,23 @@ export default function DashboardView() {
       {/* System Status */}
       <div className="system-status-bar">
         <span
-          className={`status-dot ${maintenance.systemStatus === "Operational"
+          className={`status-dot ${
+            maintenance.systemStatus === "Operational"
               ? "online"
               : maintenance.systemStatus === "Maintenance"
                 ? "warning"
                 : "offline"
-            }`}
+          }`}
         ></span>
         <span className="status-text">
-          System Status: <span className="highlight">{maintenance.systemStatus}</span>
+          System Status:{" "}
+          <span className="highlight">{maintenance.systemStatus}</span>
         </span>
         <span className="status-meta">
-          <i className="fas fa-check-circle" style={{ color: "var(--success)" }}></i>
+          <i
+            className="fas fa-check-circle"
+            style={{ color: "var(--success)" }}
+          ></i>
           {maintenance.bannerMessage}
         </span>
       </div>
@@ -57,47 +94,106 @@ export default function DashboardView() {
       <div className="stats-grid">
         <div className="stat-card">
           <div className="stat-label">Institutions</div>
-          <div className="stat-value">{institutions.length}</div>
-          <div className="stat-change up">
-            <i className="fas fa-arrow-up"></i> +2 this month
-          </div>
+          <div className="stat-value">{totalInstitutions}</div>
+          <div className="stat-change">Live API total</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Organizations</div>
-          <div className="stat-value">{organizations.length}</div>
-          <div className="stat-change up">
-            <i className="fas fa-arrow-up"></i> +8 this month
+          <div className="stat-value">{totalOrganizations}</div>
+          <div className="stat-change">
+            {orgData.activeOrganizations || 0} active
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Students</div>
-          <div className="stat-value">12.4K</div>
-          <div className="stat-change up">
-            <i className="fas fa-arrow-up"></i> +342 this month
+          <div className="stat-value">{totalStudents}</div>
+          <div className="stat-change">
+            {studentData.activeStudents || 0} active
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Administrators</div>
-          <div className="stat-value">{administrators.length}</div>
-          <div className="stat-change up">
-            <i className="fas fa-arrow-up"></i> +3 this month
-          </div>
+          <div className="stat-value">{totalAdministrators}</div>
+          <div className="stat-change">Live API total</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Transactions</div>
-          <div className="stat-value">8,473</div>
-          <div className="stat-change up">
-            <i className="fas fa-arrow-up"></i> +12%
+          <div className="stat-value">{totalTransactions}</div>
+          <div className="stat-change">
+            {revenueData.averageTransactionValueFormatted || "₦0"} avg
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Total Volume</div>
-          <div className="stat-value">₦45.2M</div>
-          <div className="stat-change up">
-            <i className="fas fa-arrow-up"></i> +8.5%
+          <div className="stat-value">{totalRevenue}</div>
+          <div className="stat-change">
+            {revenueData.revenueGrowth || 0}% growth
           </div>
         </div>
       </div>
+
+      {/* Organization Stats Breakdown */}
+      {orgData.organizationsByType &&
+        orgData.organizationsByType.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="card">
+              <div className="card-body">
+                <div className="text-sm text-slate-500">Organization Types</div>
+                <div className="mt-2 space-y-2">
+                  {orgData.organizationsByType
+                    .slice(0, 3)
+                    .map((item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{item.type}</span>
+                        <span className="font-semibold">{item.count}</span>
+                      </div>
+                    ))}
+                  {orgData.organizationsByType.length > 3 && (
+                    <div className="text-xs text-slate-400">
+                      +{orgData.organizationsByType.length - 3} more types
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-body">
+                <div className="text-sm text-slate-500">
+                  Organization Status
+                </div>
+                <div className="mt-2 space-y-2">
+                  {orgData.organizationsByStatus?.map(
+                    (item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{item.status}</span>
+                        <span className="font-semibold">{item.count}</span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-body">
+                <div className="text-sm text-slate-500">Member Stats</div>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Total Members</span>
+                    <span className="font-semibold">
+                      {orgData.memberStats?.totalMembers || 0}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">Avg per Organization</span>
+                    <span className="font-semibold">
+                      {orgData.memberStats?.averageMembersPerOrganization || 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       {/* Content Grid - Mobile Responsive */}
       <div className="content-grid">
@@ -110,20 +206,47 @@ export default function DashboardView() {
             </Link>
           </div>
           <div className="card-body">
-            {auditLogs.slice(0, 5).map((log) => (
-              <div key={log.id} className="activity-item">
-                <div className="activity-icon">
-                  <i className="fas fa-clipboard-check"></i>
-                </div>
-                <div className="activity-info">
-                  <div className="activity-title">{log.action}</div>
-                  <div className="activity-desc">
-                    {log.resource} • by {log.adminName}
-                  </div>
-                </div>
-                <span className="activity-time">{log.timestamp}</span>
+            {recentActivities.length === 0 ? (
+              <div className="text-center py-6 text-slate-400 text-sm">
+                No recent activity
               </div>
-            ))}
+            ) : (
+              recentActivities.slice(0, 5).map((log: any) => {
+                const action = log.type?.replace(/_/g, " ") || "Activity";
+                const resource = log.description
+                  ? (() => {
+                      try {
+                        const parsed =
+                          typeof log.description === "string"
+                            ? JSON.parse(log.description)
+                            : log.description;
+                        return parsed.name || parsed.resource || "Action";
+                      } catch {
+                        return "Action";
+                      }
+                    })()
+                  : "Action";
+
+                return (
+                  <div key={log.id} className="activity-item">
+                    <div className="activity-icon">
+                      <i className="fas fa-clipboard-check"></i>
+                    </div>
+                    <div className="activity-info">
+                      <div className="activity-title">{action}</div>
+                      <div className="activity-desc">
+                        {resource} • by {log.userName || "System"}
+                      </div>
+                    </div>
+                    <span className="activity-time">
+                      {log.createdAt
+                        ? new Date(log.createdAt).toLocaleDateString()
+                        : "N/A"}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -540,8 +663,8 @@ export default function DashboardView() {
           width: 32px;
           height: 32px;
           border-radius: 50%;
-          background: #EDE9FE;
-          color: #7C3AED;
+          background: #ede9fe;
+          color: #7c3aed;
           display: flex;
           align-items: center;
           justify-content: center;

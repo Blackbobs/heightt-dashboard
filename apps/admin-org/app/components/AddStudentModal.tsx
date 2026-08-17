@@ -1,82 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, forwardRef } from "react";
-import type { Student } from "./StudentDetailsModal";
+import { useState, useRef, useEffect } from "react";
+import { X, UserPlus, Mail, User, BookOpen, BadgeCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AddStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (student: Omit<Student, "id" | "avatar">) => void;
-}
-
-function FormField({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mb-3.5">
-      <label
-        className="block text-xs font-semibold mb-1"
-        style={{ color: "var(--color-foreground)" }}
-      >
-        {label}{" "}
-        {required && (
-          <span style={{ color: "var(--color-destructive)" }}>*</span>
-        )}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-const inputCls =
-  "w-full px-3 py-2.5 border-2 rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white";
-
-const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  (props, ref) => (
-    <input
-      {...props}
-      ref={ref}
-      className={inputCls}
-      style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-      onFocus={(e) => {
-        e.target.style.borderColor = "var(--color-primary)";
-        e.target.style.boxShadow = "0 0 0 3px oklch(62% .2 270 / 0.1)";
-        props.onFocus?.(e);
-      }}
-      onBlur={(e) => {
-        e.target.style.borderColor = "var(--color-border)";
-        e.target.style.boxShadow = "none";
-        props.onBlur?.(e);
-      }}
-    />
-  )
-);
-Input.displayName = "Input";
-
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={inputCls + " cursor-pointer"}
-      style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-      onFocus={(e) => {
-        e.target.style.borderColor = "var(--color-primary)";
-        e.target.style.boxShadow = "0 0 0 3px oklch(62% .2 270 / 0.1)";
-        props.onFocus?.(e);
-      }}
-      onBlur={(e) => {
-        e.target.style.borderColor = "var(--color-border)";
-        e.target.style.boxShadow = "none";
-        props.onBlur?.(e);
-      }}
-    />
-  );
+  onSubmit: (student: any) => void;
 }
 
 export default function AddStudentModal({
@@ -87,10 +18,9 @@ export default function AddStudentModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [level, setLevel] = useState("100 Level");
-  const [status, setStatus] = useState<"active" | "pending" | "inactive">("active");
+  const [level, setLevel] = useState("100");
+  const [status, setStatus] = useState("ACTIVE");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -99,12 +29,11 @@ export default function AddStudentModal({
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
-      // Reset form
       setName("");
       setEmail("");
       setStudentId("");
-      setLevel("100 Level");
-      setStatus("active");
+      setLevel("100");
+      setStatus("ACTIVE");
     }
     return () => {
       document.body.style.overflow = "";
@@ -123,26 +52,17 @@ export default function AddStudentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !studentId) return;
+    if (!name || !email) return;
 
     setIsSubmitting(true);
     await new Promise((r) => setTimeout(r, 400));
 
-    const username = `@${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
     onSubmit({
       name,
       email,
-      username,
       studentId,
-      level,
+      level: `${level} Level`,
       status,
-      joinedDate: new Date().toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      department: "Comp. Science Dept",
-      role: "Student Member",
     });
 
     setIsSubmitting(false);
@@ -151,133 +71,146 @@ export default function AddStudentModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-[200] flex items-center justify-center p-4 sm:p-5 animate-fade-in"
+      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-[var(--radius-card)] w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-7 animate-slide-up">
+      <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[19px] font-bold" style={{ color: "var(--color-foreground)" }}>
-            <i className="fas fa-user-plus mr-2 text-primary" style={{ color: "var(--color-primary)" }} />
+          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900">
+            <UserPlus className="w-5 h-5 text-[#1a5cff]" />
             Add New Student
           </h2>
           <button
-            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-muted-foreground)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-muted)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
             onClick={onClose}
+            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-400 hover:bg-slate-100"
             aria-label="Close"
           >
-            <i className="fas fa-times" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <FormField label="Full Name" required>
-            <Input
-              ref={firstInputRef}
-              type="text"
-              placeholder="e.g. Jane Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </FormField>
+          <div className="space-y-4">
+            {/* Full Name */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Full Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  ref={firstInputRef}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Jane Doe"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                  required
+                />
+              </div>
+            </div>
 
-          <FormField label="Email Address" required>
-            <Input
-              type="email"
-              placeholder="e.g. jane.doe@university.edu"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </FormField>
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Email Address <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. jane.doe@university.edu"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                  required
+                />
+              </div>
+            </div>
 
-          <FormField label="Student ID (Matric No)" required>
-            <Input
-              type="text"
-              placeholder="e.g. CS/2025/007"
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              required
-            />
-          </FormField>
+            {/* Student ID */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Student ID (Matric No)
+              </label>
+              <div className="relative">
+                <BadgeCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  placeholder="e.g. CS/2024/001"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                />
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-3.5">
-            <FormField label="Academic Level" required>
-              <Select value={level} onChange={(e) => setLevel(e.target.value)}>
-                <option value="100 Level">100 Level</option>
-                <option value="200 Level">200 Level</option>
-                <option value="300 Level">300 Level</option>
-                <option value="400 Level">400 Level</option>
-              </Select>
-            </FormField>
+            {/* Level & Status */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Academic Level <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={level}
+                  onChange={(e) => setLevel(e.target.value)}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+                >
+                  <option value="100">100 Level</option>
+                  <option value="200">200 Level</option>
+                  <option value="300">300 Level</option>
+                  <option value="400">400 Level</option>
+                </select>
+              </div>
 
-            <FormField label="Status" required>
-              <Select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as "active" | "pending" | "inactive")}
-              >
-                <option value="active">Active</option>
-                <option value="pending">Pending</option>
-                <option value="inactive">Inactive</option>
-              </Select>
-            </FormField>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2.5 mt-4 flex-col sm:flex-row">
+          <div className="flex gap-2.5 mt-6 flex-col sm:flex-row">
             <button
               type="button"
               onClick={onClose}
-              className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-all duration-200 font-sans bg-transparent"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-muted-foreground)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-primary)";
-                e.currentTarget.style.color = "var(--color-primary)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-border)";
-                e.currentTarget.style.color = "var(--color-muted-foreground)";
-              }}
+              className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-600 hover:border-[#1a5cff] hover:text-[#1a5cff]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white cursor-pointer transition-all duration-200 font-sans border-none disabled:opacity-70 disabled:cursor-not-allowed"
-              style={{ background: "var(--color-primary)" }}
-              onMouseEnter={(e) => {
-                if (!isSubmitting) {
-                  e.currentTarget.style.background = "var(--color-primary-dark)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.boxShadow = "0 4px 16px oklch(46% .18 265 / 0.2)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--color-primary)";
-                e.currentTarget.style.transform = "none";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              className={cn(
+                "order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 border-none",
+                isSubmitting
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]",
+              )}
             >
               {isSubmitting ? (
                 <>
-                  <i className="fas fa-spinner fa-spin" />
-                  Adding Student...
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Adding...
                 </>
               ) : (
                 <>
-                  <i className="fas fa-plus" />
+                  <UserPlus className="w-4 h-4" />
                   Add Student
                 </>
               )}

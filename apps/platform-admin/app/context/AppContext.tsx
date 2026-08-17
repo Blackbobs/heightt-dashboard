@@ -1,6 +1,17 @@
+// src/app/context/AppContext.tsx
+
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { useAuthStore } from "@/store/auth-store";
+import { platformApi } from "@/lib/api/platform";
+import { getApiErrorMessage } from "@/lib/api/error";
 import {
   Permission,
   Role,
@@ -23,8 +34,14 @@ interface AppContextType {
   currentUser: UserContextType;
   switchRole: (role: Role) => void;
   hasPermission: (permission: Permission) => boolean;
-  toast: { message: string; type: "success" | "info" | "warning" | "danger" } | null;
-  showToast: (message: string, type?: "success" | "info" | "warning" | "danger") => void;
+  toast: {
+    message: string;
+    type: "success" | "info" | "warning" | "danger";
+  } | null;
+  showToast: (
+    message: string,
+    type?: "success" | "info" | "warning" | "danger",
+  ) => void;
 
   // Data Collections
   institutions: Institution[];
@@ -32,7 +49,7 @@ interface AppContextType {
   toggleInstitutionStatus: (id: string) => void;
 
   faculties: Faculty[];
-  createFaculty: (data: Omit<Faculty, "id">) => void;
+  createFaculty: (data: Omit<Faculty, "id">) => Promise<boolean>;
   toggleFacultyStatus: (id: string) => void;
 
   departments: Department[];
@@ -63,6 +80,7 @@ interface AppContextType {
 
   auditLogs: AuditLog[];
   addAuditLog: (action: string, resource: string) => void;
+
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -93,14 +111,19 @@ const initialPermissionsMap: Record<Role, Permission[]> = {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [currentUser, setCurrentUser] = useState<UserContextType>({
-    name: "Platform Admin",
-    email: "admin@heightt.edu",
-    avatar: "PA",
-    role: "Full Platform Admin",
-    permissions: initialPermissionsMap["Full Platform Admin"],
+    name: "",
+    email: "",
+    avatar: "",
+    role: "Operations Admin",
+    permissions: [],
   });
 
-  const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "warning" | "danger" } | null>(null);
+  const { token, user: authUser } = useAuthStore();
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "info" | "warning" | "danger";
+  } | null>(null);
 
   // Sync dark class to <html> tag
   useEffect(() => {
@@ -126,319 +149,279 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const hasPermission = (permission: Permission) => {
-    return currentUser.permissions.includes(permission) || currentUser.permissions.includes("PLATFORM_ADMIN");
+    return (
+      currentUser.permissions.includes(permission) ||
+      currentUser.permissions.includes("PLATFORM_ADMIN")
+    );
   };
 
-  const showToast = (message: string, type: "success" | "info" | "warning" | "danger" = "success") => {
+  const showToast = (
+    message: string,
+    type: "success" | "info" | "warning" | "danger" = "success",
+  ) => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
 
-  // Mock Initial Data
-  const [institutions, setInstitutions] = useState<Institution[]>([
-    {
-      id: "inst-1",
-      name: "University of Lagos",
-      code: "UNILAG",
-      country: "Nigeria",
-      facultiesCount: 14,
-      departmentsCount: 84,
-      organizationsCount: 42,
-      studentsCount: 38400,
-      status: "Active",
-      createdAt: "2026-01-15",
-    },
-    {
-      id: "inst-2",
-      name: "University of Ibadan",
-      code: "UI",
-      country: "Nigeria",
-      facultiesCount: 16,
-      departmentsCount: 92,
-      organizationsCount: 38,
-      studentsCount: 34100,
-      status: "Active",
-      createdAt: "2026-02-01",
-    },
-    {
-      id: "inst-3",
-      name: "Kwame Nkrumah University of Science & Tech",
-      code: "KNUST",
-      country: "Ghana",
-      facultiesCount: 12,
-      departmentsCount: 68,
-      organizationsCount: 29,
-      studentsCount: 27500,
-      status: "Active",
-      createdAt: "2026-03-10",
-    },
-    {
-      id: "inst-4",
-      name: "University of Benin",
-      code: "UNIBEN",
-      country: "Nigeria",
-      facultiesCount: 15,
-      departmentsCount: 78,
-      organizationsCount: 31,
-      studentsCount: 29800,
-      status: "Active",
-      createdAt: "2026-04-05",
-    },
-  ]);
-
-  const [faculties, setFaculties] = useState<Faculty[]>([
-    {
-      id: "fac-1",
-      institutionId: "inst-1",
-      institutionName: "University of Lagos (UNILAG)",
-      name: "Faculty of Engineering",
-      code: "ENG",
-      deanName: "Prof. O. Alabi",
-      departmentsCount: 6,
-      status: "Active",
-    },
-    {
-      id: "fac-2",
-      institutionId: "inst-1",
-      institutionName: "University of Lagos (UNILAG)",
-      name: "Faculty of Science",
-      code: "SCI",
-      deanName: "Prof. K. Ogunleye",
-      departmentsCount: 8,
-      status: "Active",
-    },
-    {
-      id: "fac-3",
-      institutionId: "inst-2",
-      institutionName: "University of Ibadan (UI)",
-      name: "Faculty of Social Sciences",
-      code: "SOC",
-      deanName: "Prof. E. Danjuma",
-      departmentsCount: 5,
-      status: "Active",
-    },
-  ]);
-
-  const [departments, setDepartments] = useState<Department[]>([
-    {
-      id: "dep-1",
-      institutionId: "inst-1",
-      institutionName: "University of Lagos (UNILAG)",
-      facultyId: "fac-2",
-      facultyName: "Faculty of Science",
-      name: "Computer Science",
-      code: "CSC",
-      headName: "Dr. A. Bello",
-      generatedLevels: ["100L", "200L", "300L", "400L", "Postgraduate"],
-      organizationsCount: 5,
-      status: "Active",
-    },
-    {
-      id: "dep-2",
-      institutionId: "inst-1",
-      institutionName: "University of Lagos (UNILAG)",
-      facultyId: "fac-1",
-      facultyName: "Faculty of Engineering",
-      name: "Mechanical Engineering",
-      code: "MEG",
-      headName: "Dr. C. Nwosu",
-      generatedLevels: ["100L", "200L", "300L", "400L", "500L"],
-      organizationsCount: 5,
-      status: "Active",
-    },
-  ]);
-
-  const [organizations, setOrganizations] = useState<Organization[]>([
-    {
-      id: "org-1",
-      name: "Computer Science Dept (UNILAG)",
-      type: "Department",
-      institutionName: "UNILAG",
-      facultyName: "Faculty of Science",
-      departmentName: "Computer Science",
-      studentCount: 1240,
-      adminsCount: 3,
-      status: "Active",
-      createdAt: "2026-02-10",
-    },
-    {
-      id: "org-2",
-      name: "Mechanical Engineering 400L",
-      type: "Level",
-      institutionName: "UNIBEN",
-      facultyName: "Faculty of Engineering",
-      departmentName: "Mechanical Engineering",
-      studentCount: 280,
-      adminsCount: 1,
-      status: "Active",
-      createdAt: "2026-03-01",
-    },
-    {
-      id: "org-3",
-      name: "KNUST Business School Executive Council",
-      type: "Faculty",
-      institutionName: "KNUST",
-      facultyName: "Business School",
-      studentCount: 567,
-      adminsCount: 2,
-      status: "Pending",
-      createdAt: "2026-05-12",
-    },
-  ]);
-
-  const [administrators, setAdministrators] = useState<Administrator[]>([
-    {
-      id: "adm-1",
-      userId: "usr-1",
-      name: "John Doe",
-      email: "john.doe@unilag.edu.ng",
-      primaryOrganization: "Computer Science Dept (UNILAG)",
-      role: "Organization Admin",
-      memberships: [
-        { organizationId: "org-1", organizationName: "Computer Science Dept", role: "Organization Admin", status: "Active" },
-        { organizationId: "org-2", organizationName: "Mechanical Engineering 400L", role: "Financial Auditor", status: "Active" },
-      ],
-      status: "Active",
-      assignedAt: "2026-03-01",
-    },
-    {
-      id: "adm-2",
-      userId: "usr-2",
-      name: "Sarah Johnson",
-      email: "s.johnson@knust.edu.gh",
-      primaryOrganization: "KNUST Business School Executive Council",
-      role: "Organization Admin",
-      memberships: [
-        { organizationId: "org-3", organizationName: "KNUST Business School", role: "Organization Admin", status: "Active" },
-      ],
-      status: "Active",
-      assignedAt: "2026-04-14",
-    },
-  ]);
-
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "usr-1",
-      name: "John Doe",
-      username: "johndoe",
-      email: "john.doe@unilag.edu.ng",
-      institution: "UNILAG",
-      memberships: ["Computer Science Dept", "Mechanical Engineering 400L"],
-      status: "Active",
-      createdAt: "2026-01-20",
-    },
-    {
-      id: "usr-2",
-      name: "Sarah Johnson",
-      username: "sjohnson",
-      email: "s.johnson@knust.edu.gh",
-      institution: "KNUST",
-      memberships: ["KNUST Business School"],
-      status: "Active",
-      createdAt: "2026-02-11",
-    },
-    {
-      id: "usr-3",
-      name: "Amina Yusuf",
-      username: "ayusuf",
-      email: "ayusuf@ui.edu.ng",
-      institution: "UI",
-      memberships: ["Faculty of Social Sciences"],
-      status: "Pending Verification",
-      createdAt: "2026-06-02",
-    },
-  ]);
-
-  const [announcements, setAnnouncements] = useState<Announcement[]>([
-    {
-      id: "anc-1",
-      title: "Scheduled System Maintenance — August 2026",
-      content: "Platform maintenance will take place on Aug 15 between 02:00 UTC and 04:00 UTC.",
-      author: "Platform Operations Team",
-      audience: "All Organizations & Students",
-      status: "Published",
-      createdAt: "2026-08-10",
-    },
-    {
-      id: "anc-2",
-      title: "Group Savings Feature Beta Rollout",
-      content: "Selected institutions now have access to group savings pools for departmental dues.",
-      author: "Product Engineering",
-      audience: "Platform Administrators",
-      status: "Published",
-      createdAt: "2026-08-01",
-    },
-  ]);
-
-  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([
-    {
-      id: "ff-1",
-      key: "WALLET_ENABLE",
-      name: "Wallet",
-      description: "Enable student digital wallets and instant peer transfers",
-      enabled: true,
-      lastUpdatedBy: "Platform Admin",
-      lastUpdatedAt: "2026-08-01 10:00",
-    },
-    {
-      id: "ff-2",
-      key: "SAVINGS_ENABLE",
-      name: "Savings",
-      description: "Enable target savings and automated group dues collection",
-      enabled: false,
-      lastUpdatedBy: "Platform Admin",
-      lastUpdatedAt: "2026-08-05 14:30",
-    },
-    {
-      id: "ff-3",
-      key: "ELECTIONS_ENABLE",
-      name: "Elections",
-      description: "Enable student association e-voting module",
-      enabled: false,
-      lastUpdatedBy: "Operations Admin",
-      lastUpdatedAt: "2026-07-20 09:15",
-    },
-    {
-      id: "ff-4",
-      key: "WITHDRAWALS_ENABLE",
-      name: "Withdrawals",
-      description: "Enable payout withdrawals to registered bank accounts",
-      enabled: true,
-      lastUpdatedBy: "Platform Admin",
-      lastUpdatedAt: "2026-08-11 16:45",
-    },
-  ]);
-
+  // Data state
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [administrators, setAdministrators] = useState<Administrator[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlag[]>([]);
   const [maintenance, setMaintenance] = useState<MaintenanceState>({
     isMaintenanceEnabled: false,
     systemStatus: "Operational",
-    bannerMessage: "All Heightt platform services are fully operational.",
-    scheduledWindow: "Aug 15, 2026 02:00 - 04:00 UTC",
-    lastUpdatedBy: "Platform Admin",
+    bannerMessage: "",
+    scheduledWindow: "",
+    lastUpdatedBy: "",
   });
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
-    {
-      id: "log-1",
-      adminName: "John Doe",
-      action: "Created Organization",
-      resource: "Computer Science Department",
-      ipAddress: "197.210.64.12",
-      deviceInfo: "Chrome 127.0 (Windows 11)",
-      timestamp: "Aug 11, 2026 14:22:10",
-      status: "Success",
-    },
-    {
-      id: "log-2",
-      adminName: "Platform Admin",
-      action: "Updated Feature Flag",
-      resource: "WITHDRAWALS_ENABLE -> ON",
-      ipAddress: "102.89.23.4",
-      deviceInfo: "Firefox 128.0 (macOS)",
-      timestamp: "Aug 11, 2026 16:45:01",
-      status: "Success",
-    },
-  ]);
+
+  // Sync current user from auth store
+  useEffect(() => {
+    if (authUser) {
+      setCurrentUser({
+        name: (authUser as any).name || (authUser as any).email || "",
+        email: (authUser as any).email || "",
+        avatar: (authUser as any).avatar || "",
+        role: ((authUser as any).role as Role) || "Operations Admin",
+        permissions: (authUser as any).permissions || [],
+      });
+    }
+  }, [authUser]);
+
+  // Load collections from the platform API
+  useEffect(() => {
+    if (!token) return;
+    let mounted = true;
+
+    async function loadData() {
+      try {
+        // Load institutions
+        const institutionResponse = await platformApi.getInstitutions({
+          limit: 100,
+        });
+        const institutionData = institutionResponse.data || [];
+        const nextInstitutions = institutionData.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          code: item.code,
+          country: item.country || "—",
+          facultiesCount: item.faculties?.length || 0,
+          departmentsCount: 0,
+          organizationsCount: 0,
+          studentsCount: 0,
+          status:
+            item.status === "ACTIVE"
+              ? ("Active" as const)
+              : ("Inactive" as const),
+          createdAt: item.createdAt,
+        }));
+        if (!mounted) return;
+        setInstitutions(nextInstitutions);
+
+        // Load faculties
+        const facultyResults = await Promise.allSettled(
+          institutionData.map((item: any) => platformApi.getFaculties(item.id)),
+        );
+        const nextFaculties = facultyResults.flatMap((result, index) =>
+          result.status === "fulfilled"
+            ? result.value.map((item: any) => ({
+                id: item.id,
+                institutionId: institutionData[index].id,
+                institutionName: `${institutionData[index].name} (${institutionData[index].code})`,
+                name: item.name,
+                code: item.code,
+                deanName: "—",
+                departmentsCount: 0,
+                status:
+                  item.status === "ACTIVE"
+                    ? ("Active" as const)
+                    : ("Inactive" as const),
+              }))
+            : [],
+        );
+        if (!mounted) return;
+        setFaculties(nextFaculties);
+
+        // Load departments
+        const departmentResults = await Promise.allSettled(
+          nextFaculties.map((item) => platformApi.getDepartments(item.id)),
+        );
+        const nextDepartments = departmentResults.flatMap((result, index) =>
+          result.status === "fulfilled"
+            ? result.value.map((item: any) => ({
+                id: item.id,
+                institutionId: nextFaculties[index].institutionId,
+                institutionName: nextFaculties[index].institutionName,
+                facultyId: nextFaculties[index].id,
+                facultyName: nextFaculties[index].name,
+                name: item.name,
+                code: item.code,
+                headName: "—",
+                generatedLevels: [],
+                organizationsCount: 0,
+                status:
+                  item.status === "ACTIVE"
+                    ? ("Active" as const)
+                    : ("Inactive" as const),
+              }))
+            : [],
+        );
+        if (!mounted) return;
+        setDepartments(nextDepartments);
+
+        // Load all other data in parallel
+        const results = await Promise.allSettled([
+          platformApi.getOrganizations({ limit: 100 }),
+          platformApi.getAdministrators(),
+          platformApi.getUsers({ limit: 100 }),
+          platformApi.getAnnouncements({ limit: 100 }),
+          platformApi.getFeatureFlags(),
+          platformApi.getMaintenanceStatus(),
+          platformApi.getAuditLogs({ limit: 10 }),
+        ]);
+        if (!mounted) return;
+
+        const value = (index: number) =>
+          results[index].status === "fulfilled"
+            ? (results[index] as PromiseFulfilledResult<any>).value
+            : null;
+
+        // Organizations
+        const orgs = value(0)?.data || [];
+        setOrganizations(
+          orgs.map((item: any) => ({
+            ...item,
+            institutionName:
+              nextInstitutions.find((inst) => inst.id === item.institutionId)
+                ?.name || "—",
+            studentCount: item.members?.length || 0,
+            adminsCount: 0,
+            status:
+              item.status === "ACTIVE"
+                ? "Active"
+                : item.status === "PENDING_ACTIVATION"
+                  ? "Pending"
+                  : "Inactive",
+          })),
+        );
+
+        // Administrators
+        setAdministrators(
+          (value(1) || []).map((item: any) => ({
+            id: item.id,
+            userId: item.userId,
+            name:
+              [item.user?.profile?.firstName, item.user?.profile?.lastName]
+                .filter(Boolean)
+                .join(" ") ||
+              item.user?.username ||
+              "—",
+            email: item.user?.email || "—",
+            memberships: [],
+            primaryOrganization: item.organizationId || "Platform",
+            role: item.adminType,
+            status: item.status === "REVOKED" ? "Revoked" : "Active",
+            assignedAt: item.assignedAt,
+          })),
+        );
+
+        // Users
+        setUsers(
+          (value(2)?.data || []).map((item: any) => ({
+            id: item.id,
+            name:
+              [item.profile?.firstName, item.profile?.lastName]
+                .filter(Boolean)
+                .join(" ") || item.username,
+            username: item.username,
+            email: item.email,
+            institution: "—",
+            memberships: [],
+            status:
+              item.status === "SUSPENDED"
+                ? "Suspended"
+                : item.emailVerified
+                  ? "Active"
+                  : "Pending Verification",
+            createdAt: item.createdAt,
+          })),
+        );
+
+        // Announcements
+        setAnnouncements(
+          (value(3)?.data || []).map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            content: item.content,
+            author: item.author?.username || "—",
+            audience: item.organization?.name || "—",
+            status: item.isPublished ? "Published" : "Draft",
+            createdAt: item.createdAt,
+          })),
+        );
+
+        // Feature Flags
+        setFeatureFlags(
+          (value(4) || []).map((item: any) => ({
+            ...item,
+            description: item.description || "",
+            lastUpdatedBy: "—",
+            lastUpdatedAt: item.updatedAt,
+          })),
+        );
+
+        // Maintenance
+        const maint = value(5);
+        if (maint) {
+          setMaintenance({
+            isMaintenanceEnabled: maint.enabled,
+            systemStatus: maint.enabled ? "Maintenance" : "Operational",
+            bannerMessage: maint.message || "System operational",
+            scheduledWindow: [maint.startsAt, maint.endsAt]
+              .filter(Boolean)
+              .join(" – "),
+            lastUpdatedBy: "—",
+          });
+        }
+
+        // Audit Logs
+        setAuditLogs(
+          (value(6)?.data || []).map((item: any) => ({
+            id: item.id,
+            adminName: item.user?.username || "—",
+            action: item.action,
+            resource: item.entity,
+            ipAddress: item.ipAddress || "—",
+            deviceInfo: item.userAgent || "—",
+            timestamp: item.createdAt,
+            status: "Success",
+            metadata: item.metadata,
+          })),
+        );
+
+
+      } catch (err) {
+        if (mounted) {
+          showToast(
+            getApiErrorMessage(err, "Unable to load platform data."),
+            "danger",
+          );
+        }
+      }
+    }
+
+    loadData();
+    return () => {
+      mounted = false;
+    };
+  }, [token]);
 
   const addAuditLog = (action: string, resource: string) => {
     const newLog: AuditLog = {
@@ -473,43 +456,113 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleInstitutionStatus = (id: string) => {
     setInstitutions(
       institutions.map((i) =>
-        i.id === id ? { ...i, status: i.status === "Active" ? "Inactive" : "Active" } : i
-      )
+        i.id === id
+          ? { ...i, status: i.status === "Active" ? "Inactive" : "Active" }
+          : i,
+      ),
     );
     addAuditLog("Toggled Institution Status", id);
     showToast("Institution status updated");
   };
 
-  const createFaculty = (data: Omit<Faculty, "id">) => {
-    const newFac: Faculty = { ...data, id: `fac-${Date.now()}` };
-    setFaculties([...faculties, newFac]);
-    addAuditLog("Created Faculty", newFac.name);
-    showToast(`Faculty "${newFac.name}" created successfully!`);
+  const createFaculty = async (data: Omit<Faculty, "id">): Promise<boolean> => {
+    try {
+      const faculty = await platformApi.createFaculty({
+        name: data.name,
+        code: data.code,
+        institutionId: data.institutionId,
+      });
+      setFaculties((current) => [
+        ...current,
+        {
+          ...data,
+          id: faculty.id,
+          status: faculty.status === "ACTIVE" ? "Active" : "Inactive",
+        },
+      ]);
+      showToast(`Faculty "${faculty.name}" created successfully!`);
+      return true;
+    } catch (error) {
+      showToast(
+        getApiErrorMessage(error, "Unable to create faculty."),
+        "danger",
+      );
+      return false;
+    }
   };
 
-  const toggleFacultyStatus = (id: string) => {
-    setFaculties(
-      faculties.map((f) =>
-        f.id === id ? { ...f, status: f.status === "Active" ? "Inactive" : "Active" } : f
-      )
-    );
-    showToast("Faculty status updated");
+  const toggleFacultyStatus = async (id: string) => {
+    const current = faculties.find((faculty) => faculty.id === id);
+    if (!current) return;
+    try {
+      const nextStatus = current.status === "Active" ? "INACTIVE" : "ACTIVE";
+      await platformApi.updateFaculty(id, { status: nextStatus });
+      setFaculties((items) =>
+        items.map((faculty) =>
+          faculty.id === id
+            ? {
+                ...faculty,
+                status: nextStatus === "ACTIVE" ? "Active" : "Inactive",
+              }
+            : faculty,
+        ),
+      );
+      showToast("Faculty status updated");
+    } catch (error) {
+      showToast(
+        getApiErrorMessage(error, "Unable to update faculty status."),
+        "danger",
+      );
+    }
   };
 
-  const createDepartment = (data: Omit<Department, "id">) => {
-    const newDept: Department = { ...data, id: `dep-${Date.now()}` };
-    setDepartments([...departments, newDept]);
-    addAuditLog("Created Department", newDept.name);
-    showToast(`Department "${newDept.name}" onboarded with levels!`);
+  const createDepartment = async (data: Omit<Department, "id">) => {
+    try {
+      const department = await platformApi.createDepartment({
+        name: data.name,
+        code: data.code,
+        facultyId: data.facultyId,
+      });
+      setDepartments((current) => [
+        ...current,
+        {
+          ...data,
+          id: department.id,
+          status: department.status === "ACTIVE" ? "Active" : "Inactive",
+        },
+      ]);
+      showToast(`Department "${department.name}" created successfully!`);
+    } catch (error) {
+      showToast(
+        getApiErrorMessage(error, "Unable to create department."),
+        "danger",
+      );
+    }
   };
 
-  const toggleDepartmentStatus = (id: string) => {
-    setDepartments(
-      departments.map((d) =>
-        d.id === id ? { ...d, status: d.status === "Active" ? "Inactive" : "Active" } : d
-      )
-    );
-    showToast("Department status updated");
+  const toggleDepartmentStatus = async (id: string) => {
+    const current = departments.find((department) => department.id === id);
+    if (!current) return;
+    try {
+      const nextStatus = current.status === "Active" ? "INACTIVE" : "ACTIVE";
+      await platformApi.updateDepartment(id, { status: nextStatus });
+      setDepartments((items) =>
+        items.map((department) =>
+          department.id === id
+            ? {
+                ...department,
+                status: nextStatus === "ACTIVE" ? "Active" : "Inactive",
+              }
+            : department,
+        ),
+      );
+      showToast("Department status updated");
+    } catch (error) {
+      showToast(
+        getApiErrorMessage(error, "Unable to update department status."),
+        "danger",
+      );
+    }
   };
 
   const createOrganization = (data: Omit<Organization, "id" | "createdAt">) => {
@@ -532,8 +585,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       organizations.map((o) =>
         o.id === id
           ? { ...o, status: o.status === "Active" ? "Inactive" : "Active" }
-          : o
-      )
+          : o,
+      ),
     );
     showToast("Organization status updated");
   };
@@ -549,7 +602,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       assignedAt: new Date().toISOString().split("T")[0],
     };
     setAdministrators([newAdmin, ...administrators]);
-    addAuditLog("Assigned Administrator", `${newAdmin.name} (${newAdmin.primaryOrganization})`);
+    addAuditLog(
+      "Assigned Administrator",
+      `${newAdmin.name} (${newAdmin.primaryOrganization})`,
+    );
     showToast(`Administrator privileges assigned to ${newAdmin.name}!`);
   };
 
@@ -559,14 +615,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     setAdministrators(
-      administrators.map((a) => (a.id === adminId ? { ...a, status: "Revoked" } : a))
+      administrators.map((a) =>
+        a.id === adminId ? { ...a, status: "Revoked" } : a,
+      ),
     );
     addAuditLog("Revoked Admin Access", adminId);
     showToast("Administrative access revoked", "warning");
   };
 
   const updateUserStatus = (userId: string, newStatus: User["status"]) => {
-    setUsers(users.map((u) => (u.id === userId ? { ...u, status: newStatus } : u)));
+    setUsers(
+      users.map((u) => (u.id === userId ? { ...u, status: newStatus } : u)),
+    );
     addAuditLog("Updated User Account Status", `${userId} -> ${newStatus}`);
     showToast(`User status updated to ${newStatus}`);
   };
@@ -585,8 +645,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleAnnouncementPublish = (id: string) => {
     setAnnouncements(
       announcements.map((a) =>
-        a.id === id ? { ...a, status: a.status === "Published" ? "Draft" : "Published" } : a
-      )
+        a.id === id
+          ? { ...a, status: a.status === "Published" ? "Draft" : "Published" }
+          : a,
+      ),
     );
     showToast("Announcement publish status updated");
   };
@@ -606,7 +668,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       featureFlags.map((ff) => {
         if (ff.id === id) {
           const nextState = !ff.enabled;
-          addAuditLog("Updated Feature Flag", `${ff.key} -> ${nextState ? "ON" : "OFF"}`);
+          addAuditLog(
+            "Updated Feature Flag",
+            `${ff.key} -> ${nextState ? "ON" : "OFF"}`,
+          );
           return {
             ...ff,
             enabled: nextState,
@@ -615,7 +680,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           };
         }
         return ff;
-      })
+      }),
     );
     showToast("Feature flag toggled");
   };
@@ -632,7 +697,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bannerMessage: message || maintenance.bannerMessage,
       lastUpdatedBy: currentUser.name,
     });
-    addAuditLog("Updated System Maintenance Mode", enabled ? "ENABLED" : "DISABLED");
+    addAuditLog(
+      "Updated System Maintenance Mode",
+      enabled ? "ENABLED" : "DISABLED",
+    );
     showToast(`System maintenance mode ${enabled ? "enabled" : "disabled"}`);
   };
 

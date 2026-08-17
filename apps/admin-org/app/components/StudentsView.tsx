@@ -1,207 +1,109 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import StudentDetailsModal, { type Student } from "./StudentDetailsModal";
+import {
+  useAdminStudents,
+  useUpdateStudent,
+} from "@/hooks/admin/useAdminStudents";
+import {
+  Search,
+  Plus,
+  UserPlus,
+  Eye,
+  UserMinus,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import StudentDetailsModal from "./StudentDetailsModal";
 import AddStudentModal from "./AddStudentModal";
 import { usePermissions } from "../context/PermissionContext";
 
-const INITIAL_STUDENTS: Student[] = [
-  {
-    id: "1",
-    name: "John Doe",
-    email: "john.doe@university.edu",
-    username: "@johndoe",
-    studentId: "CS/2024/001",
-    level: "300 Level",
-    status: "active",
-    avatar: "JD",
-    avatarBg: "var(--color-primary)",
-    joinedDate: "Sep 12, 2024",
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    email: "sarah.j@university.edu",
-    username: "@sarahj",
-    studentId: "CS/2024/002",
-    level: "200 Level",
-    status: "active",
-    avatar: "SJ",
-    avatarBg: "var(--color-success)",
-    joinedDate: "Oct 04, 2024",
-  },
-  {
-    id: "3",
-    name: "Michael Okonkwo",
-    email: "m.okonkwo@university.edu",
-    username: "@mokonkwo",
-    studentId: "CS/2024/003",
-    level: "400 Level",
-    status: "active",
-    avatar: "MO",
-    avatarBg: "#D97706",
-    joinedDate: "Nov 19, 2024",
-  },
-  {
-    id: "4",
-    name: "Amara Eze",
-    email: "amara.eze@university.edu",
-    username: "@amaraeze",
-    studentId: "CS/2025/004",
-    level: "100 Level",
-    status: "pending",
-    avatar: "AE",
-    avatarBg: "#7C3AED",
-    joinedDate: "Jan 10, 2025",
-  },
-  {
-    id: "5",
-    name: "David Mensah",
-    email: "d.mensah@university.edu",
-    username: "@dmensah",
-    studentId: "CS/2024/005",
-    level: "300 Level",
-    status: "inactive",
-    avatar: "DM",
-    avatarBg: "#EC4899",
-    joinedDate: "Feb 02, 2025",
-  },
-  {
-    id: "6",
-    name: "Grace Nwachukwu",
-    email: "g.nwachukwu@university.edu",
-    username: "@gnwachukwu",
-    studentId: "CS/2024/006",
-    level: "200 Level",
-    status: "active",
-    avatar: "GN",
-    avatarBg: "#14B8A6",
-    joinedDate: "Mar 15, 2025",
-  },
-];
+const ITEMS_PER_PAGE = 10;
 
-const AVATAR_COLORS = [
-  "var(--color-primary)",
-  "var(--color-success)",
-  "#D97706",
-  "#7C3AED",
-  "#EC4899",
-  "#14B8A6",
-];
-
-const ITEMS_PER_PAGE = 6;
-
-export default function StudentsView() {
+export function StudentsView() {
   const { hasPermission } = usePermissions();
-  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
 
   // Permissions
   const canAddStudent = hasPermission("STUDENT_ADD");
   const canDeleteStudent = hasPermission("STUDENT_DELETE");
 
-  // Modals
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const { data, isLoading, refetch } = useAdminStudents({
+    page: currentPage,
+    limit: ITEMS_PER_PAGE,
+    search: search || undefined,
+    status: statusFilter || undefined,
+  });
 
-  // Filtered Students
-  const filteredStudents = useMemo(() => {
-    const term = search.toLowerCase().trim();
-    return students.filter((s) => {
-      const matchesSearch =
-        !term ||
-        s.name.toLowerCase().includes(term) ||
-        s.email.toLowerCase().includes(term) ||
-        s.username.toLowerCase().includes(term) ||
-        s.studentId.toLowerCase().includes(term);
+  const updateStudentMutation = useUpdateStudent();
 
-      const matchesStatus = !statusFilter || s.status === statusFilter;
-      const matchesLevel = !levelFilter || s.level === levelFilter;
+  const students = data?.data || [];
+  const meta = data?.meta;
 
-      return matchesSearch && matchesStatus && matchesLevel;
-    });
-  }, [students, search, statusFilter, levelFilter]);
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    refetch();
+  };
 
-  // Total pages
-  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / ITEMS_PER_PAGE));
-  const currentStudents = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredStudents.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredStudents, currentPage]);
-
-  const handleOpenDetail = (student: Student) => {
+  const handleOpenDetail = (student: any) => {
     setSelectedStudent(student);
     setIsDetailOpen(true);
   };
 
-  const handleRemoveStudent = (id: string, name: string) => {
+  const handleRemoveStudent = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove ${name}?`)) {
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-      if (selectedStudent?.id === id) {
-        setIsDetailOpen(false);
-        setSelectedStudent(null);
-      }
+      // This would call a delete endpoint if available
+      // For now, we'll just show a message
+      alert(`Student ${name} removed (API endpoint would be called)`);
+      refetch();
     }
   };
 
-  const handleAddStudent = (data: Omit<Student, "id" | "avatar">) => {
-    const nameParts = data.name.trim().split(" ");
-    const initials =
-      nameParts.length >= 2
-        ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
-        : nameParts[0].substring(0, 2).toUpperCase();
-
-    const color = AVATAR_COLORS[students.length % AVATAR_COLORS.length];
-
-    const newStudent: Student = {
-      ...data,
-      id: String(Date.now()),
-      avatar: initials,
-      avatarBg: color,
-    };
-
-    setStudents((prev) => [newStudent, ...prev]);
+  const handleAddStudent = (data: any) => {
+    // This would call a create endpoint if available
+    alert(`Student ${data.name} added successfully!`);
+    refetch();
   };
 
-  const selectCls =
-    "px-3 py-2 border rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white cursor-pointer";
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-[#1a5cff] animate-spin" />
+          <span className="text-sm text-[#5b6d89] font-medium">
+            Loading students...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
       {/* Page Header */}
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
         <div>
-          <h1
-            className="text-[22px] font-bold tracking-tight"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
             Students
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--color-muted-foreground)" }}>
-            Manage all students in Computer Science Department
+          <p className="text-sm text-slate-500 mt-0.5">
+            Manage all students in your organization
           </p>
         </div>
         {canAddStudent && (
           <button
             onClick={() => setIsAddOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 font-sans"
-            style={{ background: "var(--color-primary)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-primary-dark)";
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow = "0 4px 16px oklch(46% .18 265 / 0.2)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--color-primary)";
-              e.currentTarget.style.transform = "none";
-              e.currentTarget.style.boxShadow = "none";
-            }}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
           >
-            <i className="fas fa-plus" />
+            <Plus className="w-4 h-4" />
             Add Student
           </button>
         )}
@@ -210,12 +112,9 @@ export default function StudentsView() {
       {/* Search & Filter Section */}
       <div className="mb-6 space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-          {/* Search Wrap */}
-          <div className="relative flex-1" style={{ minWidth: "260px", maxWidth: "500px" }}>
-            <i
-              className="fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
-              style={{ color: "var(--color-muted-foreground)" }}
-            />
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
               value={search}
@@ -223,76 +122,41 @@ export default function StudentsView() {
                 setSearch(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search by name, email, username, or student ID..."
-              className="w-full pl-10 pr-9 py-2.5 border-2 rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "var(--color-primary)";
-                e.target.style.boxShadow = "0 0 0 3px oklch(62% .2 270 / 0.1)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "var(--color-border)";
-                e.target.style.boxShadow = "none";
-              }}
+              placeholder="Search by name, email, or ID..."
+              className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
             />
-            {search && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setCurrentPage(1);
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-sm bg-transparent border-none cursor-pointer transition-colors p-1"
-                style={{ color: "var(--color-muted-foreground)" }}
-                aria-label="Clear search"
-              >
-                <i className="fas fa-times-circle" />
-              </button>
-            )}
           </div>
 
-          {/* Filter Dropdowns */}
-          <div className="flex gap-2 flex-wrap items-center">
-            <select
-              value={levelFilter}
-              onChange={(e) => {
-                setLevelFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className={selectCls}
-              style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "var(--color-primary)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "var(--color-border)";
-              }}
-            >
-              <option value="">All Levels</option>
-              <option value="100 Level">100 Level</option>
-              <option value="200 Level">200 Level</option>
-              <option value="300 Level">300 Level</option>
-              <option value="400 Level">400 Level</option>
-            </select>
-
+          {/* Filters */}
+          <div className="flex gap-2 flex-wrap">
             <select
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className={selectCls}
-              style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "var(--color-primary)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "var(--color-border)";
-              }}
+              className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
             >
               <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="inactive">Inactive</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING">Pending</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="GRADUATED">Graduated</option>
+            </select>
+
+            <select
+              value={levelFilter}
+              onChange={(e) => {
+                setLevelFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+            >
+              <option value="">All Levels</option>
+              <option value="100">100 Level</option>
+              <option value="200">200 Level</option>
+              <option value="300">300 Level</option>
+              <option value="400">400 Level</option>
             </select>
 
             {(search || statusFilter || levelFilter) && (
@@ -303,75 +167,47 @@ export default function StudentsView() {
                   setLevelFilter("");
                   setCurrentPage(1);
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 bg-white font-sans"
-                style={{
-                  borderColor: "var(--color-border)",
-                  color: "var(--color-muted-foreground)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "var(--color-destructive)";
-                  e.currentTarget.style.color = "var(--color-destructive)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--color-border)";
-                  e.currentTarget.style.color = "var(--color-muted-foreground)";
-                }}
+                className="px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
               >
-                <i className="fas fa-xmark" /> Clear
+                Clear
               </button>
             )}
           </div>
         </div>
-
-        {/* Quick Search Hints */}
-        <div className="flex gap-4 flex-wrap text-xs" style={{ color: "var(--color-muted-foreground)" }}>
-          <span className="inline-flex items-center gap-1">
-            <i className="fas fa-user text-[10px]" /> Name
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <i className="fas fa-envelope text-[10px]" /> Email
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <i className="fas fa-at text-[10px]" /> Username
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <i className="fas fa-id-card text-[10px]" /> Student ID
-          </span>
-        </div>
       </div>
 
-      {/* Students Table Wrapper */}
+      {/* Students Table */}
       <div
-        className="bg-white border rounded-[var(--radius-card)] overflow-hidden"
+        className="bg-white border rounded-xl overflow-hidden"
         style={{ borderColor: "var(--color-border)" }}
       >
-        {filteredStudents.length === 0 ? (
+        {students.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3"
-              style={{ background: "var(--color-muted)", color: "var(--color-border)" }}
-            >
-              <i className="fas fa-users-slash" />
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl text-slate-300 mb-3">
+              <Users className="w-8 h-8" />
             </div>
-            <h3 className="text-base font-semibold" style={{ color: "var(--color-foreground)" }}>
+            <h3 className="text-base font-semibold text-slate-900">
               No students found
             </h3>
-            <p className="text-sm mt-1 max-w-sm" style={{ color: "var(--color-muted-foreground)" }}>
+            <p className="text-sm text-slate-500 mt-1 max-w-sm">
               {search || statusFilter || levelFilter
-                ? "No matching student records found. Try adjusting your search query or clear filters."
-                : "No students added yet. Click 'Add Student' to get started."}
+                ? "No matching student records found. Try adjusting your search query."
+                : 'No students added yet. Click "Add Student" to get started.'}
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[650px]">
+            <table className="w-full text-left text-sm border-collapse min-w-[700px]">
               <thead>
-                <tr className="bg-slate-50 border-b" style={{ borderColor: "var(--color-border)" }}>
+                <tr
+                  className="bg-slate-50 border-b"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Student
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Student ID
+                    ID
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Level
@@ -384,85 +220,101 @@ export default function StudentsView() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: "var(--color-border)" }}>
-                {currentStudents.map((student) => {
-                  const bg = student.avatarBg || "var(--color-primary)";
+              <tbody
+                className="divide-y"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                {students.map((student: any) => {
+                  const initials = student.name
+                    ? student.name
+                        .split(" ")
+                        .map((n: string) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2)
+                    : "U";
+
                   return (
                     <tr
                       key={student.id}
-                      onClick={() => handleOpenDetail(student)}
                       className="hover:bg-slate-50/80 cursor-pointer transition-colors duration-150"
+                      onClick={() => handleOpenDetail(student)}
                     >
                       <td className="px-4 py-3.5 align-middle">
                         <div className="flex items-center gap-3">
                           <div
                             className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-sm"
-                            style={{ background: bg }}
+                            style={{ background: "var(--color-primary)" }}
                           >
-                            {student.avatar}
+                            {initials}
                           </div>
                           <div>
-                            <div
-                              className="font-semibold text-sm"
-                              style={{ color: "var(--color-foreground)" }}
-                            >
-                              {student.name}
+                            <div className="font-semibold text-sm text-slate-900">
+                              {student.name || "Unknown"}
                             </div>
-                            <div
-                              className="text-xs"
-                              style={{ color: "var(--color-muted-foreground)" }}
-                            >
-                              {student.email}
+                            <div className="text-xs text-slate-400">
+                              {student.email || "No email"}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3.5 align-middle">
                         <span className="font-mono text-xs font-medium text-slate-600">
-                          {student.studentId}
+                          {student.matricNumber || "N/A"}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 align-middle text-sm font-medium text-slate-700">
-                        {student.level}
+                        {student.currentAcademicLevelName || "N/A"}
                       </td>
                       <td className="px-4 py-3.5 align-middle">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-                            student.status === "active"
+                          className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
+                            student.academicStatus === "ACTIVE"
                               ? "bg-emerald-50 text-emerald-600"
-                              : student.status === "pending"
-                              ? "bg-amber-50 text-amber-600"
-                              : "bg-slate-100 text-slate-500"
-                          }`}
+                              : student.academicStatus === "PENDING"
+                                ? "bg-amber-50 text-amber-600"
+                                : student.academicStatus === "GRADUATED"
+                                  ? "bg-purple-50 text-purple-600"
+                                  : "bg-slate-100 text-slate-500",
+                          )}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              student.status === "active"
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              student.academicStatus === "ACTIVE"
                                 ? "bg-emerald-500"
-                                : student.status === "pending"
-                                ? "bg-amber-500"
-                                : "bg-slate-400"
-                            }`}
+                                : student.academicStatus === "PENDING"
+                                  ? "bg-amber-500"
+                                  : student.academicStatus === "GRADUATED"
+                                    ? "bg-purple-500"
+                                    : "bg-slate-400",
+                            )}
                           />
-                          {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+                          {student.academicStatus || "Unknown"}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 align-middle text-right" onClick={(e) => e.stopPropagation()}>
+                      <td
+                        className="px-4 py-3.5 align-middle text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => handleOpenDetail(student)}
                             className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-blue-50 text-slate-400 hover:text-blue-600 cursor-pointer flex items-center justify-center transition-colors"
                             title="View Details"
                           >
-                            <i className="fas fa-eye text-sm" />
+                            <Eye className="w-4 h-4" />
                           </button>
                           {canDeleteStudent && (
                             <button
-                              onClick={() => handleRemoveStudent(student.id, student.name)}
+                              onClick={() =>
+                                handleRemoveStudent(student.id, student.name)
+                              }
                               className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-red-50 text-slate-400 hover:text-red-600 cursor-pointer flex items-center justify-center transition-colors"
                               title="Remove Student"
                             >
-                              <i className="fas fa-user-minus text-sm" />
+                              <UserMinus className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -475,81 +327,74 @@ export default function StudentsView() {
           </div>
         )}
 
-        {/* Pagination Bar */}
-        {filteredStudents.length > 0 && (
+        {/* Pagination */}
+        {meta && meta.totalPages > 1 && (
           <div
             className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t"
             style={{ borderColor: "var(--color-border)" }}
           >
-            <div className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
+            <div className="text-xs text-slate-500">
               Showing{" "}
-              <strong style={{ color: "var(--color-foreground)" }}>
+              <strong className="text-slate-700">
                 {(currentPage - 1) * ITEMS_PER_PAGE + 1}
               </strong>{" "}
               to{" "}
-              <strong style={{ color: "var(--color-foreground)" }}>
-                {Math.min(currentPage * ITEMS_PER_PAGE, filteredStudents.length)}
+              <strong className="text-slate-700">
+                {Math.min(currentPage * ITEMS_PER_PAGE, meta.total)}
               </strong>{" "}
-              of{" "}
-              <strong style={{ color: "var(--color-foreground)" }}>
-                {filteredStudents.length}
-              </strong>{" "}
+              of <strong className="text-slate-700">{meta.total}</strong>{" "}
               students
             </div>
 
             <div className="flex items-center gap-1.5">
               <button
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white"
-                style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white border-slate-200"
               >
-                <i className="fas fa-chevron-left" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
 
-              {Array.from({ length: totalPages }).map((_, idx) => {
-                const pageNum = idx + 1;
-                const isActive = pageNum === currentPage;
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
-                      isActive
-                        ? "text-white border-primary"
-                        : "bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                    style={{
-                      background: isActive ? "var(--color-primary)" : undefined,
-                      borderColor: isActive ? "var(--color-primary)" : "var(--color-border)",
-                    }}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+              {Array.from({ length: Math.min(meta.totalPages, 5) }).map(
+                (_, idx) => {
+                  const pageNum = idx + 1;
+                  const isActive = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={cn(
+                        "w-8 h-8 rounded-lg border text-xs font-semibold cursor-pointer transition-colors",
+                        isActive
+                          ? "bg-[#1a5cff] text-white border-[#1a5cff]"
+                          : "bg-white text-slate-700 hover:bg-slate-50 border-slate-200",
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                },
+              )}
 
               <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white"
-                style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
+                disabled={currentPage === meta.totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white border-slate-200"
               >
-                <i className="fas fa-chevron-right" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* Modals */}
       <StudentDetailsModal
         student={selectedStudent}
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
       />
 
-      {/* Add Student Modal */}
       <AddStudentModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}

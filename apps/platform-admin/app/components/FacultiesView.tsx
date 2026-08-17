@@ -1,10 +1,21 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
+import DataTable from "./DataTable";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Eye, ChevronRight } from "lucide-react";
 
 export default function FacultiesView() {
-  const { faculties, institutions, createFaculty, toggleFacultyStatus } = useApp();
+  const router = useRouter();
+  const {
+    faculties,
+    institutions,
+    createFaculty,
+    toggleFacultyStatus,
+    showToast,
+  } = useApp();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [instFilter, setInstFilter] = useState("All");
@@ -14,25 +25,121 @@ export default function FacultiesView() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [deanName, setDeanName] = useState("");
-  const [selectedInstId, setSelectedInstId] = useState(institutions[0]?.id || "");
+  const [selectedInstId, setSelectedInstId] = useState(
+    institutions[0]?.id || "",
+  );
+
+  useEffect(() => {
+    if (!selectedInstId && institutions[0]) {
+      setSelectedInstId(institutions[0].id);
+    }
+  }, [institutions, selectedInstId]);
 
   const filteredFaculties = faculties.filter((fac) => {
     const matchesSearch =
       fac.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       fac.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       fac.deanName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesInst = instFilter === "All" || fac.institutionId === instFilter;
+    const matchesInst =
+      instFilter === "All" || fac.institutionId === instFilter;
     return matchesSearch && matchesInst;
   });
 
-  const handleCreate = (e: React.FormEvent) => {
+  const navigateToFaculty = (id: string) => {
+    router.push(`/platform/faculties/${id}`);
+  };
+
+  // Define columns with useMemo - MUST be called before any conditional returns
+  const columns = useMemo<ColumnDef<any, any>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Faculty",
+        cell: ({ row }) => (
+          <div
+            className="cursor-pointer hover:text-blue-600 transition-colors"
+            onClick={() => navigateToFaculty(row.original.id)}
+          >
+            <div className="font-semibold">{row.original.name}</div>
+            <div className="text-xs text-slate-400">{row.original.code}</div>
+          </div>
+        ),
+      },
+      { accessorFn: (r) => r.code, id: "code", header: "Code" },
+      {
+        accessorFn: (r) => r.institutionName,
+        id: "institution",
+        header: "Parent Institution",
+      },
+      {
+        accessorFn: (r) => r.deanName,
+        id: "dean",
+        header: "Dean / Head",
+      },
+      {
+        accessorFn: (r) => r.departmentsCount,
+        id: "departments",
+        header: "Departments",
+      },
+      {
+        accessorFn: (r) => r.status,
+        id: "status",
+        header: "Status",
+        cell: ({ getValue }) => (
+          <span className={`status-badge ${String(getValue()).toLowerCase()}`}>
+            {getValue()}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div style={{ textAlign: "right" }}>
+            <div style={{ display: "inline-flex", gap: 6 }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => navigateToFaculty(row.original.id)}
+                title="View Details"
+              >
+                <Eye className="w-3 h-3" />
+              </button>
+              <button
+                className={`btn btn-sm ${row.original.status === "Active" ? "btn-danger" : "btn-success"}`}
+                onClick={() => toggleFacultyStatus(row.original.id)}
+              >
+                {row.original.status === "Active" ? "Deactivate" : "Activate"}
+              </button>
+            </div>
+          </div>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !code) return;
+    if (!name || !code || !selectedInstId) {
+      showToast(
+        "Select a valid institution before creating a faculty.",
+        "warning",
+      );
+      return;
+    }
 
     const parentInst = institutions.find((i) => i.id === selectedInstId);
-    createFaculty({
+    if (!parentInst) {
+      showToast(
+        "The selected institution is no longer available. Please select another.",
+        "danger",
+      );
+      return;
+    }
+    const created = await createFaculty({
       institutionId: selectedInstId,
-      institutionName: parentInst ? `${parentInst.name} (${parentInst.code})` : "Heightt Institution",
+      institutionName: `${parentInst.name} (${parentInst.code})`,
       name,
       code: code.toUpperCase(),
       deanName: deanName || "TBD",
@@ -40,10 +147,12 @@ export default function FacultiesView() {
       status: "Active",
     });
 
-    setName("");
-    setCode("");
-    setDeanName("");
-    setIsModalOpen(false);
+    if (created) {
+      setName("");
+      setCode("");
+      setDeanName("");
+      setIsModalOpen(false);
+    }
   };
 
   return (
@@ -51,10 +160,16 @@ export default function FacultiesView() {
       <div className="page-head">
         <div className="title">
           <h1>Faculties Management</h1>
-          <p>Route: <code>/platform/faculties</code> • Faculties must always be linked to an onboarded institution</p>
+          <p>
+            Route: <code>/platform/faculties</code> • Faculties must always be
+            linked to an onboarded institution
+          </p>
         </div>
         <div className="actions">
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+          <button
+            className="btn btn-primary"
+            onClick={() => setIsModalOpen(true)}
+          >
             <i className="fas fa-plus"></i> Create Faculty
           </button>
         </div>
@@ -85,56 +200,26 @@ export default function FacultiesView() {
           </select>
         </div>
         <div className="toolbar-right">
-          <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 600 }}>
+          <span
+            style={{
+              fontSize: "12px",
+              color: "var(--text-muted)",
+              fontWeight: 600,
+            }}
+          >
             Total: {filteredFaculties.length} Faculties
           </span>
         </div>
       </div>
 
       <div className="table-responsive">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Faculty Name</th>
-              <th>Code</th>
-              <th>Parent Institution</th>
-              <th>Dean / Head</th>
-              <th>Departments</th>
-              <th>Status</th>
-              <th style={{ textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredFaculties.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: "center", padding: "30px", color: "var(--text-muted)" }}>
-                  No faculties found.
-                </td>
-              </tr>
-            ) : (
-              filteredFaculties.map((fac) => (
-                <tr key={fac.id}>
-                  <td style={{ fontWeight: 700 }}>{fac.name}</td>
-                  <td><span className="badge primary">{fac.code}</span></td>
-                  <td>{fac.institutionName}</td>
-                  <td>{fac.deanName}</td>
-                  <td>{fac.departmentsCount}</td>
-                  <td>
-                    <span className={`status-badge ${fac.status.toLowerCase()}`}>{fac.status}</span>
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <button
-                      className={`btn btn-sm ${fac.status === "Active" ? "btn-danger" : "btn-success"}`}
-                      onClick={() => toggleFacultyStatus(fac.id)}
-                    >
-                      {fac.status === "Active" ? "Deactivate" : "Activate"}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+        {filteredFaculties.length === 0 ? (
+          <div className="p-8 text-center text-sm text-slate-500">
+            No faculties found.
+          </div>
+        ) : (
+          <DataTable data={filteredFaculties} columns={columns} />
+        )}
       </div>
 
       {/* CREATE FACULTY MODAL */}
@@ -161,6 +246,9 @@ export default function FacultiesView() {
                 onChange={(e) => setSelectedInstId(e.target.value)}
                 required
               >
+                <option value="" disabled>
+                  Select an institution
+                </option>
                 {institutions.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.name} ({i.code})
@@ -205,10 +293,18 @@ export default function FacultiesView() {
             </div>
 
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsModalOpen(false)}
+              >
                 Cancel
               </button>
-              <button type="submit" className="btn btn-primary">
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={!selectedInstId}
+              >
                 <i className="fas fa-check"></i> Create Faculty
               </button>
             </div>

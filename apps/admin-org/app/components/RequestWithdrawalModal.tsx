@@ -1,81 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect, forwardRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import {
+  X,
+  ArrowUpRight,
+  Building2,
+  User,
+  Hash,
+  AlertCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface RequestWithdrawalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { amount: number; purpose: string; notes?: string }) => void;
-}
-
-function FormField({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mb-3.5">
-      <label
-        className="block text-xs font-semibold mb-1"
-        style={{ color: "var(--color-foreground)" }}
-      >
-        {label}{" "}
-        {required && (
-          <span style={{ color: "var(--color-destructive)" }}>*</span>
-        )}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-const inputCls =
-  "w-full px-3 py-2.5 border-2 rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white";
-
-const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  (props, ref) => (
-    <input
-      {...props}
-      ref={ref}
-      className={inputCls}
-      style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-      onFocus={(e) => {
-        e.target.style.borderColor = "var(--color-primary)";
-        e.target.style.boxShadow = "0 0 0 3px oklch(62% .2 270 / 0.1)";
-        props.onFocus?.(e);
-      }}
-      onBlur={(e) => {
-        e.target.style.borderColor = "var(--color-border)";
-        e.target.style.boxShadow = "none";
-        props.onBlur?.(e);
-      }}
-    />
-  )
-);
-Input.displayName = "Input";
-
-function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={inputCls + " resize-y min-h-[80px]"}
-      style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-      onFocus={(e) => {
-        e.target.style.borderColor = "var(--color-primary)";
-        e.target.style.boxShadow = "0 0 0 3px oklch(62% .2 270 / 0.1)";
-        props.onFocus?.(e);
-      }}
-      onBlur={(e) => {
-        e.target.style.borderColor = "var(--color-border)";
-        e.target.style.boxShadow = "none";
-        props.onBlur?.(e);
-      }}
-    />
-  );
+  onSubmit: (data: any) => void;
 }
 
 export default function RequestWithdrawalModal({
@@ -84,10 +23,11 @@ export default function RequestWithdrawalModal({
   onSubmit,
 }: RequestWithdrawalModalProps) {
   const [amount, setAmount] = useState("");
-  const [purpose, setPurpose] = useState("");
-  const [notes, setNotes] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -97,8 +37,10 @@ export default function RequestWithdrawalModal({
     } else {
       document.body.style.overflow = "";
       setAmount("");
-      setPurpose("");
-      setNotes("");
+      setBankName("");
+      setAccountNumber("");
+      setAccountName("");
+      setReason("");
     }
     return () => {
       document.body.style.overflow = "";
@@ -117,16 +59,17 @@ export default function RequestWithdrawalModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const numAmount = parseFloat(amount.replace(/[^0-9.]/g, ""));
-    if (isNaN(numAmount) || numAmount <= 0 || !purpose) return;
+    if (!amount || !bankName || !accountNumber || !accountName) return;
 
     setIsSubmitting(true);
     await new Promise((r) => setTimeout(r, 400));
 
     onSubmit({
-      amount: numAmount,
-      purpose,
-      notes,
+      amount: parseFloat(amount),
+      bankName,
+      accountNumber,
+      accountName,
+      reason,
     });
 
     setIsSubmitting(false);
@@ -135,118 +78,171 @@ export default function RequestWithdrawalModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-[200] flex items-center justify-center p-4 sm:p-5 animate-fade-in"
+      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-[var(--radius-card)] w-full max-w-[500px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-7 animate-slide-up">
+      <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-[19px] font-bold" style={{ color: "var(--color-foreground)" }}>
-            <i className="fas fa-arrow-up text-primary mr-2" style={{ color: "var(--color-primary)" }} />
+          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900">
+            <ArrowUpRight className="w-5 h-5 text-[#1a5cff]" />
             Request Withdrawal
           </h2>
           <button
-            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-muted-foreground)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-muted)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
             onClick={onClose}
-            aria-label="Close modal"
+            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-400 hover:bg-slate-100"
+            aria-label="Close"
           >
-            <i className="fas fa-times" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Balance Warning Info */}
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3 text-xs text-blue-800">
-          <i className="fas fa-wallet text-blue-600 text-base" />
+        {/* Balance Info */}
+        <div className="mb-5 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3 text-xs text-blue-800">
+          <Wallet className="w-4 h-4 text-blue-600 flex-shrink-0" />
           <div>
-            Available balance: <strong className="text-blue-900">₦2,700,000.00</strong>
+            Available balance:{" "}
+            <strong className="text-blue-900">₦2,700,000.00</strong>
           </div>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <FormField label="Withdrawal Amount (₦)" required>
-            <Input
-              ref={firstInputRef}
-              type="number"
-              placeholder="e.g. 50000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-            />
-          </FormField>
+          <div className="space-y-4">
+            {/* Amount */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Withdrawal Amount <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">
+                  ₦
+                </span>
+                <input
+                  ref={firstInputRef}
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full pl-8 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                  required
+                  min="0"
+                  step="100"
+                />
+              </div>
+            </div>
 
-          <FormField label="Purpose / Category" required>
-            <Input
-              type="text"
-              placeholder="e.g. Equipment Purchase, Event Planning"
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              required
-            />
-          </FormField>
+            {/* Bank Name */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Bank Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  placeholder="e.g. GTBank"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                  required
+                />
+              </div>
+            </div>
 
-          <FormField label="Additional Notes">
-            <Textarea
-              placeholder="Add payment destination or reference notes..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
-          </FormField>
+            {/* Account Number */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Account Number <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  placeholder="0123456789"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                  required
+                  maxLength={10}
+                />
+              </div>
+            </div>
+
+            {/* Account Name */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Account Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  placeholder="John Doe"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Reason / Purpose
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Brief description of the withdrawal purpose..."
+                rows={3}
+                className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10 resize-y"
+              />
+            </div>
+
+            {/* Info Box */}
+            <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-700">
+                <p className="font-semibold">Important</p>
+                <p>
+                  Withdrawal requests are subject to review and approval.
+                  Processing may take 1-2 business days.
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Actions */}
-          <div className="flex gap-2.5 mt-5 flex-col sm:flex-row">
+          <div className="flex gap-2.5 mt-6 flex-col sm:flex-row">
             <button
               type="button"
               onClick={onClose}
-              className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-[13px] font-semibold cursor-pointer transition-all duration-200 font-sans bg-transparent"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-muted-foreground)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-primary)";
-                e.currentTarget.style.color = "var(--color-primary)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-border)";
-                e.currentTarget.style.color = "var(--color-muted-foreground)";
-              }}
+              className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-600 hover:border-[#1a5cff] hover:text-[#1a5cff]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white cursor-pointer transition-all duration-200 font-sans border-none disabled:opacity-70 disabled:cursor-not-allowed"
-              style={{ background: "var(--color-primary)" }}
-              onMouseEnter={(e) => {
-                if (!isSubmitting) {
-                  e.currentTarget.style.background = "var(--color-primary-dark)";
-                  e.currentTarget.style.transform = "translateY(-1px)";
-                  e.currentTarget.style.boxShadow = "0 4px 16px oklch(46% .18 265 / 0.2)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "var(--color-primary)";
-                e.currentTarget.style.transform = "none";
-                e.currentTarget.style.boxShadow = "none";
-              }}
+              className={cn(
+                "order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 border-none",
+                isSubmitting
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]",
+              )}
             >
               {isSubmitting ? (
                 <>
-                  <i className="fas fa-spinner fa-spin" />
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Submitting...
                 </>
               ) : (
                 <>
-                  <i className="fas fa-arrow-up" />
+                  <ArrowUpRight className="w-4 h-4" />
                   Submit Request
                 </>
               )}

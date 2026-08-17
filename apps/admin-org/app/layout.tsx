@@ -1,9 +1,17 @@
+// apps/admin-org/app/layout.tsx
+
 import type { Metadata } from "next";
 import "./globals.css";
+import { AdminProvider } from "./components/AdminContext";
+import { AdminGuard } from "@/components/AdminGuard";
+import { PermissionProvider } from "./context/PermissionContext";
+import { QueryProvider } from "@/providers/QueryProvider";
+import { AuthHydrator } from "@/components/AuthHydrator";
 
 export const metadata: Metadata = {
   title: "Admin Dashboard — Heightt",
-  description: "Organization admin dashboard for managing students, dues, payments, and announcements.",
+  description:
+    "Organization admin dashboard for managing students, dues, payments, and announcements.",
 };
 
 export default function RootLayout({
@@ -13,26 +21,17 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link
-          rel="preconnect"
-          href="https://fonts.googleapis.com"
-        />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-        />
-      </head>
-      <body className="min-h-screen">{children}</body>
+      <body>
+        <QueryProvider>
+          <AuthHydrator>
+            <PermissionProvider>
+              <AdminProvider>
+                <AdminGuard>{children}</AdminGuard>
+              </AdminProvider>
+            </PermissionProvider>
+          </AuthHydrator>
+        </QueryProvider>
+      </body>
     </html>
   );
 }

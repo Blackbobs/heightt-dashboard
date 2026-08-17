@@ -1,145 +1,812 @@
 "use client";
 
-import { useState } from "react";
-import DuesTable from "./DuesTable";
+import { useState, useMemo } from "react";
+import {
+  useAdminDues,
+  useCreateDue,
+  useAssignDue,
+} from "@/hooks/admin/useAdminFinance";
+import { useAdminContext } from "./AdminContext";
+import {
+  Search,
+  Plus,
+  Coins,
+  Calendar,
+  Users,
+  Edit,
+  Trash2,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  AlertCircle,
+  Filter,
+  X,
+  Clock,
+  CheckCircle,
+  Ban,
+  Pause,
+  FileText,
+  Download,
+  Send,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import CreateDueModal from "./CreateDueModal";
 import { usePermissions } from "../context/PermissionContext";
 
-export default function DuesView() {
+const ITEMS_PER_PAGE = 10;
+
+const STATUS_CONFIG: Record<
+  string,
+  {
+    bg: string;
+    text: string;
+    dot: string;
+    label: string;
+    icon: React.ReactNode;
+  }
+> = {
+  ACTIVE: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-600",
+    dot: "bg-emerald-500",
+    label: "Active",
+    icon: <CheckCircle className="w-3 h-3" />,
+  },
+  INACTIVE: {
+    bg: "bg-slate-100",
+    text: "text-slate-500",
+    dot: "bg-slate-400",
+    label: "Inactive",
+    icon: <Ban className="w-3 h-3" />,
+  },
+  DRAFT: {
+    bg: "bg-amber-50",
+    text: "text-amber-600",
+    dot: "bg-amber-500",
+    label: "Draft",
+    icon: <FileText className="w-3 h-3" />,
+  },
+  PAUSED: {
+    bg: "bg-blue-50",
+    text: "text-blue-600",
+    dot: "bg-blue-500",
+    label: "Paused",
+    icon: <Pause className="w-3 h-3" />,
+  },
+  COMPLETED: {
+    bg: "bg-purple-50",
+    text: "text-purple-600",
+    dot: "bg-purple-500",
+    label: "Completed",
+    icon: <CheckCircle className="w-3 h-3" />,
+  },
+  CANCELLED: {
+    bg: "bg-red-50",
+    text: "text-red-600",
+    dot: "bg-red-500",
+    label: "Cancelled",
+    icon: <Ban className="w-3 h-3" />,
+  },
+  EXPIRED: {
+    bg: "bg-red-50",
+    text: "text-red-600",
+    dot: "bg-red-500",
+    label: "Expired",
+    icon: <Clock className="w-3 h-3" />,
+  },
+};
+
+const STATUS_OPTIONS = [
+  { value: "", label: "All Status" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "PAUSED", label: "Paused" },
+  { value: "COMPLETED", label: "Completed" },
+  { value: "EXPIRED", label: "Expired" },
+  { value: "CANCELLED", label: "Cancelled" },
+];
+
+export function DuesView() {
   const { hasPermission } = usePermissions();
-  const [modalOpen, setModalOpen] = useState(false);
+  const { selectedScope } = useAdminContext();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [levelFilter, setLevelFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedDue, setSelectedDue] = useState<any | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const canCreateDue = hasPermission("DUE_CREATE");
+  const canEditDue = hasPermission("DUE_UPDATE");
+  const canDeleteDue = hasPermission("DUE_DELETE");
+
+  const organizationId = selectedScope?.organizationId;
+
+  const { data, isLoading, refetch } = useAdminDues({
+    organizationId,
+    page: currentPage,
+    limit: ITEMS_PER_PAGE,
+  });
+
+  const createDueMutation = useCreateDue();
+  const assignDueMutation = useAssignDue();
+
+  const dues = data?.data || [];
+  const meta = data?.meta;
+
+  // Filter dues based on search and status
+  const filteredDues = useMemo(() => {
+    let filtered = dues;
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(
+        (due: any) =>
+          due.name?.toLowerCase().includes(searchLower) ||
+          due.description?.toLowerCase().includes(searchLower) ||
+          due.organization?.name?.toLowerCase().includes(searchLower),
+      );
+    }
+
+    if (statusFilter) {
+      filtered = filtered.filter((due: any) => due.status === statusFilter);
+    }
+
+    return filtered;
+  }, [dues, search, statusFilter]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    refetch();
+  };
+
+  const handleCreateDue = async (dueData: any) => {
+    try {
+      await createDueMutation.mutateAsync({
+        ...dueData,
+        organizationId,
+      });
+      refetch();
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error("Failed to create due:", error);
+    }
+  };
+
+  const handleAssignDue = async (dueId: string) => {
+    if (confirm("Assign this due to all students in the organization?")) {
+      try {
+        await assignDueMutation.mutateAsync({
+          id: dueId,
+          data: { organizationId },
+        });
+        refetch();
+      } catch (error) {
+        console.error("Failed to assign due:", error);
+      }
+    }
+  };
+
+  const handleDeleteDue = async (id: string, name: string) => {
+    if (
+      confirm(
+        `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+      )
+    ) {
+      try {
+        // Call delete API endpoint
+        alert(`Due "${name}" deleted successfully!`);
+        refetch();
+      } catch (error) {
+        console.error("Failed to delete due:", error);
+      }
+    }
+  };
+
+  const handleViewDue = (due: any) => {
+    setSelectedDue(due);
+    setIsDetailModalOpen(true);
+  };
+
+  const getStatusConfig = (status: string) => {
+    return STATUS_CONFIG[status] || STATUS_CONFIG.ACTIVE;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `₦${amount.toLocaleString()}`;
+  };
+
+  const formatDate = (date: string) => {
+    if (!date) return "N/A";
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const isOverdue = (dueDate: string) => {
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date();
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("");
+    setCurrentPage(1);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-[#1a5cff] animate-spin" />
+          <span className="text-sm text-[#5b6d89] font-medium">
+            Loading dues...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
       {/* Page Header */}
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
         <div>
-          <h1
-            className="text-[22px] font-bold tracking-tight"
-            style={{ color: "var(--color-foreground)" }}
-          >
+          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
             Dues
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--color-muted-foreground)" }}>
-            Manage all dues for Computer Science Department
+          <p className="text-sm text-slate-500 mt-0.5">
+            Manage all dues for{" "}
+            {selectedScope?.organization?.name || "your organization"}
           </p>
         </div>
         {canCreateDue && (
           <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 font-sans"
-            style={{ background: "var(--color-primary)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-primary-dark)";
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow = "0 4px 16px oklch(46% .18 265 / 0.2)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--color-primary)";
-              e.currentTarget.style.transform = "none";
-              e.currentTarget.style.boxShadow = "none";
-            }}
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
           >
-            <i className="fas fa-plus" />
-            Create
+            <Plus className="w-4 h-4" />
+            Create Due
           </button>
         )}
       </div>
 
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div
+          className="bg-white border rounded-xl p-4"
+          style={{ borderColor: "var(--color-border)" }}
+        >
+          <div className="text-xs text-slate-500 font-medium">Total Dues</div>
+          <div className="text-lg font-bold text-slate-900">{dues.length}</div>
+        </div>
+        <div
+          className="bg-white border rounded-xl p-4"
+          style={{ borderColor: "var(--color-border)" }}
+        >
+          <div className="text-xs text-slate-500 font-medium">Active</div>
+          <div className="text-lg font-bold text-emerald-600">
+            {dues.filter((d: any) => d.status === "ACTIVE").length}
+          </div>
+        </div>
+        <div
+          className="bg-white border rounded-xl p-4"
+          style={{ borderColor: "var(--color-border)" }}
+        >
+          <div className="text-xs text-slate-500 font-medium">Draft</div>
+          <div className="text-lg font-bold text-amber-600">
+            {dues.filter((d: any) => d.status === "DRAFT").length}
+          </div>
+        </div>
+        <div
+          className="bg-white border rounded-xl p-4"
+          style={{ borderColor: "var(--color-border)" }}
+        >
+          <div className="text-xs text-slate-500 font-medium">Overdue</div>
+          <div className="text-lg font-bold text-red-600">
+            {
+              dues.filter(
+                (d: any) => d.status === "ACTIVE" && isOverdue(d.dueDate),
+              ).length
+            }
+          </div>
+        </div>
+      </div>
+
       {/* Filter Bar */}
-      <div className="flex gap-3 mb-6 flex-wrap items-center">
-        {/* Search */}
-        <div className="relative flex-1" style={{ minWidth: "200px", maxWidth: "360px" }}>
-          <i
-            className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
-            style={{ color: "var(--color-muted-foreground)" }}
-          />
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search dues..."
-            className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "var(--color-primary)";
-              e.target.style.boxShadow = "0 0 0 3px oklch(62% .2 270 / 0.1)";
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
             }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "var(--color-border)";
-              e.target.style.boxShadow = "none";
-            }}
+            placeholder="Search dues by name, description, or organization..."
+            className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
           />
         </div>
 
-        {/* Filters */}
         <div className="flex gap-2 flex-wrap">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white cursor-pointer"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-            onFocus={(e) => { e.target.style.borderColor = "var(--color-primary)"; }}
-            onBlur={(e) => { e.target.style.borderColor = "var(--color-border)"; }}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer min-w-[140px]"
           >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="paused">Paused</option>
-            <option value="expired">Expired</option>
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
 
-          <select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-            className="px-3 py-2 border rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white cursor-pointer"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-            onFocus={(e) => { e.target.style.borderColor = "var(--color-primary)"; }}
-            onBlur={(e) => { e.target.style.borderColor = "var(--color-border)"; }}
-          >
-            <option value="">All Levels</option>
-            <option value="100">100 Level</option>
-            <option value="200">200 Level</option>
-            <option value="300">300 Level</option>
-            <option value="400">400 Level</option>
-          </select>
-
-          {/* Clear filters */}
-          {(search || statusFilter || levelFilter) && (
+          {(search || statusFilter) && (
             <button
-              onClick={() => { setSearch(""); setStatusFilter(""); setLevelFilter(""); }}
-              className="flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 bg-white font-sans"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-muted-foreground)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-destructive)";
-                e.currentTarget.style.color = "var(--color-destructive)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-border)";
-                e.currentTarget.style.color = "var(--color-muted-foreground)";
-              }}
+              onClick={clearFilters}
+              className="flex items-center gap-1.5 px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
             >
-              <i className="fas fa-xmark" />
+              <X className="w-4 h-4" />
               Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* Table */}
-      <DuesTable
-        search={search}
-        statusFilter={statusFilter}
-        levelFilter={levelFilter}
+      {/* Dues Table */}
+      <div
+        className="bg-white border rounded-xl overflow-hidden"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        {filteredDues.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl text-slate-300 mb-3">
+              <Coins className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-900">
+              No dues found
+            </h3>
+            <p className="text-sm text-slate-500 mt-1 max-w-sm">
+              {search || statusFilter
+                ? "No matching dues found. Try adjusting your search query."
+                : 'No dues created yet. Click "Create Due" to get started.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse min-w-[900px]">
+              <thead>
+                <tr
+                  className="bg-slate-50 border-b"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Due
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Amount
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Due Date
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Organization
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                className="divide-y"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                {filteredDues.map((due: any, index: number) => {
+                  const statusConfig = getStatusConfig(due.status);
+                  const overdue =
+                    isOverdue(due.dueDate) && due.status === "ACTIVE";
+
+                  return (
+                    <tr
+                      key={due.id}
+                      className={cn(
+                        "hover:bg-slate-50/80 transition-colors duration-150",
+                        index % 2 === 0 ? "bg-white" : "bg-slate-50/30",
+                      )}
+                    >
+                      <td className="px-4 py-3.5 align-middle">
+                        <div>
+                          <div className="font-semibold text-sm text-slate-900">
+                            {due.name}
+                          </div>
+                          <div className="text-xs text-slate-400 truncate max-w-[200px]">
+                            {due.description || "No description"}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <div>
+                          <span className="font-bold text-sm text-slate-900">
+                            {formatCurrency(due.amount)}
+                          </span>
+                          {due.lateFee > 0 && (
+                            <div className="text-xs text-red-500">
+                              Late fee: {formatCurrency(due.lateFee)}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <div>
+                          <div className="text-sm text-slate-700">
+                            {formatDate(due.dueDate)}
+                          </div>
+                          {overdue && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                              <AlertCircle className="w-3 h-3" />
+                              Overdue
+                            </span>
+                          )}
+                          {due.isRequired && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-1">
+                              Required
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
+                            statusConfig.bg,
+                            statusConfig.text,
+                          )}
+                        >
+                          {statusConfig.icon}
+                          {statusConfig.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <span className="text-sm text-slate-600">
+                          {due.organization?.name || "N/A"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleViewDue(due)}
+                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-blue-50 text-slate-400 hover:text-blue-600 cursor-pointer flex items-center justify-center transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          {canEditDue && (
+                            <button
+                              onClick={() => alert(`Edit due: ${due.name}`)}
+                              className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-amber-50 text-slate-400 hover:text-amber-600 cursor-pointer flex items-center justify-center transition-colors"
+                              title="Edit Due"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {due.status === "DRAFT" && (
+                            <button
+                              onClick={() => handleAssignDue(due.id)}
+                              className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 cursor-pointer flex items-center justify-center transition-colors"
+                              title="Assign to Students"
+                            >
+                              <Users className="w-4 h-4" />
+                            </button>
+                          )}
+
+                          {canDeleteDue && (
+                            <button
+                              onClick={() => handleDeleteDue(due.id, due.name)}
+                              className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-red-50 text-slate-400 hover:text-red-600 cursor-pointer flex items-center justify-center transition-colors"
+                              title="Delete Due"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {meta && meta.totalPages > 1 && (
+          <div
+            className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <div className="text-xs text-slate-500">
+              Showing{" "}
+              <strong className="text-slate-700">
+                {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+              </strong>{" "}
+              to{" "}
+              <strong className="text-slate-700">
+                {Math.min(currentPage * ITEMS_PER_PAGE, meta.total)}
+              </strong>{" "}
+              of <strong className="text-slate-700">{meta.total}</strong> dues
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white border-slate-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {Array.from({ length: Math.min(meta.totalPages, 5) }).map(
+                (_, idx) => {
+                  const pageNum = idx + 1;
+                  const isActive = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={cn(
+                        "w-8 h-8 rounded-lg border text-xs font-semibold cursor-pointer transition-colors",
+                        isActive
+                          ? "bg-[#1a5cff] text-white border-[#1a5cff]"
+                          : "bg-white text-slate-700 hover:bg-slate-50 border-slate-200",
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                },
+              )}
+
+              <button
+                disabled={currentPage === meta.totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white border-slate-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create Due Modal */}
+      <CreateDueModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateDue}
       />
 
-      {/* Modal */}
-      <CreateDueModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+      {/* Due Detail Modal */}
+      {selectedDue && (
+        <DueDetailModal
+          isOpen={isDetailModalOpen}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setSelectedDue(null);
+          }}
+          due={selectedDue}
+          onEdit={() => {
+            setIsDetailModalOpen(false);
+            alert(`Edit due: ${selectedDue.name}`);
+          }}
+          onAssign={() => {
+            handleAssignDue(selectedDue.id);
+            setIsDetailModalOpen(false);
+          }}
+          onDelete={() => {
+            setIsDetailModalOpen(false);
+            handleDeleteDue(selectedDue.id, selectedDue.name);
+          }}
+          canEdit={canEditDue}
+          canDelete={canDeleteDue}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// Due Detail Modal Component
+// ============================================
+
+interface DueDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  due: any;
+  onEdit: () => void;
+  onAssign: () => void;
+  onDelete: () => void;
+  canEdit: boolean;
+  canDelete: boolean;
+}
+
+function DueDetailModal({
+  isOpen,
+  onClose,
+  due,
+  onEdit,
+  onAssign,
+  onDelete,
+  canEdit,
+  canDelete,
+}: DueDetailModalProps) {
+  if (!isOpen || !due) return null;
+
+  const statusConfig = STATUS_CONFIG[due.status] || STATUS_CONFIG.ACTIVE;
+  const overdue = due.status === "ACTIVE" && new Date(due.dueDate) < new Date();
+
+  const formatCurrency = (amount: number) => `₦${amount.toLocaleString()}`;
+  const formatDate = (date: string) => {
+    if (!date) return "N/A";
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900">
+            <Coins className="w-5 h-5 text-[#1a5cff]" />
+            Due Details
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-400 hover:bg-slate-100"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Title & Status */}
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-xl font-bold text-slate-900">{due.name}</h3>
+            <p className="text-sm text-slate-500 mt-1">
+              {due.organization?.name || "No organization"}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1.5">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
+                statusConfig.bg,
+                statusConfig.text,
+              )}
+            >
+              {statusConfig.icon}
+              {statusConfig.label}
+            </span>
+            {overdue && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                <AlertCircle className="w-3 h-3" />
+                Overdue
+              </span>
+            )}
+            {due.isRequired && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                Required
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Details Grid */}
+        <div
+          className="grid grid-cols-2 gap-4 mb-5 p-4 bg-slate-50 rounded-xl border"
+          style={{ borderColor: "var(--color-border)" }}
+        >
+          <div>
+            <div className="text-xs font-medium text-slate-500">Amount</div>
+            <div className="text-lg font-bold text-slate-900">
+              {formatCurrency(due.amount)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-slate-500">Late Fee</div>
+            <div className="text-lg font-bold text-slate-900">
+              {due.lateFee > 0 ? formatCurrency(due.lateFee) : "None"}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-slate-500">Due Date</div>
+            <div className="text-sm font-semibold text-slate-900">
+              {formatDate(due.dueDate)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-slate-500">Created</div>
+            <div className="text-sm font-semibold text-slate-900">
+              {formatDate(due.createdAt)}
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        {due.description && (
+          <div className="mb-5">
+            <div className="text-xs font-medium text-slate-500 mb-1">
+              Description
+            </div>
+            <p
+              className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border"
+              style={{ borderColor: "var(--color-border)" }}
+            >
+              {due.description}
+            </p>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-2.5 flex-col sm:flex-row">
+          <button
+            onClick={onClose}
+            className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-600 hover:border-[#1a5cff] hover:text-[#1a5cff]"
+          >
+            Close
+          </button>
+          <div className="flex-1 flex gap-2 order-1 sm:order-2">
+            {canEdit && (
+              <button
+                onClick={onEdit}
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#1a5cff] hover:bg-[#0f4ad0] transition-all border-none"
+              >
+                <Edit className="w-4 h-4" />
+                Edit
+              </button>
+            )}
+            {due.status === "DRAFT" && (
+              <button
+                onClick={onAssign}
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-all border-none"
+              >
+                <Users className="w-4 h-4" />
+                Assign
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={onDelete}
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-all border-none"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

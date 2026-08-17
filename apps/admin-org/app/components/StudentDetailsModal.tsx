@@ -1,24 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-
-export interface Student {
-  id: string;
-  name: string;
-  email: string;
-  username: string;
-  studentId: string;
-  level: string;
-  status: "active" | "pending" | "inactive";
-  avatar: string;
-  avatarBg?: string;
-  joinedDate?: string;
-  department?: string;
-  role?: string;
-}
+import {
+  X,
+  Mail,
+  User,
+  Calendar,
+  Building2,
+  BookOpen,
+  BadgeCheck,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StudentDetailsModalProps {
-  student: Student | null;
+  student: any | null;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -49,38 +44,35 @@ export default function StudentDetailsModal({
 
   if (!isOpen || !student) return null;
 
-  const bgStyle = student.avatarBg || "var(--color-primary)";
+  const initials = student.name
+    ? student.name
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "U";
 
   return (
     <div
-      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-[200] flex items-center justify-center p-4 sm:p-5 animate-fade-in"
+      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-[var(--radius-card)] w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-7 animate-slide-up">
+      <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h2
-            className="text-lg sm:text-xl font-bold flex items-center gap-2"
-            style={{ color: "var(--color-foreground)" }}
-          >
-            <i className="fas fa-id-card text-primary" style={{ color: "var(--color-primary)" }} />
+          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900">
+            <BadgeCheck className="w-5 h-5 text-[#1a5cff]" />
             Student Details
           </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-muted-foreground)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-muted)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
+            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-400 hover:bg-slate-100"
             aria-label="Close modal"
           >
-            <i className="fas fa-times" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -91,17 +83,39 @@ export default function StudentDetailsModal({
         >
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold text-white flex-shrink-0 shadow-sm"
-            style={{ background: bgStyle }}
+            style={{ background: "var(--color-primary)" }}
           >
-            {student.avatar}
+            {initials}
           </div>
           <div>
-            <h3 className="text-lg font-bold" style={{ color: "var(--color-foreground)" }}>
-              {student.name}
+            <h3 className="text-lg font-bold text-slate-900">
+              {student.name || "Unknown"}
             </h3>
-            <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
-              {student.email}
+            <p className="text-sm text-slate-500">
+              {student.email || "No email"}
             </p>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium",
+                student.academicStatus === "ACTIVE"
+                  ? "bg-emerald-50 text-emerald-600"
+                  : student.academicStatus === "PENDING"
+                    ? "bg-amber-50 text-amber-600"
+                    : "bg-slate-100 text-slate-500",
+              )}
+            >
+              <span
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  student.academicStatus === "ACTIVE"
+                    ? "bg-emerald-500"
+                    : student.academicStatus === "PENDING"
+                      ? "bg-amber-500"
+                      : "bg-slate-400",
+                )}
+              />
+              {student.academicStatus || "Unknown"}
+            </span>
           </div>
         </div>
 
@@ -111,14 +125,11 @@ export default function StudentDetailsModal({
             className="flex justify-between items-center py-2.5 border-b"
             style={{ borderColor: "var(--color-border)" }}
           >
-            <span className="text-xs font-medium" style={{ color: "var(--color-muted-foreground)" }}>
-              Student ID (Matric No)
+            <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
+              <User className="w-3.5 h-3.5" /> Username
             </span>
-            <span
-              className="text-sm font-semibold font-mono"
-              style={{ color: "var(--color-foreground)" }}
-            >
-              {student.studentId}
+            <span className="text-sm font-medium text-slate-900">
+              {student.username || "N/A"}
             </span>
           </div>
 
@@ -126,23 +137,11 @@ export default function StudentDetailsModal({
             className="flex justify-between items-center py-2.5 border-b"
             style={{ borderColor: "var(--color-border)" }}
           >
-            <span className="text-xs font-medium" style={{ color: "var(--color-muted-foreground)" }}>
-              Username
+            <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
+              <BookOpen className="w-3.5 h-3.5" /> Student ID
             </span>
-            <span className="text-sm font-medium" style={{ color: "var(--color-foreground)" }}>
-              {student.username}
-            </span>
-          </div>
-
-          <div
-            className="flex justify-between items-center py-2.5 border-b"
-            style={{ borderColor: "var(--color-border)" }}
-          >
-            <span className="text-xs font-medium" style={{ color: "var(--color-muted-foreground)" }}>
-              Academic Level
-            </span>
-            <span className="text-sm font-medium" style={{ color: "var(--color-foreground)" }}>
-              {student.level}
+            <span className="text-sm font-medium font-mono text-slate-900">
+              {student.matricNumber || "N/A"}
             </span>
           </div>
 
@@ -150,28 +149,11 @@ export default function StudentDetailsModal({
             className="flex justify-between items-center py-2.5 border-b"
             style={{ borderColor: "var(--color-border)" }}
           >
-            <span className="text-xs font-medium" style={{ color: "var(--color-muted-foreground)" }}>
-              Status
+            <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
+              <BookOpen className="w-3.5 h-3.5" /> Academic Level
             </span>
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                student.status === "active"
-                  ? "bg-emerald-50 text-emerald-600"
-                  : student.status === "pending"
-                  ? "bg-amber-50 text-amber-600"
-                  : "bg-slate-100 text-slate-500"
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  student.status === "active"
-                    ? "bg-emerald-500"
-                    : student.status === "pending"
-                    ? "bg-amber-500"
-                    : "bg-slate-400"
-                }`}
-              />
-              {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+            <span className="text-sm font-medium text-slate-900">
+              {student.currentAcademicLevelName || "N/A"}
             </span>
           </div>
 
@@ -179,51 +161,68 @@ export default function StudentDetailsModal({
             className="flex justify-between items-center py-2.5 border-b"
             style={{ borderColor: "var(--color-border)" }}
           >
-            <span className="text-xs font-medium" style={{ color: "var(--color-muted-foreground)" }}>
-              Joined Date
+            <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
+              <Building2 className="w-3.5 h-3.5" /> Department
             </span>
-            <span className="text-sm font-medium" style={{ color: "var(--color-foreground)" }}>
-              {student.joinedDate || "Sep 12, 2024"}
+            <span className="text-sm font-medium text-slate-900">
+              {student.departmentName || "N/A"}
+            </span>
+          </div>
+
+          <div
+            className="flex justify-between items-center py-2.5 border-b"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <span className="text-xs font-medium text-slate-500 flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5" /> Joined
+            </span>
+            <span className="text-sm font-medium text-slate-900">
+              {student.createdAt
+                ? new Date(student.createdAt).toLocaleDateString()
+                : "N/A"}
             </span>
           </div>
         </div>
 
-        {/* Department Membership Box */}
-        <div
-          className="mt-5 p-3.5 rounded-lg flex items-center gap-3"
-          style={{ background: "var(--color-muted)" }}
-        >
-          <i className="fas fa-building-columns text-base text-primary" style={{ color: "var(--color-primary)" }} />
-          <div>
-            <div className="font-semibold text-sm" style={{ color: "var(--color-foreground)" }}>
-              {student.department || "Comp. Science Dept"}
-            </div>
-            <div className="text-xs" style={{ color: "var(--color-muted-foreground)" }}>
-              {student.role || "Student Member"}
+        {/* Academic Records Summary */}
+        {student.academicRecords && student.academicRecords.length > 0 && (
+          <div className="mt-5 p-4 rounded-lg bg-slate-50 border border-slate-200">
+            <h4 className="text-sm font-semibold text-slate-900 mb-2">
+              Academic Summary
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-xs text-slate-500">Current GPA</span>
+                <div className="text-lg font-bold text-slate-900">
+                  {student.academicRecords[0]?.gpa || "N/A"}
+                </div>
+              </div>
+              <div>
+                <span className="text-xs text-slate-500">CGPA</span>
+                <div className="text-lg font-bold text-slate-900">
+                  {student.academicRecords[0]?.cgpa || "N/A"}
+                </div>
+              </div>
             </div>
           </div>
-          <span
-            className="ml-auto text-xs px-2.5 py-1 rounded-full font-medium"
-            style={{ background: "var(--color-primary-glow)", color: "var(--color-primary)" }}
-          >
-            Member
-          </span>
-        </div>
+        )}
 
         {/* Actions */}
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-lg text-xs sm:text-sm font-semibold border-none cursor-pointer transition-all duration-200 text-white font-sans"
-            style={{ background: "var(--color-primary)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--color-primary-dark)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--color-primary)";
-            }}
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold border-2 border-slate-200 text-slate-600 hover:border-[#1a5cff] hover:text-[#1a5cff] transition-all cursor-pointer bg-transparent"
           >
             Close
+          </button>
+          <button
+            onClick={() => {
+              alert(`Editing student: ${student.name}`);
+              onClose();
+            }}
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#1a5cff] hover:bg-[#0f4ad0] transition-all cursor-pointer border-none"
+          >
+            Edit Student
           </button>
         </div>
       </div>

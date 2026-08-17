@@ -1,212 +1,377 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import PaymentCard, { type Payment } from "./PaymentCard";
-import CreateManualPaymentModal, { type ManualPaymentData } from "./CreateManualPaymentModal";
+import { useState } from "react";
+import { useAdminReceipts } from "@/hooks/admin/useAdminFinance";
+import {
+  Search,
+  CreditCard,
+  Download,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { usePermissions } from "../context/PermissionContext";
 
-const INITIAL_PAYMENTS: Payment[] = [
-  { id: "1", title: "Departmental Dinner", amount: "₦5,000", date: "Dec 15, 2026", paymentCount: 243, status: "active" },
-  { id: "2", title: "Faculty Week Registration", amount: "₦3,200", date: "Nov 30, 2026", paymentCount: 187, status: "active" },
-  { id: "3", title: "Tech Fest Tickets", amount: "₦12,500", date: "Jan 25, 2027", paymentCount: 89, status: "active" },
-  { id: "4", title: "Lab Maintenance", amount: "₦3,000", date: "Oct 20, 2026", paymentCount: 56, status: "inactive" },
-  { id: "5", title: "Graduation Gown Deposit", amount: "₦35,000", date: "Mar 10, 2027", paymentCount: 34, status: "active" },
-  { id: "6", title: "Sports Association Fees", amount: "₦2,500", date: "Feb 14, 2027", paymentCount: 142, status: "active" },
-];
+const ITEMS_PER_PAGE = 10;
 
-export default function PaymentsView() {
-  const [payments, setPayments] = useState<Payment[]>(INITIAL_PAYMENTS);
-  const [modalOpen, setModalOpen] = useState(false);
+const STATUS_COLORS: Record<
+  string,
+  { bg: string; text: string; dot: string; label: string }
+> = {
+  ISSUED: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-600",
+    dot: "bg-emerald-500",
+    label: "Issued",
+  },
+  VOIDED: {
+    bg: "bg-red-50",
+    text: "text-red-600",
+    dot: "bg-red-500",
+    label: "Voided",
+  },
+  CANCELLED: {
+    bg: "bg-slate-100",
+    text: "text-slate-500",
+    dot: "bg-slate-400",
+    label: "Cancelled",
+  },
+  PENDING: {
+    bg: "bg-amber-50",
+    text: "text-amber-600",
+    dot: "bg-amber-500",
+    label: "Pending",
+  },
+  COMPLETED: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-600",
+    dot: "bg-emerald-500",
+    label: "Completed",
+  },
+  FAILED: {
+    bg: "bg-red-50",
+    text: "text-red-600",
+    dot: "bg-red-500",
+    label: "Failed",
+  },
+};
+
+export function PaymentsView() {
+  const { hasPermission } = usePermissions();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [sortBy, setSortBy] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const filtered = useMemo(() => {
-    let list = payments.filter((p) => {
-      const matchSearch = !search || p.title.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = !statusFilter || p.status === statusFilter;
-      return matchSearch && matchStatus;
+  const { data, isLoading, refetch } = useAdminReceipts({
+    page: currentPage,
+    limit: ITEMS_PER_PAGE,
+  });
+
+  const receipts = data?.data || [];
+  const meta = data?.meta;
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    refetch();
+  };
+
+  const getStatusColor = (status: string) => {
+    return STATUS_COLORS[status] || STATUS_COLORS.PENDING;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `₦${amount.toLocaleString()}`;
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
+  };
 
-    if (sortBy === "newest") list = [...list].reverse();
-    if (sortBy === "oldest") list = [...list];
-    if (sortBy === "amount-high") {
-      list = [...list].sort((a, b) => {
-        const aVal = parseFloat(a.amount.replace(/[₦,]/g, ""));
-        const bVal = parseFloat(b.amount.replace(/[₦,]/g, ""));
-        return bVal - aVal;
-      });
-    }
-    if (sortBy === "amount-low") {
-      list = [...list].sort((a, b) => {
-        const aVal = parseFloat(a.amount.replace(/[₦,]/g, ""));
-        const bVal = parseFloat(b.amount.replace(/[₦,]/g, ""));
-        return aVal - bVal;
-      });
-    }
+  const handleDownload = (id: string, ref: string) => {
+    alert(`Downloading receipt ${ref}...`);
+  };
 
-    return list;
-  }, [payments, search, statusFilter, sortBy]);
-
-  const handleToggle = (id: string) => {
-    setPayments((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, status: p.status === "active" ? "inactive" : "active" }
-          : p
-      )
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-[#1a5cff] animate-spin" />
+          <span className="text-sm text-[#5b6d89] font-medium">
+            Loading payments...
+          </span>
+        </div>
+      </div>
     );
-  };
-
-  const handleCreate = (data: ManualPaymentData) => {
-    const newPayment: Payment = {
-      id: String(Date.now()),
-      title: data.title,
-      amount: `₦${data.amount.toLocaleString()}`,
-      date: data.dueDate
-        ? new Date(data.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-        : "—",
-      paymentCount: 0,
-      status: data.status,
-    };
-    setPayments((prev) => [newPayment, ...prev]);
-  };
-
-  const selectCls =
-    "px-3 py-2 border rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white cursor-pointer";
+  }
 
   return (
     <div>
       {/* Page Header */}
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight" style={{ color: "var(--color-foreground)" }}>
-            Manual Payments
+          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
+            Payments
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: "var(--color-muted-foreground)" }}>
-            Create and manage manual payments for Computer Science Department
+          <p className="text-sm text-slate-500 mt-0.5">
+            View and manage all payment receipts
           </p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 font-sans"
-          style={{ background: "var(--color-primary)" }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--color-primary-dark)";
-            e.currentTarget.style.transform = "translateY(-1px)";
-            e.currentTarget.style.boxShadow = "0 4px 16px oklch(46% .18 265 / 0.2)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "var(--color-primary)";
-            e.currentTarget.style.transform = "none";
-            e.currentTarget.style.boxShadow = "none";
-          }}
-        >
-          <i className="fas fa-plus" />
-          Create Manual
-        </button>
       </div>
 
       {/* Filter Bar */}
       <div className="flex gap-3 mb-6 flex-wrap items-center">
-        {/* Search */}
-        <div className="relative flex-1" style={{ minWidth: "200px", maxWidth: "360px" }}>
-          <i
-            className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
-            style={{ color: "var(--color-muted-foreground)" }}
-          />
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Search payments..."
-            className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm font-sans outline-none transition-all duration-200 bg-white"
-            style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "var(--color-primary)";
-              e.target.style.boxShadow = "0 0 0 3px oklch(62% .2 270 / 0.1)";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "var(--color-border)";
-              e.target.style.boxShadow = "none";
-            }}
+            className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
           />
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 flex-wrap">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className={selectCls}
-            style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-            onFocus={(e) => { e.target.style.borderColor = "var(--color-primary)"; }}
-            onBlur={(e) => { e.target.style.borderColor = "var(--color-border)"; }}
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+        >
+          <option value="">All Status</option>
+          <option value="ISSUED">Issued</option>
+          <option value="PENDING">Pending</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="FAILED">Failed</option>
+          <option value="VOIDED">Voided</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
 
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className={selectCls}
-            style={{ borderColor: "var(--color-border)", color: "var(--color-foreground)" }}
-            onFocus={(e) => { e.target.style.borderColor = "var(--color-primary)"; }}
-            onBlur={(e) => { e.target.style.borderColor = "var(--color-border)"; }}
+        {(search || statusFilter) && (
+          <button
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("");
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
           >
-            <option value="">Sort By</option>
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="amount-high">Amount: High to Low</option>
-            <option value="amount-low">Amount: Low to High</option>
-          </select>
-
-          {(search || statusFilter || sortBy) && (
-            <button
-              onClick={() => { setSearch(""); setStatusFilter(""); setSortBy(""); }}
-              className="flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 bg-white font-sans"
-              style={{ borderColor: "var(--color-border)", color: "var(--color-muted-foreground)" }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-destructive)";
-                e.currentTarget.style.color = "var(--color-destructive)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--color-border)";
-                e.currentTarget.style.color = "var(--color-muted-foreground)";
-              }}
-            >
-              <i className="fas fa-xmark" /> Clear
-            </button>
-          )}
-        </div>
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-          <i className="fas fa-hand-holding-dollar text-5xl" style={{ color: "var(--color-border)" }} />
-          <h3 className="text-lg font-semibold" style={{ color: "var(--color-foreground)" }}>
-            No payments found
-          </h3>
-          <p className="text-sm" style={{ color: "var(--color-muted-foreground)" }}>
-            {search || statusFilter ? "Try adjusting your filters" : "Create your first manual payment"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((p) => (
-            <PaymentCard key={p.id} payment={p} onToggle={handleToggle} />
-          ))}
-        </div>
-      )}
+      {/* Payments Table */}
+      <div
+        className="bg-white border rounded-xl overflow-hidden"
+        style={{ borderColor: "var(--color-border)" }}
+      >
+        {receipts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl text-slate-300 mb-3">
+              <CreditCard className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-900">
+              No payments found
+            </h3>
+            <p className="text-sm text-slate-500 mt-1 max-w-sm">
+              {search || statusFilter
+                ? "No matching payments found. Try adjusting your search query."
+                : "No payment receipts available yet."}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse min-w-[800px]">
+              <thead>
+                <tr
+                  className="bg-slate-50 border-b"
+                  style={{ borderColor: "var(--color-border)" }}
+                >
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Receipt
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Amount
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Payer
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody
+                className="divide-y"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                {receipts.map((receipt: any) => {
+                  const statusColor = getStatusColor(receipt.status);
 
-      {/* Modal */}
-      <CreateManualPaymentModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleCreate}
-      />
+                  return (
+                    <tr
+                      key={receipt.id}
+                      className="hover:bg-slate-50/80 transition-colors duration-150"
+                    >
+                      <td className="px-4 py-3.5 align-middle">
+                        <div>
+                          <div className="font-semibold text-sm text-slate-900">
+                            {receipt.receiptNumber || receipt.reference}
+                          </div>
+                          <div className="text-xs text-slate-400 truncate max-w-[200px]">
+                            {receipt.description || "Payment receipt"}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <span className="font-bold text-sm text-slate-900">
+                          {formatCurrency(
+                            receipt.totalAmount || receipt.amount,
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <div>
+                          <div className="text-sm text-slate-700">
+                            {receipt.payerName}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {receipt.payerEmail}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <div className="text-sm text-slate-700">
+                          {formatDate(receipt.paymentDate || receipt.createdAt)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
+                            statusColor.bg,
+                            statusColor.text,
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              statusColor.dot,
+                            )}
+                          />
+                          {statusColor.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() =>
+                              alert(`View receipt: ${receipt.receiptNumber}`)
+                            }
+                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-blue-50 text-slate-400 hover:text-blue-600 cursor-pointer flex items-center justify-center transition-colors"
+                            title="View Receipt"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDownload(receipt.id, receipt.receiptNumber)
+                            }
+                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 cursor-pointer flex items-center justify-center transition-colors"
+                            title="Download Receipt"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {meta && meta.totalPages > 1 && (
+          <div
+            className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t"
+            style={{ borderColor: "var(--color-border)" }}
+          >
+            <div className="text-xs text-slate-500">
+              Showing{" "}
+              <strong className="text-slate-700">
+                {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+              </strong>{" "}
+              to{" "}
+              <strong className="text-slate-700">
+                {Math.min(currentPage * ITEMS_PER_PAGE, meta.total)}
+              </strong>{" "}
+              of <strong className="text-slate-700">{meta.total}</strong>{" "}
+              payments
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white border-slate-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {Array.from({ length: Math.min(meta.totalPages, 5) }).map(
+                (_, idx) => {
+                  const pageNum = idx + 1;
+                  const isActive = pageNum === currentPage;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={cn(
+                        "w-8 h-8 rounded-lg border text-xs font-semibold cursor-pointer transition-colors",
+                        isActive
+                          ? "bg-[#1a5cff] text-white border-[#1a5cff]"
+                          : "bg-white text-slate-700 hover:bg-slate-50 border-slate-200",
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                },
+              )}
+
+              <button
+                disabled={currentPage === meta.totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                className="w-8 h-8 rounded-lg border flex items-center justify-center text-xs font-medium cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-white border-slate-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
