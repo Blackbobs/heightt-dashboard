@@ -76,6 +76,11 @@ export interface Organization {
   adminsCount: number;
   status: "Active" | "Pending" | "Inactive";
   createdAt: string;
+  academicSessionId?: string; // NEW
+  academicSession?: { // NEW
+    id: string;
+    name: string;
+  };
 }
 
 export interface AdminMembership {

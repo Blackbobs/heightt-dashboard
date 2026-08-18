@@ -1,3 +1,5 @@
+// src/app/components/PlatformShell.tsx
+
 "use client";
 
 import React, { useEffect, useState, ReactNode } from "react";
@@ -96,7 +98,7 @@ const navItems = [
     label: "Academic Sessions",
     icon: Calendar,
     badge: null,
-  }, // Add this
+  },
   {
     path: "/platform/audit-logs",
     label: "Audit Logs",

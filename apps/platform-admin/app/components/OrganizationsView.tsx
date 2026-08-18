@@ -29,11 +29,12 @@ import {
   Building2,
   ChevronRight,
   Info,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getApiErrorMessage } from "@/lib/api/error";
 import DataTable from "./DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
+import { useAcademicSessions } from "./useAcademicSessions";
 
 const ORGANIZATION_TYPES = [
   { value: "INSTITUTION", label: "Institution" },
@@ -63,6 +64,7 @@ export default function OrganizationsView() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [sessionFilter, setSessionFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -75,24 +77,25 @@ export default function OrganizationsView() {
     facultyId: "",
     departmentId: "",
     academicLevelId: "",
+    academicSessionId: "",
   });
 
-  // Fetch institutions
   const { data: institutionsData } = usePlatformInstitutions({ limit: 100 });
 
-  // Fetch faculties for the selected institution
   const {
     data: facultiesData,
     isLoading: facultiesLoading,
     refetch: refetchFaculties,
   } = usePlatformFaculties(formData.institutionId);
 
-  // Fetch departments for the selected faculty
   const {
     data: departmentsData,
     isLoading: departmentsLoading,
     refetch: refetchDepartments,
   } = usePlatformDepartments(formData.facultyId);
+
+  const { data: sessionsData, isLoading: sessionsLoading } =
+    useAcademicSessions(formData.institutionId);
 
   const {
     data,
@@ -104,6 +107,7 @@ export default function OrganizationsView() {
     search: search || undefined,
     type: typeFilter || undefined,
     status: statusFilter || undefined,
+    academicSessionId: sessionFilter || undefined,
   });
 
   const createMutation = useCreateOrganization();
@@ -114,30 +118,22 @@ export default function OrganizationsView() {
   const organizations = data?.data || [];
   const meta = data?.meta;
   const institutions = institutionsData?.data || [];
+  const faculties = facultiesData || [];
+  const departments = departmentsData || [];
+  const sessions = sessionsData || [];
 
-  // Handle the data response - might be array or object with data property
-  const faculties = Array.isArray(facultiesData)
-    ? facultiesData
-    : facultiesData?.data || [];
-  const departments = Array.isArray(departmentsData)
-    ? departmentsData
-    : departmentsData?.data || [];
-
-  // Refetch faculties when institution changes
   useEffect(() => {
     if (formData.institutionId) {
       refetchFaculties();
     }
   }, [formData.institutionId, refetchFaculties]);
 
-  // Refetch departments when faculty changes
   useEffect(() => {
     if (formData.facultyId) {
       refetchDepartments();
     }
   }, [formData.facultyId, refetchDepartments]);
 
-  // Get filtered faculties based on selected institution
   const filteredFaculties = useMemo(() => {
     if (!formData.institutionId) return [];
     return faculties.filter(
@@ -145,13 +141,11 @@ export default function OrganizationsView() {
     );
   }, [faculties, formData.institutionId]);
 
-  // Get filtered departments based on selected faculty
   const filteredDepartments = useMemo(() => {
     if (!formData.facultyId) return [];
     return departments.filter((d: any) => d.facultyId === formData.facultyId);
   }, [departments, formData.facultyId]);
 
-  // Determine if faculty/department fields should be shown based on type
   const showFacultyField = useMemo(() => {
     return [
       "FACULTY",
@@ -181,65 +175,50 @@ export default function OrganizationsView() {
     return ["LEVEL"].includes(formData.type);
   }, [formData.type]);
 
-  const handleNavigateToOrg = (id: string) => {
+  const navigateToOrg = (id: string) => {
     router.push(`/platform/organizations/${id}`);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.institutionId) {
+      alert("Please select an institution");
+      return;
+    }
+
+    if (formData.type === "FACULTY" && !formData.facultyId) {
+      alert("Please select a faculty");
+      return;
+    }
+
+    if (
+      (formData.type === "DEPARTMENT" || formData.type === "LEVEL") &&
+      !formData.departmentId
+    ) {
+      alert("Please select a department");
+      return;
+    }
+
+    const data: any = {
+      name: formData.name,
+      slug: formData.slug,
+      type: formData.type,
+      scope: formData.scope,
+      institutionId: formData.institutionId,
+    };
+
+    if (formData.description) data.description = formData.description;
+    if (formData.facultyId && showFacultyField)
+      data.facultyId = formData.facultyId;
+    if (formData.departmentId && showDepartmentField)
+      data.departmentId = formData.departmentId;
+    if (formData.academicLevelId && showLevelField)
+      data.academicLevelId = formData.academicLevelId;
+    if (formData.academicSessionId)
+      data.academicSessionId = formData.academicSessionId;
+
     try {
-      // Validate institution is selected
-      if (!formData.institutionId) {
-        alert("Please select an institution");
-        return;
-      }
-
-      // For FACULTY type, facultyId is required
-      if (formData.type === "FACULTY" && !formData.facultyId) {
-        alert("Please select a faculty");
-        return;
-      }
-
-      // For DEPARTMENT and LEVEL types, departmentId is required
-      if (
-        (formData.type === "DEPARTMENT" || formData.type === "LEVEL") &&
-        !formData.departmentId
-      ) {
-        alert("Please select a department");
-        return;
-      }
-
-      // Build the data object - only include fields that have values
-      const data: any = {
-        name: formData.name,
-        slug: formData.slug,
-        type: formData.type,
-        scope: formData.scope,
-        institutionId: formData.institutionId,
-      };
-
-      // Only add description if it has a value
-      if (formData.description) {
-        data.description = formData.description;
-      }
-
-      // Only include facultyId if it has a value and is relevant
-      if (formData.facultyId && showFacultyField) {
-        data.facultyId = formData.facultyId;
-      }
-
-      // Only include departmentId if it has a value and is relevant
-      if (formData.departmentId && showDepartmentField) {
-        data.departmentId = formData.departmentId;
-      }
-
-      // Only include academicLevelId if it has a value and is relevant
-      if (formData.academicLevelId && showLevelField) {
-        data.academicLevelId = formData.academicLevelId;
-      }
-
-      console.log("Submitting organization data:", data);
-
       await createMutation.mutateAsync(data);
       setIsModalOpen(false);
       setFormData({
@@ -252,24 +231,17 @@ export default function OrganizationsView() {
         facultyId: "",
         departmentId: "",
         academicLevelId: "",
+        academicSessionId: "",
       });
       refetch();
     } catch (error: any) {
       console.error("Failed to create organization:", error);
-      const message =
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to create organization";
-      alert(message);
+      alert(error?.response?.data?.message || "Failed to create organization");
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (
-      confirm(
-        `Are you sure you want to delete "${name}"? This action cannot be undone.`,
-      )
-    ) {
+    if (confirm(`Are you sure you want to delete "${name}"?`)) {
       try {
         await deleteMutation.mutateAsync(id);
         refetch();
@@ -297,7 +269,6 @@ export default function OrganizationsView() {
     }
   };
 
-  // Define columns with useMemo
   const columns = useMemo<ColumnDef<any, any>[]>(
     () => [
       {
@@ -306,7 +277,7 @@ export default function OrganizationsView() {
         cell: ({ row }) => (
           <div
             className="cursor-pointer hover:text-blue-600 transition-colors"
-            onClick={() => handleNavigateToOrg(row.original.id)}
+            onClick={() => navigateToOrg(row.original.id)}
           >
             <div style={{ fontWeight: 700 }}>{row.original.name}</div>
             <div className="text-xs text-slate-400">{row.original.slug}</div>
@@ -320,9 +291,12 @@ export default function OrganizationsView() {
         header: "Institution",
       },
       {
-        accessorFn: (r) => r.faculty?.name || r.facultyId || "—",
-        id: "faculty",
-        header: "Faculty",
+        accessorFn: (r) => r.academicSession?.name || "N/A",
+        id: "session",
+        header: "Session",
+        cell: ({ getValue }) => (
+          <span className="text-xs text-slate-600">{getValue()}</span>
+        ),
       },
       {
         accessorFn: (r) => r.members?.length || 0,
@@ -352,7 +326,7 @@ export default function OrganizationsView() {
             <div style={{ display: "inline-flex", gap: 6 }}>
               <button
                 className="btn btn-secondary btn-sm"
-                onClick={() => handleNavigateToOrg(row.original.id)}
+                onClick={() => navigateToOrg(row.original.id)}
                 title="View Details"
               >
                 <Eye className="w-3 h-3" />
@@ -374,12 +348,6 @@ export default function OrganizationsView() {
                 </button>
               )}
               <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => alert(`Edit: ${row.original.name}`)}
-              >
-                <Edit2 className="w-3 h-3" />
-              </button>
-              <button
                 className="btn btn-danger btn-sm"
                 onClick={() => handleDelete(row.original.id, row.original.name)}
               >
@@ -393,7 +361,6 @@ export default function OrganizationsView() {
     [],
   );
 
-  // Show loading state
   if (orgsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -410,10 +377,7 @@ export default function OrganizationsView() {
             <Flag className="w-6 h-6 text-[#1a5cff]" />
             Organizations Management
           </h1>
-          <p>
-            Route: <code>/platform/organizations</code> • Manage all
-            organizations across the platform
-          </p>
+          <p>Manage all organizations across the platform</p>
         </div>
         <div className="actions">
           <button
@@ -469,6 +433,21 @@ export default function OrganizationsView() {
             <option value="INACTIVE">Inactive</option>
             <option value="ARCHIVED">Archived</option>
           </select>
+          <select
+            className="filter-select"
+            value={sessionFilter}
+            onChange={(e) => {
+              setSessionFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+          >
+            <option value="">All Sessions</option>
+            {sessions.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.name} {session.isCurrent ? "(Current)" : ""}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="toolbar-right">
           <span className="text-sm text-slate-500 font-medium">
@@ -487,7 +466,6 @@ export default function OrganizationsView() {
         )}
       </div>
 
-      {/* Pagination */}
       {meta && meta.totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-slate-500">
@@ -519,7 +497,7 @@ export default function OrganizationsView() {
           className="modal-overlay open"
           onClick={() => setIsModalOpen(false)}
         >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Create Organization</h2>
               <button
@@ -530,7 +508,6 @@ export default function OrganizationsView() {
               </button>
             </div>
             <form onSubmit={handleCreate}>
-              {/* Basic Info */}
               <div className="form-group">
                 <label className="form-label">Organization Name *</label>
                 <input
@@ -585,9 +562,6 @@ export default function OrganizationsView() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-400 mt-1">
-                  Select the type of organization you want to create
-                </p>
               </div>
 
               <div className="form-group">
@@ -606,12 +580,8 @@ export default function OrganizationsView() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-400 mt-1">
-                  Defines the reach and visibility of this organization
-                </p>
               </div>
 
-              {/* Institution - Always required */}
               <div className="form-group">
                 <label className="form-label">Institution *</label>
                 <select
@@ -624,6 +594,7 @@ export default function OrganizationsView() {
                       institutionId: value,
                       facultyId: "",
                       departmentId: "",
+                      academicSessionId: "",
                     });
                   }}
                   required
@@ -635,12 +606,8 @@ export default function OrganizationsView() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-slate-400 mt-1">
-                  The institution this organization belongs to
-                </p>
               </div>
 
-              {/* Faculty - Only show for certain types */}
               {showFacultyField && (
                 <div className="form-group">
                   <label className="form-label">
@@ -675,28 +642,9 @@ export default function OrganizationsView() {
                       </option>
                     ))}
                   </select>
-                  {!formData.institutionId && (
-                    <p className="text-xs text-amber-500 mt-1">
-                      Please select an institution first
-                    </p>
-                  )}
-                  {formData.type === "FACULTY" && (
-                    <p className="text-xs text-slate-400 mt-1">
-                      This organization will represent a faculty
-                    </p>
-                  )}
-                  {filteredFaculties.length === 0 &&
-                    formData.institutionId &&
-                    !facultiesLoading && (
-                      <p className="text-xs text-amber-500 mt-1">
-                        No faculties found for this institution. Please create a
-                        faculty first.
-                      </p>
-                    )}
                 </div>
               )}
 
-              {/* Department - Only show for certain types */}
               {showDepartmentField && (
                 <div className="form-group">
                   <label className="form-label">
@@ -730,28 +678,9 @@ export default function OrganizationsView() {
                       </option>
                     ))}
                   </select>
-                  {!formData.facultyId && formData.type !== "DEPARTMENT" && (
-                    <p className="text-xs text-amber-500 mt-1">
-                      Please select a faculty first
-                    </p>
-                  )}
-                  {formData.type === "DEPARTMENT" && (
-                    <p className="text-xs text-slate-400 mt-1">
-                      This organization will represent a department
-                    </p>
-                  )}
-                  {filteredDepartments.length === 0 &&
-                    formData.facultyId &&
-                    !departmentsLoading && (
-                      <p className="text-xs text-amber-500 mt-1">
-                        No departments found for this faculty. Please create a
-                        department first.
-                      </p>
-                    )}
                 </div>
               )}
 
-              {/* Academic Level - Only for LEVEL type */}
               {showLevelField && (
                 <div className="form-group">
                   <label className="form-label">Academic Level *</label>
@@ -772,24 +701,41 @@ export default function OrganizationsView() {
                         ? "Please select a department first"
                         : "Select Academic Level"}
                     </option>
-                    {/* This would need to be populated from an API call to get levels for the department */}
-                    <option value="" disabled>
-                      Loading levels...
-                    </option>
                   </select>
-                  {!formData.departmentId && (
-                    <p className="text-xs text-amber-500 mt-1">
-                      Please select a department first
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-400 mt-1">
-                    The academic level this organization belongs to (e.g., 100
-                    Level)
-                  </p>
                 </div>
               )}
 
-              {/* Description */}
+              <div className="form-group">
+                <label className="form-label">Academic Session</label>
+                <select
+                  className="form-select"
+                  value={formData.academicSessionId}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      academicSessionId: e.target.value,
+                    })
+                  }
+                  disabled={!formData.institutionId || sessionsLoading}
+                >
+                  <option value="">
+                    {!formData.institutionId
+                      ? "Please select an institution first"
+                      : sessionsLoading
+                        ? "Loading sessions..."
+                        : "Select Academic Session (Optional)"}
+                  </option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name} {session.isCurrent ? "(Current)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Assign this organization to a specific academic session
+                </p>
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Description</label>
                 <textarea
@@ -803,18 +749,15 @@ export default function OrganizationsView() {
                 />
               </div>
 
-              {/* Info Box */}
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 mb-4">
                 <div className="flex items-start gap-2">
                   <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-blue-700">
-                    <p className="font-semibold">
-                      Organization Hierarchy Info:
-                    </p>
+                    <p className="font-semibold">Organization Hierarchy:</p>
                     <ul className="list-disc list-inside mt-1 space-y-0.5">
                       <li>
-                        <strong>Institution</strong> - Top level, spans the
-                        entire institution
+                        <strong>Institution</strong> - Top level, spans entire
+                        institution
                       </li>
                       <li>
                         <strong>Faculty</strong> - Belongs to an institution,
@@ -826,11 +769,11 @@ export default function OrganizationsView() {
                       </li>
                       <li>
                         <strong>Level</strong> - Belongs to a department, spans
-                        a specific academic level
+                        a specific level
                       </li>
                       <li>
                         <strong>Association/Club/etc</strong> - Can be at any
-                        level, typically faculty or department
+                        level
                       </li>
                     </ul>
                   </div>

@@ -1,18 +1,28 @@
+// src/app/signin/page.tsx
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { usePlatformLogin } from "@/hooks/platform/usePlatformAuth";
-import { Eye, EyeOff, Lock, Mail, LogIn, Building2 } from "lucide-react";
+import { useAuthStore } from "@/store/auth-store";
+import { axiosConfig } from "@/utils/axios-config";
+import { Eye, EyeOff, Lock, Mail, LogIn, Shield, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function PlatformLoginPage() {
+export default function SignInPage() {
   const router = useRouter();
-  const loginMutation = usePlatformLogin();
+  const { isAuthenticated, isLoading: authLoading, setAuth, clearUser, user } = useAuthStore();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && !authLoading && user?.isAdminSession) {
+      router.replace("/platform");
+    }
+  }, [isAuthenticated, authLoading, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,11 +33,31 @@ export default function PlatformLoginPage() {
       return;
     }
 
+    setIsSubmitting(true);
+
     try {
-      await loginMutation.mutateAsync({ identifier, password });
-      router.push("/platform");
+      const response = await axiosConfig.post("/auth/admin/login", {
+        identifier,
+        password,
+      });
+
+      const { accessToken, ...userData } = response.data;
+
+      if (accessToken) {
+        axiosConfig.defaults.headers.common["Authorization"] =
+          `Bearer ${accessToken}`;
+      }
+
+      setAuth(accessToken || null, userData);
+      router.replace("/platform");
     } catch (err: any) {
-      setError(err.message || "Invalid credentials. Please try again.");
+      console.error("Admin login error:", err);
+      const message = err?.response?.data?.message ||
+        err?.message ||
+        "Invalid credentials or insufficient permissions.";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -37,23 +67,23 @@ export default function PlatformLoginPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-[#1a5cff] flex items-center justify-center text-white">
-              <Building2 className="w-5 h-5" />
+              <Shield className="w-5 h-5" />
             </div>
             <span className="text-xl font-bold text-[#0b1a33]">
-              Heightt Platform
+              Heightt Platform Admin
             </span>
           </div>
           <p className="text-sm text-[#5b6d89] mt-2">
-            Platform Administration Dashboard
+            Secure administration dashboard
           </p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_20px_60px_rgba(0,20,40,0.08)] p-8">
           <h1 className="text-2xl font-bold text-[#0b1a33] mb-1.5">
-            Welcome Back
+            Admin Access
           </h1>
           <p className="text-sm text-[#5b6d89] mb-6">
-            Sign in to manage the platform
+            Sign in with your admin credentials
           </p>
 
           {error && (
@@ -73,7 +103,7 @@ export default function PlatformLoginPage() {
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="john@example.com or john_doe"
+                  placeholder="admin@example.com or admin_user"
                   className="w-full pl-10 pr-4 py-3 bg-[#f8faff] border-[1.5px] border-[#e2e8f0] rounded-xl text-sm font-medium text-[#0b1a33] placeholder:text-[#9aabbf] outline-none transition-all focus:border-[#1a5cff] focus:bg-white focus:ring-4 focus:ring-[#1a5cff]/10"
                 />
               </div>
@@ -108,15 +138,15 @@ export default function PlatformLoginPage() {
 
             <button
               type="submit"
-              disabled={loginMutation.isPending}
+              disabled={isSubmitting || authLoading}
               className={cn(
                 "w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]",
-                loginMutation.isPending
+                isSubmitting || authLoading
                   ? "bg-[#93b4ff] cursor-not-allowed"
                   : "bg-[#1a5cff] hover:bg-[#0f4ad0] shadow-[0_8px_24px_rgba(26,92,255,0.25)] hover:shadow-[0_12px_28px_rgba(26,92,255,0.3)]",
               )}
             >
-              {loginMutation.isPending ? (
+              {isSubmitting || authLoading ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Signing in...
@@ -124,14 +154,15 @@ export default function PlatformLoginPage() {
               ) : (
                 <>
                   <LogIn className="w-4 h-4" />
-                  Sign In
+                  Admin Sign In
                 </>
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center text-xs text-[#7a8ba3]">
-            Secure platform access for administrators
+            <Shield className="w-3 h-3 inline mr-1" />
+            Secure platform admin access
           </div>
         </div>
       </div>

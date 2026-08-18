@@ -27,6 +27,11 @@ export interface UserResponseDto {
   updatedAt: string;
   profile: UserProfileResponseDto;
   studentProfile?: StudentProfileResponseDto;
+  // Admin fields
+  isPlatformAdmin?: boolean;
+  adminTypes?: string[];
+  userType?: "PLATFORM_ADMIN" | "ADMIN" | "USER" | "STUDENT";
+  roles?: string[];
 }
 
 export interface UserProfileResponseDto {

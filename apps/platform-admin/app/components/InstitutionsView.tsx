@@ -1,3 +1,5 @@
+// src/app/components/InstitutionsView.tsx
+
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -23,6 +25,8 @@ import {
   Flag,
   Building2,
   ChevronRight,
+  Calendar,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DataTable from "./DataTable";
@@ -91,7 +95,6 @@ function InstitutionHierarchy({ institutionId }: { institutionId: string }) {
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
 
-          {/* Departments */}
           {departments
             ?.filter((d: any) => d.facultyId === faculty.id)
             .map((dept: any) => (
@@ -109,7 +112,6 @@ function InstitutionHierarchy({ institutionId }: { institutionId: string }) {
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
 
-                {/* Organizations */}
                 {organizations?.data
                   ?.filter((o: any) => o.departmentId === dept.id)
                   .map((org: any) => (
@@ -146,6 +148,14 @@ function InstitutionHierarchy({ institutionId }: { institutionId: string }) {
 // Main Institutions View
 // ============================================
 
+interface SessionFormData {
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  isCurrent: boolean;
+}
+
 export default function InstitutionsView() {
   const router = useRouter();
   const { hasPermission } = useApp();
@@ -161,6 +171,15 @@ export default function InstitutionsView() {
     shortName: "",
     code: "",
     country: "Nigeria",
+    sessions: [
+      {
+        name: "",
+        startDate: "",
+        endDate: "",
+        status: "UPCOMING",
+        isCurrent: true,
+      },
+    ] as SessionFormData[],
   });
 
   const { data, isLoading, refetch } = usePlatformInstitutions({
@@ -180,7 +199,37 @@ export default function InstitutionsView() {
     router.push(`/platform/institutions/${id}`);
   };
 
-  // Define columns with useMemo - MUST be called before any conditional returns
+  const handleAddSession = () => {
+    setFormData({
+      ...formData,
+      sessions: [
+        ...formData.sessions,
+        {
+          name: "",
+          startDate: "",
+          endDate: "",
+          status: "UPCOMING",
+          isCurrent: false,
+        },
+      ],
+    });
+  };
+
+  const handleRemoveSession = (index: number) => {
+    if (formData.sessions.length <= 1) {
+      alert("You must have at least one session");
+      return;
+    }
+    const newSessions = formData.sessions.filter((_, i) => i !== index);
+    setFormData({ ...formData, sessions: newSessions });
+  };
+
+  const handleSessionChange = (index: number, field: string, value: any) => {
+    const newSessions = [...formData.sessions];
+    newSessions[index] = { ...newSessions[index], [field]: value };
+    setFormData({ ...formData, sessions: newSessions });
+  };
+
   const columns = useMemo<ColumnDef<any, any>[]>(
     () => [
       {
@@ -204,9 +253,15 @@ export default function InstitutionsView() {
         header: "Faculties",
       },
       {
-        accessorFn: (r) => r.departmentsCount || 0,
-        id: "departments",
-        header: "Departments",
+        accessorFn: (r) => r.sessions?.length || 0,
+        id: "sessions",
+        header: "Sessions",
+        cell: ({ getValue }) => (
+          <span className="inline-flex items-center gap-1">
+            <Calendar className="w-3 h-3 text-slate-400" />
+            {getValue()}
+          </span>
+        ),
       },
       {
         accessorFn: (r) => r.organizationsCount || 0,
@@ -265,19 +320,52 @@ export default function InstitutionsView() {
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate sessions
+    for (const session of formData.sessions) {
+      if (!session.name || !session.startDate || !session.endDate) {
+        alert("Please fill in all session fields");
+        return;
+      }
+      if (!/^[0-9]{4}\/[0-9]{4}$/.test(session.name)) {
+        alert(`Session name "${session.name}" must be in format YYYY/YYYY`);
+        return;
+      }
+    }
+
     try {
-      await createMutation.mutateAsync(formData);
+      await createMutation.mutateAsync({
+        name: formData.name,
+        shortName: formData.shortName,
+        code: formData.code,
+        country: formData.country,
+        sessions: formData.sessions,
+      });
       setIsModalOpen(false);
-      setFormData({ name: "", shortName: "", code: "", country: "Nigeria" });
+      setFormData({
+        name: "",
+        shortName: "",
+        code: "",
+        country: "Nigeria",
+        sessions: [
+          {
+            name: "",
+            startDate: "",
+            endDate: "",
+            status: "UPCOMING",
+            isCurrent: true,
+          },
+        ],
+      });
       refetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create institution:", error);
+      alert(error?.response?.data?.message || "Failed to create institution");
     }
   };
 
@@ -300,7 +388,6 @@ export default function InstitutionsView() {
     setExpandedInstitution(expandedInstitution === id ? null : id);
   };
 
-  // Loading state AFTER all hooks are called
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -311,17 +398,13 @@ export default function InstitutionsView() {
 
   return (
     <div>
-      {/* Page Header */}
       <div className="page-head">
         <div className="title">
           <h1 className="flex items-center gap-2">
             <Building2 className="w-6 h-6 text-[#1a5cff]" />
             Institutions Management
           </h1>
-          <p>
-            Route: <code>/platform/institutions</code> • Academic institutions
-            onboarding and hierarchy control
-          </p>
+          <p>Academic institutions onboarding and hierarchy control</p>
         </div>
         <div className="actions">
           <button
@@ -333,7 +416,6 @@ export default function InstitutionsView() {
         </div>
       </div>
 
-      {/* Toolbar */}
       <div className="toolbar">
         <div className="toolbar-left">
           <div className="search-input-wrap">
@@ -364,19 +446,12 @@ export default function InstitutionsView() {
           </select>
         </div>
         <div className="toolbar-right">
-          <span
-            style={{
-              fontSize: "12px",
-              color: "var(--color-text-muted)",
-              fontWeight: 600,
-            }}
-          >
+          <span className="text-sm text-slate-500 font-medium">
             Total: {meta?.total || 0} Institutions
           </span>
         </div>
       </div>
 
-      {/* Table */}
       <div className="table-responsive">
         {institutions.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-500">
@@ -387,7 +462,6 @@ export default function InstitutionsView() {
         )}
       </div>
 
-      {/* Render hierarchy panel for expanded institution */}
       {expandedInstitution && (
         <div className="mt-4 p-4 bg-white border rounded-lg">
           <div className="flex items-center gap-3 mb-3">
@@ -404,7 +478,6 @@ export default function InstitutionsView() {
         </div>
       )}
 
-      {/* Pagination */}
       {meta && meta.totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-slate-500">
@@ -436,7 +509,7 @@ export default function InstitutionsView() {
           className="modal-overlay open"
           onClick={() => setIsModalOpen(false)}
         >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Create New Institution</h2>
               <button
@@ -460,6 +533,7 @@ export default function InstitutionsView() {
                   required
                 />
               </div>
+
               <div className="form-group">
                 <label className="form-label">
                   Short Name / Abbreviation *
@@ -475,6 +549,7 @@ export default function InstitutionsView() {
                   required
                 />
               </div>
+
               <div className="form-group">
                 <label className="form-label">Code *</label>
                 <input
@@ -491,6 +566,7 @@ export default function InstitutionsView() {
                   required
                 />
               </div>
+
               <div className="form-group">
                 <label className="form-label">Country</label>
                 <select
@@ -506,6 +582,111 @@ export default function InstitutionsView() {
                   <option value="South Africa">South Africa</option>
                 </select>
               </div>
+
+              {/* Sessions Section */}
+              <div className="form-group">
+                <label className="form-label">Academic Sessions *</label>
+                <p className="text-xs text-slate-400 mb-2">
+                  At least one academic session is required. Format: YYYY/YYYY
+                </p>
+
+                {formData.sessions.map((session, index) => (
+                  <div
+                    key={index}
+                    className="border border-slate-200 rounded-lg p-3 mb-2"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-700">
+                        Session {index + 1}
+                      </span>
+                      <button
+                        type="button"
+                        className="p-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                        onClick={() => handleRemoveSession(index)}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <input
+                        type="text"
+                        placeholder="2024/2025"
+                        value={session.name}
+                        onChange={(e) =>
+                          handleSessionChange(index, "name", e.target.value)
+                        }
+                        className="form-input"
+                        required
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="date"
+                          value={session.startDate}
+                          onChange={(e) =>
+                            handleSessionChange(
+                              index,
+                              "startDate",
+                              e.target.value,
+                            )
+                          }
+                          className="form-input"
+                          required
+                        />
+                        <input
+                          type="date"
+                          value={session.endDate}
+                          onChange={(e) =>
+                            handleSessionChange(
+                              index,
+                              "endDate",
+                              e.target.value,
+                            )
+                          }
+                          className="form-input"
+                          required
+                        />
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <select
+                          value={session.status}
+                          onChange={(e) =>
+                            handleSessionChange(index, "status", e.target.value)
+                          }
+                          className="form-select flex-1"
+                        >
+                          <option value="UPCOMING">Upcoming</option>
+                          <option value="ACTIVE">Active</option>
+                          <option value="COMPLETED">Completed</option>
+                          <option value="ARCHIVED">Archived</option>
+                        </select>
+                        <label className="flex items-center gap-2 text-sm text-slate-600">
+                          <input
+                            type="checkbox"
+                            checked={session.isCurrent}
+                            onChange={(e) =>
+                              handleSessionChange(
+                                index,
+                                "isCurrent",
+                                e.target.checked,
+                              )
+                            }
+                          />
+                          Current
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm w-full mt-2"
+                  onClick={handleAddSession}
+                >
+                  <Plus className="w-4 h-4" /> Add Session
+                </button>
+              </div>
+
               <div className="modal-actions">
                 <button
                   type="button"

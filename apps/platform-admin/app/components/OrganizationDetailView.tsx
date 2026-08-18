@@ -14,6 +14,7 @@ import {
   useArchiveOrganization,
 } from "@/hooks/platform/usePlatformOrganizations";
 import { usePlatformUsers } from "@/hooks/platform/usePlatformUsers";
+import { useAcademicSessions } from "@/hooks/platform/useAcademicSessions";
 import {
   Building2,
   Users,
@@ -60,15 +61,13 @@ export default function OrganizationDetailView() {
   const router = useRouter();
   const organizationId = params.id as string;
 
-  const [activeTab, setActiveTab] = useState<
-    "members" | "admins" | "settings"
-  >("members");
+  const [activeTab, setActiveTab] = useState<"members" | "admins" | "settings">(
+    "members",
+  );
   const [search, setSearch] = useState("");
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<any | null>(null);
 
-  // Fetch organization data
   const {
     data: organization,
     isLoading: orgLoading,
@@ -82,15 +81,16 @@ export default function OrganizationDetailView() {
   } = usePlatformOrganizationMembers(organizationId, { limit: 100 });
 
   const { data: usersData } = usePlatformUsers({ limit: 100 });
+  const { data: sessionsData } = useAcademicSessions(
+    organization?.institutionId,
+  );
 
-  // Mutations
   const addMemberMutation = useAddOrganizationMember();
   const updateMemberMutation = useUpdateOrganizationMember();
   const removeMemberMutation = useRemoveOrganizationMember();
   const activateMutation = useActivateOrganization();
   const archiveMutation = useArchiveOrganization();
 
-  // Form state for adding member
   const [formData, setFormData] = useState({
     userId: "",
     membershipType: "STUDENT",
@@ -99,7 +99,6 @@ export default function OrganizationDetailView() {
     sessionId: "",
   });
 
-  // Form state for adding admin
   const [adminFormData, setAdminFormData] = useState({
     userId: "",
     role: "ADMIN",
@@ -107,10 +106,10 @@ export default function OrganizationDetailView() {
 
   const members = membersData?.data || [];
   const users = usersData?.data || [];
+  const sessions = sessionsData || [];
 
   const isLoading = orgLoading || membersLoading;
 
-  // Filter members by search
   const filteredMembers = useMemo(() => {
     if (!search) return members;
     const searchLower = search.toLowerCase();
@@ -123,12 +122,10 @@ export default function OrganizationDetailView() {
     );
   }, [members, search]);
 
-  // Get admin members
   const adminMembers = useMemo(() => {
     return members.filter((m: any) => m.membershipType === "ADMIN");
   }, [members]);
 
-  // Handle add member
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -150,7 +147,6 @@ export default function OrganizationDetailView() {
     }
   };
 
-  // Handle add admin
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -171,7 +167,6 @@ export default function OrganizationDetailView() {
     }
   };
 
-  // Handle remove member
   const handleRemoveMember = async (membershipId: string, userName: string) => {
     if (
       confirm(
@@ -187,7 +182,6 @@ export default function OrganizationDetailView() {
     }
   };
 
-  // Handle update member status
   const handleUpdateMemberStatus = async (
     membershipId: string,
     status: string,
@@ -203,7 +197,6 @@ export default function OrganizationDetailView() {
     }
   };
 
-  // Handle activate organization
   const handleActivate = async () => {
     try {
       await activateMutation.mutateAsync(organizationId);
@@ -213,7 +206,6 @@ export default function OrganizationDetailView() {
     }
   };
 
-  // Handle archive organization
   const handleArchive = async () => {
     if (confirm("Are you sure you want to archive this organization?")) {
       try {
@@ -225,7 +217,6 @@ export default function OrganizationDetailView() {
     }
   };
 
-  // Define columns for members table
   const columns = useMemo<ColumnDef<any, any>[]>(
     () => [
       {
@@ -292,9 +283,12 @@ export default function OrganizationDetailView() {
         },
       },
       {
-        accessorFn: (r) => (r.isPrimary ? "Yes" : "No"),
-        id: "primary",
-        header: "Primary",
+        accessorFn: (r) => r.session?.name || "N/A",
+        id: "session",
+        header: "Session",
+        cell: ({ getValue }) => (
+          <span className="text-xs text-slate-600">{getValue()}</span>
+        ),
       },
       {
         accessorFn: (r) => new Date(r.joinedAt).toLocaleDateString(),
@@ -348,7 +342,6 @@ export default function OrganizationDetailView() {
     [],
   );
 
-  // Admin columns
   const adminColumns = useMemo<ColumnDef<any, any>[]>(
     () => [
       {
@@ -395,6 +388,14 @@ export default function OrganizationDetailView() {
             </span>
           );
         },
+      },
+      {
+        accessorFn: (r) => r.session?.name || "N/A",
+        id: "session",
+        header: "Session",
+        cell: ({ getValue }) => (
+          <span className="text-xs text-slate-600">{getValue()}</span>
+        ),
       },
       {
         accessorFn: (r) => new Date(r.joinedAt).toLocaleDateString(),
@@ -453,7 +454,6 @@ export default function OrganizationDetailView() {
 
   return (
     <div>
-      {/* Back Button & Header */}
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => router.back()}
@@ -497,8 +497,7 @@ export default function OrganizationDetailView() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
         <div className="card">
           <div className="card-body">
             <div className="text-sm text-slate-500">Total Members</div>
@@ -523,9 +522,16 @@ export default function OrganizationDetailView() {
             </div>
           </div>
         </div>
+        <div className="card">
+          <div className="card-body">
+            <div className="text-sm text-slate-500">Session</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {organization.academicSession?.name || "N/A"}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-200 mb-6">
         {["members", "admins", "settings"].map((tab) => (
           <button
@@ -543,7 +549,6 @@ export default function OrganizationDetailView() {
         ))}
       </div>
 
-      {/* Members Tab */}
       {activeTab === "members" && (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -582,7 +587,6 @@ export default function OrganizationDetailView() {
         </div>
       )}
 
-      {/* Admins Tab */}
       {activeTab === "admins" && (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -614,8 +618,6 @@ export default function OrganizationDetailView() {
         </div>
       )}
 
-
-      {/* Settings Tab */}
       {activeTab === "settings" && (
         <div>
           <div className="card">
@@ -639,6 +641,13 @@ export default function OrganizationDetailView() {
                 <div>
                   <div className="text-sm text-slate-500">Scope</div>
                   <div>{organization.scope}</div>
+                </div>
+                <div>
+                  <div className="text-sm text-slate-500">Academic Session</div>
+                  <div className="font-medium">
+                    {organization.academicSession?.name ||
+                      "No session assigned"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">Created</div>
@@ -738,6 +747,27 @@ export default function OrganizationDetailView() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Academic Session</label>
+                <select
+                  className="form-select"
+                  value={formData.sessionId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, sessionId: e.target.value })
+                  }
+                >
+                  <option value="">Use Organization's Session</option>
+                  {sessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name} {session.isCurrent ? "(Current)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Leave empty to use the organization's default session
+                </p>
               </div>
 
               <div className="form-group flex items-center gap-2">
