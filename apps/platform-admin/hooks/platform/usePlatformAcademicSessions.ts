@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, AcademicSession } from "@/lib/api/platform";
+import { platformApi, AcademicSession, CreateAcademicSessionDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -18,7 +18,7 @@ export function useCreateAcademicSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<AcademicSession>) =>
+    mutationFn: (data: CreateAcademicSessionDto) =>
       platformApi.createAcademicSession(data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({

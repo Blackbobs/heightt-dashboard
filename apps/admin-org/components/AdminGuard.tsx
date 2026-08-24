@@ -1,5 +1,4 @@
 // apps/admin-org/components/AdminGuard.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -20,37 +19,40 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     const checkAuth = () => {
       const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
-      // If on login page, skip auth check
       if (isPublicRoute) {
         setIsChecking(false);
         return;
       }
 
-      // Wait for hydration to complete
       if (!_hasHydrated) {
-        console.log("Waiting for hydration...");
         return;
       }
 
-      // Check if user is authenticated
       if (!isAuthenticated || !user || !token) {
-        console.log("Not authenticated, redirecting to signin");
         router.replace("/signin");
         setIsChecking(false);
         return;
       }
 
-      console.log("Authenticated, allowing access");
+      // Check if user has any admin type
+      const adminTypes = (user as any)?.adminTypes || [];
+      const isPlatformAdmin = (user as any)?.isPlatformAdmin || false;
+      const hasAdminAccess = adminTypes.length > 0 || isPlatformAdmin;
+
+      if (!hasAdminAccess) {
+        router.replace("/signin?error=no_admin_access");
+        setIsChecking(false);
+        return;
+      }
+
       setIsChecking(false);
     };
 
-    // Only check when auth store is initialized and hydrated
-    if (!isLoading && _hasHydrated) {
+    if (!isLoading) {
       checkAuth();
     }
   }, [isAuthenticated, isLoading, user, token, pathname, router, _hasHydrated]);
 
-  // Show loading state while checking or waiting for hydration
   if (isLoading || isChecking || !_hasHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8faff]">
@@ -62,13 +64,15 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If on login page, render without auth
   if (pathname === "/signin") {
     return <>{children}</>;
   }
 
-  // If not authenticated, don't render
-  if (!isAuthenticated || !user) {
+  const adminTypes = (user as any)?.adminTypes || [];
+  const isPlatformAdmin = (user as any)?.isPlatformAdmin || false;
+  const hasAdminAccess = adminTypes.length > 0 || isPlatformAdmin;
+
+  if (!isAuthenticated || !user || !hasAdminAccess) {
     return null;
   }
 

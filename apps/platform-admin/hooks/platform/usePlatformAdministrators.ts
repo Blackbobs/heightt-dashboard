@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, Administrator } from "@/lib/api/platform";
+import { platformApi } from "@/lib/api/platform";
+import { AdminResponseDto } from "@/lib/api/types";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -20,11 +21,18 @@ export function useAssignAdmin() {
   return useMutation({
     mutationFn: (data: {
       userId: string;
-      adminType: string;
+      adminType:
+        | "PLATFORM_ADMIN"
+        | "INSTITUTION_ADMIN"
+        | "FACULTY_ADMIN"
+        | "DEPARTMENT_ADMIN"
+        | "ORGANIZATION_ADMIN"
+        | "CLUB_ADMIN";
       institutionId?: string;
       facultyId?: string;
       departmentId?: string;
       organizationId?: string;
+      academicSessionId?: string;
     }) => platformApi.assignAdmin(data),
     onSuccess: () => {
       queryClient.invalidateQueries({

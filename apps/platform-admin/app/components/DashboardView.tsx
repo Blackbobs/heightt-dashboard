@@ -21,11 +21,11 @@ export default function DashboardView() {
   } = usePlatformDashboardAnalytics();
 
   // Extract data from the dashboard response
-  const summary = dashboard?.summary || {};
-  const revenueData = dashboard?.revenue || {};
-  const studentData = dashboard?.students || {};
-  const orgData = dashboard?.organizations || {};
-  const recentActivities = dashboard?.recentActivities || [];
+  const summary = (dashboard as any)?.summary || {};
+  const revenueData = (dashboard as any)?.revenue || {};
+  const studentData = (dashboard as any)?.students || {};
+  const orgData = (dashboard as any)?.organizations || {};
+  const recentActivities = (dashboard as any)?.recentActivities || [];
 
   // Use data from API or fallback to context data
   const totalInstitutions = institutions.length;

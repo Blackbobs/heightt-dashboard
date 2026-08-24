@@ -79,6 +79,21 @@ import {
   AuthResponseDto,
   // Pagination
   PaginatedResponse,
+  // Bank Account types
+  BankAccountResponseDto,
+  BankAccountListResponseDto,
+  CreateBankAccountDto,
+  UpdateBankAccountDto,
+  // Withdrawal types
+  UserWithdrawalRequestDto,
+  OrganizationWithdrawalRequestDto,
+  PlatformWithdrawalRequestDto,
+  WithdrawalResponseDto,
+  WithdrawalListResponseDto,
+  WithdrawalApproveResponseDto,
+  WithdrawalRejectRequestDto,
+  WithdrawalRejectResponseDto,
+  WithdrawalFiltersDto,
 } from "./types";
 
 export const platformApi = {
@@ -642,6 +657,47 @@ export const platformApi = {
     await axiosConfig.post(`/v1/rbac/admins/${adminId}/revoke`);
   },
 
+  // ============ ADMIN PERMISSIONS ============
+  getAllPermissions: async (): Promise<any[]> => {
+    const response = await axiosConfig.get("/v1/rbac/permissions");
+    return response.data;
+  },
+
+  getAdminWithPermissions: async (adminId: string): Promise<any> => {
+    const response = await axiosConfig.get(
+      `/v1/rbac/admins/${adminId}/permissions`,
+    );
+    return response.data;
+  },
+
+  assignAdminWithPermissions: async (data: {
+    userId: string;
+    adminType: string;
+    institutionId?: string;
+    facultyId?: string;
+    departmentId?: string;
+    organizationId?: string;
+    academicSessionId?: string;
+    permissions?: string[];
+  }): Promise<any> => {
+    const response = await axiosConfig.post(
+      "/v1/rbac/admins/assign-with-permissions",
+      data,
+    );
+    return response.data;
+  },
+
+  updateAdminPermissions: async (
+    adminId: string,
+    data: { permissions: string[]; action: "ADD" | "REMOVE" | "SET" },
+  ): Promise<any> => {
+    const response = await axiosConfig.patch(
+      `/v1/rbac/admins/${adminId}/permissions`,
+      data,
+    );
+    return response.data;
+  },
+
   // ============ Feature Flags ============
   getFeatureFlags: async (): Promise<FeatureFlagResponseDto[]> => {
     const response = await axiosConfig.get("/v1/platform/features");
@@ -752,4 +808,163 @@ export const platformApi = {
     const response = await axiosConfig.get("/v1/analytics/growth", { params });
     return response.data;
   },
+
+  // ============ Bank Account Management ============
+  getBankAccounts: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<BankAccountListResponseDto> => {
+    const response = await axiosConfig.get("/v1/finance/bank-accounts", {
+      params,
+    });
+    return response.data;
+  },
+
+  getBankAccount: async (id: string): Promise<BankAccountResponseDto> => {
+    const response = await axiosConfig.get(`/v1/finance/bank-accounts/${id}`);
+    return response.data;
+  },
+
+  createBankAccount: async (
+    data: CreateBankAccountDto,
+  ): Promise<BankAccountResponseDto> => {
+    const response = await axiosConfig.post("/v1/finance/bank-accounts", data);
+    return response.data;
+  },
+
+  updateBankAccount: async (
+    id: string,
+    data: UpdateBankAccountDto,
+  ): Promise<BankAccountResponseDto> => {
+    const response = await axiosConfig.patch(
+      `/v1/finance/bank-accounts/${id}`,
+      data,
+    );
+    return response.data;
+  },
+
+  deleteBankAccount: async (id: string): Promise<void> => {
+    await axiosConfig.delete(`/v1/finance/bank-accounts/${id}`);
+  },
+
+  setDefaultBankAccount: async (id: string): Promise<{ message: string }> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/bank-accounts/${id}/default`,
+    );
+    return response.data;
+  },
+
+  // ============ User Withdrawals ============
+  requestUserWithdrawal: async (
+    data: UserWithdrawalRequestDto,
+  ): Promise<WithdrawalResponseDto> => {
+    const response = await axiosConfig.post(
+      "/v1/finance/withdrawals/user",
+      data,
+    );
+    return response.data;
+  },
+
+  approveUserWithdrawal: async (
+    id: string,
+  ): Promise<WithdrawalApproveResponseDto> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/withdrawals/user/${id}/approve`,
+    );
+    return response.data;
+  },
+
+  rejectUserWithdrawal: async (
+    id: string,
+    data?: WithdrawalRejectRequestDto,
+  ): Promise<WithdrawalRejectResponseDto> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/withdrawals/user/${id}/reject`,
+      data,
+    );
+    return response.data;
+  },
+
+  // ============ Organization Withdrawals ============
+  requestOrganizationWithdrawal: async (
+    data: OrganizationWithdrawalRequestDto,
+  ): Promise<WithdrawalResponseDto> => {
+    const response = await axiosConfig.post(
+      "/v1/finance/withdrawals/organization",
+      data,
+    );
+    return response.data;
+  },
+
+  approveOrganizationWithdrawal: async (
+    id: string,
+  ): Promise<WithdrawalApproveResponseDto> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/withdrawals/organization/${id}/approve`,
+    );
+    return response.data;
+  },
+
+  rejectOrganizationWithdrawal: async (
+    id: string,
+    data?: WithdrawalRejectRequestDto,
+  ): Promise<WithdrawalRejectResponseDto> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/withdrawals/organization/${id}/reject`,
+      data,
+    );
+    return response.data;
+  },
+
+  // ============ Platform Withdrawals ============
+  requestPlatformWithdrawal: async (
+    data: PlatformWithdrawalRequestDto,
+  ): Promise<WithdrawalResponseDto> => {
+    const response = await axiosConfig.post(
+      "/v1/finance/withdrawals/platform",
+      data,
+    );
+    return response.data;
+  },
+
+  approvePlatformWithdrawal: async (
+    id: string,
+  ): Promise<WithdrawalApproveResponseDto> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/withdrawals/platform/${id}/approve`,
+    );
+    return response.data;
+  },
+
+  // ============ Withdrawal History ============
+  getWithdrawals: async (
+    params?: WithdrawalFiltersDto,
+  ): Promise<WithdrawalListResponseDto> => {
+    const response = await axiosConfig.get("/v1/finance/withdrawals", {
+      params,
+    });
+    return response.data;
+  },
+
+  getWithdrawal: async (id: string): Promise<WithdrawalResponseDto> => {
+    const response = await axiosConfig.get(`/v1/finance/withdrawals/${id}`);
+    return response.data;
+  },
 };
+
+export type {
+  AcademicLevelResponseDto as AcademicLevel,
+  AcademicSessionResponseDto as AcademicSession,
+  AnnouncementResponseDto as Announcement,
+  DepartmentResponseDto as Department,
+  FacultyResponseDto as Faculty,
+  FeatureFlagResponseDto as FeatureFlag,
+  InstitutionResponseDto as Institution,
+  MaintenanceResponseDto as MaintenanceMode,
+  OrganizationResponseDto as Organization,
+  OrganizationMemberResponseDto as OrganizationMember,
+  UserResponseDto as User,
+} from "./types";
+
+export * from "./types";
+

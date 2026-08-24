@@ -3,6 +3,9 @@ import {
   platformApi,
   Organization,
   OrganizationMember,
+  CreateOrganizationDto,
+  AddMemberDto,
+  UpdateMemberDto,
 } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
@@ -62,7 +65,7 @@ export function useCreateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Organization>) =>
+    mutationFn: (data: CreateOrganizationDto) =>
       platformApi.createOrganization(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -147,13 +150,7 @@ export function useAddOrganizationMember() {
       data,
     }: {
       organizationId: string;
-      data: {
-        userId: string;
-        membershipType: string;
-        status?: string;
-        isPrimary?: boolean;
-        sessionId?: string;
-      };
+      data: AddMemberDto;
     }) => platformApi.addOrganizationMember(organizationId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -177,11 +174,7 @@ export function useUpdateOrganizationMember() {
       data,
     }: {
       membershipId: string;
-      data: {
-        status?: string;
-        membershipType?: string;
-        isPrimary?: boolean;
-      };
+      data: UpdateMemberDto;
     }) => platformApi.updateOrganizationMember(membershipId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({

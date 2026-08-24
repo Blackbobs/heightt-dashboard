@@ -23,6 +23,7 @@ export interface Institution {
   id: string;
   name: string;
   code: string;
+  logo?: string;
   country: string;
   facultiesCount: number;
   departmentsCount: number;
@@ -38,6 +39,7 @@ export interface Faculty {
   institutionName: string;
   name: string;
   code: string;
+  logo?: string;
   deanName: string;
   departmentsCount: number;
   status: "Active" | "Inactive";
@@ -51,6 +53,7 @@ export interface Department {
   facultyName: string;
   name: string;
   code: string;
+  logo?: string;
   headName: string;
   generatedLevels: string[];
   organizationsCount: number;

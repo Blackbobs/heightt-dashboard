@@ -1,24 +1,24 @@
+// apps/admin-org/app/components/FinanceView.tsx
 "use client";
 
 import { useState } from "react";
 import {
   useAdminFinancialOverview,
-  useAdminFinanceDashboard,
   useRequestWithdrawal,
+  useAdminWallet,
+  useAdminTransactions,
 } from "@/hooks/admin/useAdminFinance";
 import { useUserOrganizations } from "@/hooks/admin/useAdminOrganizations";
+import { useAdminContext } from "./AdminContext";
 import {
   Wallet,
   TrendingUp,
   TrendingDown,
   CreditCard,
   ArrowUpRight,
-  ArrowDownRight,
   Download,
   Loader2,
   AlertCircle,
-  Eye,
-  Calendar,
   Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,22 +27,28 @@ import { usePermissions } from "../context/PermissionContext";
 
 export function FinanceView() {
   const { hasPermission } = usePermissions();
-  const { data: orgs } = useUserOrganizations();
+  const { selectedScope } = useAdminContext();
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
 
   const canExport = hasPermission("FINANCE_EXPORT");
   const canRequestWithdrawal = hasPermission("WITHDRAWAL_REQUEST");
 
-  const organizationId = orgs?.[0]?.organizationId;
-  const organizationName = orgs?.[0]?.organization?.name || "Organization";
+  const organizationId = selectedScope?.organizationId || "";
+  const organizationName = selectedScope?.organization?.name || "Organization";
 
   const { data: overview, isLoading: overviewLoading } =
-    useAdminFinancialOverview(organizationId || "");
-  const { data: dashboard, isLoading: dashboardLoading } =
-    useAdminFinanceDashboard(organizationId || "");
+    useAdminFinancialOverview(organizationId);
+  const { data: wallet, isLoading: walletLoading } =
+    useAdminWallet(organizationId);
+  const { data: transactions, isLoading: transactionsLoading } =
+    useAdminTransactions({
+      organizationId,
+      limit: 10,
+    });
+
   const withdrawalMutation = useRequestWithdrawal();
 
-  const isLoading = overviewLoading || dashboardLoading;
+  const isLoading = overviewLoading || walletLoading || transactionsLoading;
 
   const handleExportReport = () => {
     alert("📄 Exporting financial report (CSV/PDF)...");
@@ -77,42 +83,44 @@ export function FinanceView() {
 
   const stats = [
     {
-      label: "Total Collections",
-      value: `₦${(overview?.totalCollections || 0).toLocaleString()}`,
+      label: "Wallet Balance",
+      value: `₦${(wallet?.balance || 0).toLocaleString()}`,
       change: "+8.5%",
-      trend: "up",
+      trend: "up" as const,
       icon: TrendingUp,
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-600",
     },
     {
-      label: "Total Transactions",
-      value: (overview?.totalTransactions || 0).toLocaleString(),
+      label: "Total Collections",
+      value: `₦${(overview?.totalCollections || 0).toLocaleString()}`,
       change: "+12%",
-      trend: "up",
+      trend: "up" as const,
       icon: CreditCard,
       iconBg: "bg-blue-50",
       iconColor: "text-blue-600",
     },
     {
-      label: "Outstanding Payments",
-      value: `₦${(overview?.totalOutstanding || 0).toLocaleString()}`,
-      change: "-3.2%",
-      trend: "down",
-      icon: AlertCircle,
-      iconBg: "bg-amber-50",
-      iconColor: "text-amber-600",
-    },
-    {
-      label: "Total Withdrawals",
-      value: `₦${(overview?.totalWithdrawals || 0).toLocaleString()}`,
+      label: "Total Transactions",
+      value: (overview?.totalTransactions || 0).toLocaleString(),
       change: "+5%",
-      trend: "up",
+      trend: "up" as const,
       icon: ArrowUpRight,
       iconBg: "bg-purple-50",
       iconColor: "text-purple-600",
     },
+    {
+      label: "Pending Dues",
+      value: (overview?.pendingDues || 0).toLocaleString(),
+      change: "-3.2%",
+      trend: "down" as const,
+      icon: AlertCircle,
+      iconBg: "bg-amber-50",
+      iconColor: "text-amber-600",
+    },
   ];
+
+  const recentTransactions = transactions?.data || [];
 
   return (
     <div>
@@ -208,78 +216,111 @@ export function FinanceView() {
         </div>
         <div className="flex items-center gap-4 text-xs text-slate-500">
           <span>
-            Total Students:{" "}
+            Total Dues:{" "}
             <strong className="text-slate-900">
-              {dashboard?.statistics?.total || 0}
+              {overview?.totalDues || 0}
             </strong>
           </span>
           <span className="w-px h-4 bg-slate-200" />
           <span>
-            Active:{" "}
+            Pending:{" "}
             <strong className="text-slate-900">
-              {dashboard?.statistics?.active || 0}
+              {overview?.pendingDues || 0}
+            </strong>
+          </span>
+          <span className="w-px h-4 bg-slate-200" />
+          <span>
+            Completed:{" "}
+            <strong className="text-slate-900">
+              {overview?.completedDues || 0}
             </strong>
           </span>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Recent Transactions */}
+      <div
+        className="bg-white border rounded-xl overflow-hidden"
+        style={{ borderColor: "var(--color-border)" }}
+      >
         <div
-          className="bg-white border rounded-xl p-5 transition-all duration-200 hover:shadow-lg cursor-pointer"
+          className="flex items-center justify-between px-5 py-4 border-b"
           style={{ borderColor: "var(--color-border)" }}
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-emerald-600" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-900">
-                Wallet Balance
-              </div>
-              <div className="text-lg font-bold text-emerald-600">
-                ₦{(overview?.totalCollections || 0).toLocaleString()}
-              </div>
-            </div>
-          </div>
+          <h3 className="text-base font-semibold flex items-center gap-2 text-slate-900">
+            <CreditCard className="w-4 h-4 text-slate-400" />
+            Recent Transactions
+          </h3>
+          <button className="text-sm font-medium border-none bg-transparent cursor-pointer text-[#1a5cff] hover:underline">
+            View all
+          </button>
         </div>
 
-        <div
-          className="bg-white border rounded-xl p-5 transition-all duration-200 hover:shadow-lg cursor-pointer"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-amber-600" />
+        <div className="px-5 py-2">
+          {recentTransactions.length === 0 ? (
+            <div className="py-6 text-center text-sm text-slate-400">
+              No transactions found
             </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-900">
-                Pending Dues
-              </div>
-              <div className="text-lg font-bold text-amber-600">
-                ₦{(overview?.totalOutstanding || 0).toLocaleString()}
-              </div>
-            </div>
-          </div>
-        </div>
+          ) : (
+            recentTransactions.map((tx: any, i: number) => {
+              const isCredit = tx.type === "CREDIT" || tx.type === "IN";
+              const isPending = tx.status === "PENDING";
 
-        <div
-          className="bg-white border rounded-xl p-5 transition-all duration-200 hover:shadow-lg cursor-pointer"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-slate-900">
-                Total Dues
-              </div>
-              <div className="text-lg font-bold text-purple-600">
-                {overview?.totalDues || 0}
-              </div>
-            </div>
-          </div>
+              return (
+                <div
+                  key={tx.id}
+                  className="flex items-center gap-3 py-3"
+                  style={{
+                    borderBottom:
+                      i < recentTransactions.length - 1
+                        ? "1px solid var(--color-border)"
+                        : "none",
+                  }}
+                >
+                  <div
+                    className={cn(
+                      "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm",
+                      isCredit
+                        ? "bg-emerald-50 text-emerald-600"
+                        : "bg-red-50 text-red-600",
+                    )}
+                  >
+                    {isCredit ? (
+                      <TrendingUp className="w-4 h-4" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate text-slate-900">
+                      {tx.description || tx.type}
+                    </div>
+                    <div className="text-xs text-slate-400 truncate">
+                      {tx.reference} •{" "}
+                      {new Date(tx.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+
+                  <div className="text-right flex-shrink-0">
+                    <div
+                      className={cn(
+                        "text-sm font-semibold",
+                        isCredit ? "text-emerald-600" : "text-slate-900",
+                      )}
+                    >
+                      {isCredit ? "+" : "-"}₦{(tx.amount || 0).toLocaleString()}
+                    </div>
+                    {isPending && (
+                      <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

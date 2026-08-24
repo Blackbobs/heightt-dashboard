@@ -61,7 +61,7 @@ export default function DepartmentDetailView() {
   const isLoading = deptLoading;
 
   // Mock organizations data (would come from API)
-  const organizations = department?.organizations || [];
+  const organizations = (department as any)?.organizations || [];
 
   // Filter organizations by search
   const filteredOrganizations = useMemo(() => {
@@ -79,7 +79,11 @@ export default function DepartmentDetailView() {
     try {
       await updateMutation.mutateAsync({
         id: departmentId,
-        data: formData,
+        data: {
+          ...formData,
+          status: formData.status as any,
+          promotionType: formData.promotionType as any,
+        },
       });
       setIsEditModalOpen(false);
       refetchDepartment();
@@ -101,11 +105,12 @@ export default function DepartmentDetailView() {
   // Open edit modal
   const openEditModal = () => {
     if (department) {
+      const deptAny = department as any;
       setFormData({
         name: department.name || "",
         code: department.code || "",
-        headName: department.headName || "",
-        promotionType: department.promotionType || "AUTOMATIC",
+        headName: deptAny.headName || "",
+        promotionType: deptAny.promotionType || "AUTOMATIC",
         status: department.status || "ACTIVE",
       });
       setIsEditModalOpen(true);
@@ -212,7 +217,7 @@ export default function DepartmentDetailView() {
             {department.name}
           </h1>
           <p className="text-sm text-slate-500">
-            {department.code} • {department.faculty?.name || "Faculty"}
+            {department.code} • {(department as any).faculty?.name || "Faculty"}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -255,7 +260,7 @@ export default function DepartmentDetailView() {
           <div className="card-body">
             <div className="text-sm text-slate-500">HOD</div>
             <div className="text-2xl font-bold text-slate-900">
-              {department.headName || "TBD"}
+              {(department as any).headName || "TBD"}
             </div>
           </div>
         </div>
@@ -263,7 +268,7 @@ export default function DepartmentDetailView() {
           <div className="card-body">
             <div className="text-sm text-slate-500">Faculty</div>
             <div className="text-2xl font-bold text-slate-900">
-              {department.faculty?.name || "N/A"}
+              {(department as any).faculty?.name || "N/A"}
             </div>
           </div>
         </div>
@@ -286,15 +291,15 @@ export default function DepartmentDetailView() {
             </div>
             <div>
               <div className="text-sm text-slate-500">HOD</div>
-              <div>{department.headName || "TBD"}</div>
+              <div>{(department as any).headName || "TBD"}</div>
             </div>
             <div>
               <div className="text-sm text-slate-500">Promotion Type</div>
               <div className="text-sm font-medium">
                 <span
-                  className={`px-2 py-1 rounded-full text-xs ${department.promotionType === "AUTOMATIC" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}
+                  className={`px-2 py-1 rounded-full text-xs ${(department as any).promotionType === "AUTOMATIC" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}
                 >
-                  {department.promotionType}
+                  {(department as any).promotionType}
                 </span>
               </div>
             </div>
@@ -394,19 +399,19 @@ export default function DepartmentDetailView() {
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">HOD</div>
-                  <div>{department.headName || "TBD"}</div>
+                  <div>{(department as any).headName || "TBD"}</div>
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">Faculty</div>
-                  <div>{department.faculty?.name || "N/A"}</div>
+                  <div>{(department as any).faculty?.name || "N/A"}</div>
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">Promotion Type</div>
-                  <div>{department.promotionType}</div>
+                  <div>{(department as any).promotionType}</div>
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">Levels</div>
-                  <div>{department.academicLevels?.length || 0}</div>
+                  <div>{(department as any).academicLevels?.length || 0}</div>
                 </div>
               </div>
             </div>

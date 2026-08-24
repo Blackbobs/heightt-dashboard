@@ -19,7 +19,7 @@ export default function SignInPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && !authLoading && user?.isAdminSession) {
+    if (isAuthenticated && !authLoading && (user?.isPlatformAdmin || user?.userType === "PLATFORM_ADMIN")) {
       router.replace("/platform");
     }
   }, [isAuthenticated, authLoading, user, router]);
@@ -36,7 +36,7 @@ export default function SignInPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await axiosConfig.post("/auth/admin/login", {
+      const response = await axiosConfig.post("/v1/auth/admin/login", {
         identifier,
         password,
       });

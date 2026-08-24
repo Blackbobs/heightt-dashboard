@@ -1,3 +1,4 @@
+// apps/admin-org/components/DuesView.tsx
 "use client";
 
 import { useState, useMemo } from "react";
@@ -5,6 +6,7 @@ import {
   useAdminDues,
   useCreateDue,
   useAssignDue,
+  useDeleteDue,
 } from "@/hooks/admin/useAdminFinance";
 import { useAdminContext } from "./AdminContext";
 import {
@@ -20,19 +22,16 @@ import {
   ChevronRight,
   Loader2,
   AlertCircle,
-  Filter,
   X,
   Clock,
   CheckCircle,
   Ban,
   Pause,
   FileText,
-  Download,
-  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import CreateDueModal from "./CreateDueModal";
 import { usePermissions } from "../context/PermissionContext";
+import CreateDueModal from "./CreateDueModal";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -108,8 +107,8 @@ const STATUS_OPTIONS = [
 ];
 
 export function DuesView() {
-  const { hasPermission } = usePermissions();
   const { selectedScope } = useAdminContext();
+  const { hasPermission } = usePermissions();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,7 +120,7 @@ export function DuesView() {
   const canEditDue = hasPermission("DUE_UPDATE");
   const canDeleteDue = hasPermission("DUE_DELETE");
 
-  const organizationId = selectedScope?.organizationId;
+  const organizationId = selectedScope?.organizationId || "";
 
   const { data, isLoading, refetch } = useAdminDues({
     organizationId,
@@ -131,11 +130,11 @@ export function DuesView() {
 
   const createDueMutation = useCreateDue();
   const assignDueMutation = useAssignDue();
+  const deleteDueMutation = useDeleteDue();
 
   const dues = data?.data || [];
   const meta = data?.meta;
 
-  // Filter dues based on search and status
   const filteredDues = useMemo(() => {
     let filtered = dues;
 
@@ -179,7 +178,11 @@ export function DuesView() {
       try {
         await assignDueMutation.mutateAsync({
           id: dueId,
-          data: { organizationId },
+          data: {
+            departmentId: selectedScope?.departmentId,
+            levelId: selectedScope?.academicLevelId,
+            studentIds: [],
+          },
         });
         refetch();
       } catch (error) {
@@ -195,8 +198,7 @@ export function DuesView() {
       )
     ) {
       try {
-        // Call delete API endpoint
-        alert(`Due "${name}" deleted successfully!`);
+        await deleteDueMutation.mutateAsync(id);
         refetch();
       } catch (error) {
         console.error("Failed to delete due:", error);
@@ -231,12 +233,6 @@ export function DuesView() {
     return new Date(dueDate) < new Date();
   };
 
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("");
-    setCurrentPage(1);
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -252,7 +248,6 @@ export function DuesView() {
 
   return (
     <div>
-      {/* Page Header */}
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
@@ -274,7 +269,6 @@ export function DuesView() {
         )}
       </div>
 
-      {/* Stats Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <div
           className="bg-white border rounded-xl p-4"
@@ -316,7 +310,6 @@ export function DuesView() {
         </div>
       </div>
 
-      {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -327,40 +320,41 @@ export function DuesView() {
               setSearch(e.target.value);
               setCurrentPage(1);
             }}
-            placeholder="Search dues by name, description, or organization..."
+            placeholder="Search dues by name, description..."
             className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
           />
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer min-w-[140px]"
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
+        {(search || statusFilter) && (
+          <button
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("");
               setCurrentPage(1);
             }}
-            className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer min-w-[140px]"
+            className="flex items-center gap-1.5 px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
           >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          {(search || statusFilter) && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-1.5 px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
-            >
-              <X className="w-4 h-4" />
-              Clear
-            </button>
-          )}
-        </div>
+            <X className="w-4 h-4" />
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Dues Table */}
       <div
         className="bg-white border rounded-xl overflow-hidden"
         style={{ borderColor: "var(--color-border)" }}
@@ -399,9 +393,6 @@ export function DuesView() {
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Organization
-                  </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">
                     Actions
                   </th>
@@ -419,10 +410,7 @@ export function DuesView() {
                   return (
                     <tr
                       key={due.id}
-                      className={cn(
-                        "hover:bg-slate-50/80 transition-colors duration-150",
-                        index % 2 === 0 ? "bg-white" : "bg-slate-50/30",
-                      )}
+                      className="hover:bg-slate-50/80 transition-colors duration-150"
                     >
                       <td className="px-4 py-3.5 align-middle">
                         <div>
@@ -476,11 +464,6 @@ export function DuesView() {
                           {statusConfig.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 align-middle">
-                        <span className="text-sm text-slate-600">
-                          {due.organization?.name || "N/A"}
-                        </span>
-                      </td>
                       <td className="px-4 py-3.5 align-middle text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -530,7 +513,6 @@ export function DuesView() {
           </div>
         )}
 
-        {/* Pagination */}
         {meta && meta.totalPages > 1 && (
           <div
             className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t"
@@ -590,223 +572,11 @@ export function DuesView() {
         )}
       </div>
 
-      {/* Create Due Modal */}
       <CreateDueModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateDue}
       />
-
-      {/* Due Detail Modal */}
-      {selectedDue && (
-        <DueDetailModal
-          isOpen={isDetailModalOpen}
-          onClose={() => {
-            setIsDetailModalOpen(false);
-            setSelectedDue(null);
-          }}
-          due={selectedDue}
-          onEdit={() => {
-            setIsDetailModalOpen(false);
-            alert(`Edit due: ${selectedDue.name}`);
-          }}
-          onAssign={() => {
-            handleAssignDue(selectedDue.id);
-            setIsDetailModalOpen(false);
-          }}
-          onDelete={() => {
-            setIsDetailModalOpen(false);
-            handleDeleteDue(selectedDue.id, selectedDue.name);
-          }}
-          canEdit={canEditDue}
-          canDelete={canDeleteDue}
-        />
-      )}
-    </div>
-  );
-}
-
-// ============================================
-// Due Detail Modal Component
-// ============================================
-
-interface DueDetailModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  due: any;
-  onEdit: () => void;
-  onAssign: () => void;
-  onDelete: () => void;
-  canEdit: boolean;
-  canDelete: boolean;
-}
-
-function DueDetailModal({
-  isOpen,
-  onClose,
-  due,
-  onEdit,
-  onAssign,
-  onDelete,
-  canEdit,
-  canDelete,
-}: DueDetailModalProps) {
-  if (!isOpen || !due) return null;
-
-  const statusConfig = STATUS_CONFIG[due.status] || STATUS_CONFIG.ACTIVE;
-  const overdue = due.status === "ACTIVE" && new Date(due.dueDate) < new Date();
-
-  const formatCurrency = (amount: number) => `₦${amount.toLocaleString()}`;
-  const formatDate = (date: string) => {
-    if (!date) return "N/A";
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900">
-            <Coins className="w-5 h-5 text-[#1a5cff]" />
-            Due Details
-          </h2>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-400 hover:bg-slate-100"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Title & Status */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <h3 className="text-xl font-bold text-slate-900">{due.name}</h3>
-            <p className="text-sm text-slate-500 mt-1">
-              {due.organization?.name || "No organization"}
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
-                statusConfig.bg,
-                statusConfig.text,
-              )}
-            >
-              {statusConfig.icon}
-              {statusConfig.label}
-            </span>
-            {overdue && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-                <AlertCircle className="w-3 h-3" />
-                Overdue
-              </span>
-            )}
-            {due.isRequired && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                Required
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Details Grid */}
-        <div
-          className="grid grid-cols-2 gap-4 mb-5 p-4 bg-slate-50 rounded-xl border"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div>
-            <div className="text-xs font-medium text-slate-500">Amount</div>
-            <div className="text-lg font-bold text-slate-900">
-              {formatCurrency(due.amount)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">Late Fee</div>
-            <div className="text-lg font-bold text-slate-900">
-              {due.lateFee > 0 ? formatCurrency(due.lateFee) : "None"}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">Due Date</div>
-            <div className="text-sm font-semibold text-slate-900">
-              {formatDate(due.dueDate)}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-slate-500">Created</div>
-            <div className="text-sm font-semibold text-slate-900">
-              {formatDate(due.createdAt)}
-            </div>
-          </div>
-        </div>
-
-        {/* Description */}
-        {due.description && (
-          <div className="mb-5">
-            <div className="text-xs font-medium text-slate-500 mb-1">
-              Description
-            </div>
-            <p
-              className="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border"
-              style={{ borderColor: "var(--color-border)" }}
-            >
-              {due.description}
-            </p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2.5 flex-col sm:flex-row">
-          <button
-            onClick={onClose}
-            className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-600 hover:border-[#1a5cff] hover:text-[#1a5cff]"
-          >
-            Close
-          </button>
-          <div className="flex-1 flex gap-2 order-1 sm:order-2">
-            {canEdit && (
-              <button
-                onClick={onEdit}
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#1a5cff] hover:bg-[#0f4ad0] transition-all border-none"
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </button>
-            )}
-            {due.status === "DRAFT" && (
-              <button
-                onClick={onAssign}
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-all border-none"
-              >
-                <Users className="w-4 h-4" />
-                Assign
-              </button>
-            )}
-            {canDelete && (
-              <button
-                onClick={onDelete}
-                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-all border-none"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

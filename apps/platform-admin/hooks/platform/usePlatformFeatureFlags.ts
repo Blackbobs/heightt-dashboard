@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, FeatureFlag } from "@/lib/api/platform";
+import { platformApi, FeatureFlag, CreateFeatureFlagDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -18,13 +18,7 @@ export function useCreateFeatureFlag() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: {
-      key: string;
-      name: string;
-      description?: string;
-      enabled?: boolean;
-      percentage?: number;
-    }) => platformApi.createFeatureFlag(data),
+    mutationFn: (data: CreateFeatureFlagDto) => platformApi.createFeatureFlag(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.featureFlags.all,

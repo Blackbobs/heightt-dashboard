@@ -75,6 +75,43 @@ export const platformQueryKeys = {
     ],
     dues: (params?: any) => ["platform", "finance", "dues", params],
     receipts: (params?: any) => ["platform", "finance", "receipts", params],
+    // NEW: Bank Accounts
+    bankAccounts: (params?: any) => [
+      "platform",
+      "finance",
+      "bank-accounts",
+      params,
+    ],
+    bankAccount: (id: string) => ["platform", "finance", "bank-accounts", id],
+    // NEW: Withdrawals
+    withdrawals: (params?: any) => [
+      "platform",
+      "finance",
+      "withdrawals",
+      params,
+    ],
+    withdrawal: (id: string) => ["platform", "finance", "withdrawals", id],
+    userWithdrawals: (params?: any) => [
+      "platform",
+      "finance",
+      "withdrawals",
+      "user",
+      params,
+    ],
+    organizationWithdrawals: (params?: any) => [
+      "platform",
+      "finance",
+      "withdrawals",
+      "organization",
+      params,
+    ],
+    platformWithdrawals: (params?: any) => [
+      "platform",
+      "finance",
+      "withdrawals",
+      "platform",
+      params,
+    ],
   },
   students: {
     all: (params?: any) => ["platform", "students", params],
@@ -85,6 +122,11 @@ export const platformQueryKeys = {
   roles: {
     all: (organizationId: string) => ["platform", "roles", organizationId],
     one: (id: string) => ["platform", "roles", id],
+  },
+  adminPermissions: {
+    all: ["platform", "admin-permissions"],
+    one: (id: string) => ["platform", "admin-permissions", id],
+    keys: ["platform", "admin-permissions", "keys"],
   },
   permissions: {
     all: ["platform", "permissions"],

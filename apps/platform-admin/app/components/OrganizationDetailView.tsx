@@ -14,7 +14,7 @@ import {
   useArchiveOrganization,
 } from "@/hooks/platform/usePlatformOrganizations";
 import { usePlatformUsers } from "@/hooks/platform/usePlatformUsers";
-import { useAcademicSessions } from "@/hooks/platform/useAcademicSessions";
+import { usePlatformAcademicSessions } from "@/hooks/platform/usePlatformAcademicSessions";
 import {
   Building2,
   Users,
@@ -81,8 +81,8 @@ export default function OrganizationDetailView() {
   } = usePlatformOrganizationMembers(organizationId, { limit: 100 });
 
   const { data: usersData } = usePlatformUsers({ limit: 100 });
-  const { data: sessionsData } = useAcademicSessions(
-    organization?.institutionId,
+  const { data: sessionsData } = usePlatformAcademicSessions(
+    organization?.institutionId || "",
   );
 
   const addMemberMutation = useAddOrganizationMember();
@@ -131,7 +131,7 @@ export default function OrganizationDetailView() {
     try {
       await addMemberMutation.mutateAsync({
         organizationId,
-        data: formData,
+        data: formData as any,
       });
       setIsAddMemberModalOpen(false);
       setFormData({
@@ -157,7 +157,7 @@ export default function OrganizationDetailView() {
           membershipType: "ADMIN",
           status: "ACTIVE",
           isPrimary: true,
-        },
+        } as any,
       });
       setIsAddAdminModalOpen(false);
       setAdminFormData({ userId: "", role: "ADMIN" });
@@ -189,7 +189,7 @@ export default function OrganizationDetailView() {
     try {
       await updateMemberMutation.mutateAsync({
         membershipId,
-        data: { status },
+        data: { status: status as any },
       });
       refetchMembers();
     } catch (error) {
@@ -526,7 +526,7 @@ export default function OrganizationDetailView() {
           <div className="card-body">
             <div className="text-sm text-slate-500">Session</div>
             <div className="text-2xl font-bold text-blue-600">
-              {organization.academicSession?.name || "N/A"}
+              {(organization as any).academicSession?.name || "N/A"}
             </div>
           </div>
         </div>
@@ -645,7 +645,7 @@ export default function OrganizationDetailView() {
                 <div>
                   <div className="text-sm text-slate-500">Academic Session</div>
                   <div className="font-medium">
-                    {organization.academicSession?.name ||
+                    {(organization as any).academicSession?.name ||
                       "No session assigned"}
                   </div>
                 </div>

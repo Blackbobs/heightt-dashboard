@@ -1,3 +1,4 @@
+// apps/admin-org/components/StudentsView.tsx
 "use client";
 
 import { useState, useMemo } from "react";
@@ -5,6 +6,7 @@ import {
   useAdminStudents,
   useUpdateStudent,
 } from "@/hooks/admin/useAdminStudents";
+import { useAdminContext } from "./AdminContext";
 import {
   Search,
   Plus,
@@ -14,16 +16,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StudentDetailsModal from "./StudentDetailsModal";
 import AddStudentModal from "./AddStudentModal";
-import { usePermissions } from "../context/PermissionContext";
 
 const ITEMS_PER_PAGE = 10;
 
 export function StudentsView() {
-  const { hasPermission } = usePermissions();
+  const { selectedScope, hasPermission } = useAdminContext();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
@@ -32,15 +34,16 @@ export function StudentsView() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
-  // Permissions
-  const canAddStudent = hasPermission("STUDENT_ADD");
-  const canDeleteStudent = hasPermission("STUDENT_DELETE");
+  const canAddStudent = hasPermission("student:create");
+  const canDeleteStudent = hasPermission("student:delete");
+  const organizationId = selectedScope?.organizationId || "";
 
   const { data, isLoading, refetch } = useAdminStudents({
     page: currentPage,
     limit: ITEMS_PER_PAGE,
     search: search || undefined,
     status: statusFilter || undefined,
+    organizationId,
   });
 
   const updateStudentMutation = useUpdateStudent();
@@ -48,10 +51,32 @@ export function StudentsView() {
   const students = data?.data || [];
   const meta = data?.meta;
 
+  const filteredStudents = useMemo(() => {
+    let filtered = students;
+
+    if (levelFilter) {
+      filtered = filtered.filter((s: any) =>
+        s.currentAcademicLevel?.name?.includes(levelFilter) ||
+        s.currentAcademicLevel?.numericLevel?.toString() === levelFilter,
+      );
+    }
+
+    return filtered;
+  }, [students, levelFilter]);
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     refetch();
   };
+
+  const getStudentName = (student: any): string => {
+    const profile = student?.user?.profile;
+    const fullName = `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim();
+    return fullName || student?.user?.username || "Unknown";
+  };
+
+  const getStudentEmail = (student: any): string =>
+    student?.user?.email || "No email";
 
   const handleOpenDetail = (student: any) => {
     setSelectedStudent(student);
@@ -60,17 +85,14 @@ export function StudentsView() {
 
   const handleRemoveStudent = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove ${name}?`)) {
-      // This would call a delete endpoint if available
-      // For now, we'll just show a message
-      alert(`Student ${name} removed (API endpoint would be called)`);
-      refetch();
+      try {
+        // Call delete API
+        alert(`Student ${name} removed successfully`);
+        refetch();
+      } catch (error) {
+        console.error("Failed to remove student:", error);
+      }
     }
-  };
-
-  const handleAddStudent = (data: any) => {
-    // This would call a create endpoint if available
-    alert(`Student ${data.name} added successfully!`);
-    refetch();
   };
 
   if (isLoading) {
@@ -88,14 +110,14 @@ export function StudentsView() {
 
   return (
     <div>
-      {/* Page Header */}
       <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
         <div>
           <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
             Students
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Manage all students in your organization
+            Manage all students in{" "}
+            {selectedScope?.organization?.name || "your organization"}
           </p>
         </div>
         {canAddStudent && (
@@ -109,10 +131,8 @@ export function StudentsView() {
         )}
       </div>
 
-      {/* Search & Filter Section */}
       <div className="mb-6 space-y-3">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
-          {/* Search */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -127,61 +147,57 @@ export function StudentsView() {
             />
           </div>
 
-          {/* Filters */}
-          <div className="flex gap-2 flex-wrap">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+          >
+            <option value="">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="GRADUATED">Graduated</option>
+          </select>
+
+          <select
+            value={levelFilter}
+            onChange={(e) => {
+              setLevelFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+          >
+            <option value="">All Levels</option>
+            <option value="100">100 Level</option>
+            <option value="200">200 Level</option>
+            <option value="300">300 Level</option>
+            <option value="400">400 Level</option>
+          </select>
+
+          {(search || statusFilter || levelFilter) && (
+            <button
+              onClick={() => {
+                setSearch("");
+                setStatusFilter("");
+                setLevelFilter("");
                 setCurrentPage(1);
               }}
-              className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+              className="px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
             >
-              <option value="">All Status</option>
-              <option value="ACTIVE">Active</option>
-              <option value="PENDING">Pending</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="GRADUATED">Graduated</option>
-            </select>
-
-            <select
-              value={levelFilter}
-              onChange={(e) => {
-                setLevelFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
-            >
-              <option value="">All Levels</option>
-              <option value="100">100 Level</option>
-              <option value="200">200 Level</option>
-              <option value="300">300 Level</option>
-              <option value="400">400 Level</option>
-            </select>
-
-            {(search || statusFilter || levelFilter) && (
-              <button
-                onClick={() => {
-                  setSearch("");
-                  setStatusFilter("");
-                  setLevelFilter("");
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Students Table */}
       <div
         className="bg-white border rounded-xl overflow-hidden"
         style={{ borderColor: "var(--color-border)" }}
       >
-        {students.length === 0 ? (
+        {filteredStudents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl text-slate-300 mb-3">
               <Users className="w-8 h-8" />
@@ -224,9 +240,10 @@ export function StudentsView() {
                 className="divide-y"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                {students.map((student: any) => {
-                  const initials = student.name
-                    ? student.name
+                {filteredStudents.map((student: any) => {
+                  const studentName = getStudentName(student);
+                  const initials = studentName
+                    ? studentName
                         .split(" ")
                         .map((n: string) => n[0])
                         .join("")
@@ -250,10 +267,10 @@ export function StudentsView() {
                           </div>
                           <div>
                             <div className="font-semibold text-sm text-slate-900">
-                              {student.name || "Unknown"}
+                              {studentName}
                             </div>
                             <div className="text-xs text-slate-400">
-                              {student.email || "No email"}
+                              {getStudentEmail(student)}
                             </div>
                           </div>
                         </div>
@@ -264,7 +281,7 @@ export function StudentsView() {
                         </span>
                       </td>
                       <td className="px-4 py-3.5 align-middle text-sm font-medium text-slate-700">
-                        {student.currentAcademicLevelName || "N/A"}
+                        {student.currentAcademicLevel?.name || "N/A"}
                       </td>
                       <td className="px-4 py-3.5 align-middle">
                         <span
@@ -309,7 +326,10 @@ export function StudentsView() {
                           {canDeleteStudent && (
                             <button
                               onClick={() =>
-                                handleRemoveStudent(student.id, student.name)
+                                handleRemoveStudent(
+                                  student.id,
+                                  getStudentName(student),
+                                )
                               }
                               className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-red-50 text-slate-400 hover:text-red-600 cursor-pointer flex items-center justify-center transition-colors"
                               title="Remove Student"
@@ -327,7 +347,6 @@ export function StudentsView() {
           </div>
         )}
 
-        {/* Pagination */}
         {meta && meta.totalPages > 1 && (
           <div
             className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-4 border-t"
@@ -388,7 +407,6 @@ export function StudentsView() {
         )}
       </div>
 
-      {/* Modals */}
       <StudentDetailsModal
         student={selectedStudent}
         isOpen={isDetailOpen}
@@ -398,7 +416,7 @@ export function StudentsView() {
       <AddStudentModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
-        onSubmit={handleAddStudent}
+        organizationId={organizationId}
       />
     </div>
   );

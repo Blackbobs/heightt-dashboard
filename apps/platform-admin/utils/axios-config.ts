@@ -90,6 +90,7 @@ axiosConfig.interceptors.request.use(
 
     const skipUrls = [
       "/v1/auth/login",
+      "/v1/auth/admin/login",
       "/v1/auth/register",
       "/v1/auth/csrf-token",
       "/v1/auth/refresh",
@@ -153,7 +154,13 @@ axiosConfig.interceptors.response.use(
     // Handle token refresh for 401 errors
     // Retry every failed authenticated request once. Auth endpoints are excluded
     // so an invalid refresh cookie cannot create a refresh loop.
-    const skipRefreshUrls = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/csrf-token"];
+    const skipRefreshUrls = [
+      "/auth/login",
+      "/auth/admin/login",
+      "/auth/register",
+      "/auth/refresh",
+      "/auth/csrf-token",
+    ];
     const isAuthRequest = skipRefreshUrls.some((url) => originalRequest.url?.includes(url));
 
     if (status === 401 && !isAuthRequest && !originalRequest._retry) {

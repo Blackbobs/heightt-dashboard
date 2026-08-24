@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DataTable from "./DataTable";
+import LogoUploader from "./LogoUploader";
 import type { ColumnDef } from "@tanstack/react-table";
 
 // ============================================
@@ -170,6 +171,7 @@ export default function InstitutionsView() {
     name: "",
     shortName: "",
     code: "",
+    logo: "",
     country: "Nigeria",
     sessions: [
       {
@@ -181,6 +183,23 @@ export default function InstitutionsView() {
       },
     ] as SessionFormData[],
   });
+
+  const emptyInstitutionForm = {
+    name: "",
+    shortName: "",
+    code: "",
+    logo: "",
+    country: "Nigeria",
+    sessions: [
+      {
+        name: "",
+        startDate: "",
+        endDate: "",
+        status: "UPCOMING",
+        isCurrent: true,
+      },
+    ] as SessionFormData[],
+  };
 
   const { data, isLoading, refetch } = usePlatformInstitutions({
     page: currentPage,
@@ -344,24 +363,11 @@ export default function InstitutionsView() {
         shortName: formData.shortName,
         code: formData.code,
         country: formData.country,
+        logo: formData.logo || undefined,
         sessions: formData.sessions,
-      });
+      } as any);
       setIsModalOpen(false);
-      setFormData({
-        name: "",
-        shortName: "",
-        code: "",
-        country: "Nigeria",
-        sessions: [
-          {
-            name: "",
-            startDate: "",
-            endDate: "",
-            status: "UPCOMING",
-            isCurrent: true,
-          },
-        ],
-      });
+      setFormData(emptyInstitutionForm);
       refetch();
     } catch (error: any) {
       console.error("Failed to create institution:", error);
@@ -582,6 +588,14 @@ export default function InstitutionsView() {
                   <option value="South Africa">South Africa</option>
                 </select>
               </div>
+
+              {/* Logo Section */}
+              <LogoUploader
+                value={formData.logo}
+                onChange={(url) => setFormData({ ...formData, logo: url || "" })}
+                folder="institution-logos"
+                label="Institution Logo"
+              />
 
               {/* Sessions Section */}
               <div className="form-group">

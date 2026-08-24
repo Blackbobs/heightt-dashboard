@@ -1,7 +1,7 @@
 // hooks/platform/usePlatformAuth.ts
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi } from "@/lib/api/platform";
+import { platformApi, UserResponseDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -27,14 +27,27 @@ export function usePlatformLogin() {
     onSuccess: (data) => {
       console.log("🔐 usePlatformLogin - onSuccess called with data:", data);
       
-      // The response should have accessToken and user data
-      if (data.accessToken) {
-        console.log("🔐 usePlatformLogin - Setting auth with token:", data.accessToken.substring(0, 20) + "...");
-        setAuth(data.accessToken, data);
-      } else {
-        console.error("🔐 usePlatformLogin - No accessToken in response!", data);
-        // If no token, use the data as user and a placeholder token
-        setAuth("cookie-auth", data);
+      if (data) {
+        const userDto: UserResponseDto = {
+          id: data.id,
+          email: data.email,
+          username: data.username,
+          emailVerified: true,
+          status: "ACTIVE",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          profile: {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            onboardingStep: data.onboardingStep,
+            onboardingCompleted: data.onboardingCompleted,
+            verificationStatus: data.verificationStatus,
+          },
+          isPlatformAdmin: true,
+          userType: "PLATFORM_ADMIN",
+        };
+        const token = data.accessToken || "cookie-auth";
+        setAuth(token, userDto);
       }
       
       // Invalidate user query to trigger refetch

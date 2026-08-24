@@ -55,11 +55,11 @@ export default function AnalyticsView() {
   const isLoading = dashboardLoading || revenueLoading || growthLoading;
 
   // Extract data from API responses
-  const summary = dashboard?.summary || {};
-  const revenueData = dashboard?.revenue || {};
-  const studentData = dashboard?.students || {};
-  const orgData = dashboard?.organizations || {};
-  const recentActivities = dashboard?.recentActivities || [];
+  const summary = (dashboard as any)?.summary || {};
+  const revenueData = (dashboard as any)?.revenue || {};
+  const studentData = (dashboard as any)?.students || {};
+  const orgData = (dashboard as any)?.organizations || {};
+  const recentActivities = (dashboard as any)?.recentActivities || [];
 
   // Stats from the API
   const stats = useMemo(() => {
@@ -108,14 +108,14 @@ export default function AnalyticsView() {
   const revenueChartData =
     revenueTrendData.length > 0
       ? revenueTrendData
-      : (revenue?.revenueGrowth || []).map((item: any) => ({
+      : ((revenue as any)?.revenueGrowth || []).map((item: any) => ({
           period: item.month || item.period,
           amount: item.total || 0,
         })) || [];
 
   // Growth data (student and organization growth)
-  const studentGrowthData = growth?.studentGrowth || [];
-  const orgGrowthData = growth?.organizationGrowth || [];
+  const studentGrowthData = (growth as any)?.studentGrowth || [];
+  const orgGrowthData = (growth as any)?.organizationGrowth || [];
 
   const maxRevenue = Math.max(
     ...revenueChartData.map((d: any) => d.amount || 0),

@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import DataTable from "./DataTable";
+import LogoUploader from "./LogoUploader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Eye, ChevronRight } from "lucide-react";
 
@@ -25,6 +26,7 @@ export default function DepartmentsView() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [headName, setHeadName] = useState("");
+  const [logo, setLogo] = useState("");
   const [selectedInstId, setSelectedInstId] = useState(
     institutions[0]?.id || "",
   );
@@ -179,6 +181,7 @@ export default function DepartmentsView() {
       facultyName: parentFac ? parentFac.name : "Faculty",
       name,
       code: code.toUpperCase(),
+      logo: logo || undefined,
       headName: headName || "TBD",
       generatedLevels: levels,
       organizationsCount: levels.length,
@@ -188,6 +191,7 @@ export default function DepartmentsView() {
     setName("");
     setCode("");
     setHeadName("");
+    setLogo("");
     setIsModalOpen(false);
   };
 
@@ -340,6 +344,13 @@ export default function DepartmentsView() {
                 onChange={(e) => setHeadName(e.target.value)}
               />
             </div>
+
+            <LogoUploader
+              value={logo}
+              onChange={(url) => setLogo(url || "")}
+              folder="department-logos"
+              label="Department Logo"
+            />
 
             <div
               className="form-group"

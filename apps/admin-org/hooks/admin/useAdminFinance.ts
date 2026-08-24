@@ -1,3 +1,4 @@
+// apps/admin-org/hooks/admin/useAdminFinance.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, adminQueryKeys } from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
@@ -12,7 +13,8 @@ export function useAdminDues(params?: {
   return useQuery({
     queryKey: adminQueryKeys.finance.dues(params),
     queryFn: () => adminApi.getDues(params),
-    enabled: !!token,
+    // Dues are organization-scoped; never fire with a missing/bogus org id.
+    enabled: !!token && !!params?.organizationId,
     staleTime: 3 * 60 * 1000,
   });
 }
@@ -20,6 +22,7 @@ export function useAdminDues(params?: {
 export function useAdminTransactions(params?: {
   page?: number;
   limit?: number;
+  organizationId?: string;
   type?: string;
   status?: string;
   startDate?: string;
@@ -30,7 +33,8 @@ export function useAdminTransactions(params?: {
   return useQuery({
     queryKey: adminQueryKeys.finance.transactions(params),
     queryFn: () => adminApi.getTransactions(params),
-    enabled: !!token,
+    // Transactions are organization-scoped; never fire with a missing/bogus id.
+    enabled: !!token && !!params?.organizationId,
     staleTime: 2 * 60 * 1000,
   });
 }
@@ -38,9 +42,9 @@ export function useAdminTransactions(params?: {
 export function useAdminReceipts(params?: {
   page?: number;
   limit?: number;
+  organizationId?: string;
   startDate?: string;
   endDate?: string;
-  organizationId?: string;
 }) {
   const { token } = useAuthStore();
 
@@ -63,14 +67,14 @@ export function useAdminFinancialOverview(organizationId: string) {
   });
 }
 
-export function useAdminFinanceDashboard(organizationId: string) {
+export function useAdminWallet(organizationId: string) {
   const { token } = useAuthStore();
 
   return useQuery({
-    queryKey: adminQueryKeys.finance.dashboard(organizationId),
-    queryFn: () => adminApi.getFinanceDashboard(organizationId),
+    queryKey: adminQueryKeys.finance.wallet(organizationId),
+    queryFn: () => adminApi.getWallet(organizationId),
     enabled: !!token && !!organizationId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 }
 
@@ -101,21 +105,35 @@ export function useAssignDue() {
   });
 }
 
+export function useDeleteDue() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteDue(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.finance.dues(),
+      });
+    },
+  });
+}
+
 export function useRequestWithdrawal() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data: {
       organizationId: string;
+      bankAccountId: string;
       amount: number;
-      bankName: string;
-      accountNumber: string;
-      accountName: string;
-      reason: string;
+      reason?: string;
     }) => adminApi.requestWithdrawal(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.transactions(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.withdrawals.all(),
       });
     },
   });

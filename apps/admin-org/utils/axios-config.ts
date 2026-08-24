@@ -185,11 +185,11 @@ axiosConfig.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed - clear auth and redirect to login
         processQueue(refreshError);
-        const { clearUser } = await import("@/store/auth-store");
-        clearUser();
+        const { clearAuth } = await import("@/store/auth-store");
+        clearAuth();
         clearCsrfToken();
         if (typeof window !== "undefined") {
-          window.location.href = "/admin/login";
+          window.location.href = "/signin";
         }
         return Promise.reject(refreshError);
       } finally {

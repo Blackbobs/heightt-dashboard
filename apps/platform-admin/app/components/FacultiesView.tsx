@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
 import DataTable from "./DataTable";
+import LogoUploader from "./LogoUploader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Eye, ChevronRight } from "lucide-react";
 
@@ -25,6 +26,7 @@ export default function FacultiesView() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [deanName, setDeanName] = useState("");
+  const [logo, setLogo] = useState("");
   const [selectedInstId, setSelectedInstId] = useState(
     institutions[0]?.id || "",
   );
@@ -142,6 +144,7 @@ export default function FacultiesView() {
       institutionName: `${parentInst.name} (${parentInst.code})`,
       name,
       code: code.toUpperCase(),
+      logo: logo || undefined,
       deanName: deanName || "TBD",
       departmentsCount: 0,
       status: "Active",
@@ -151,6 +154,7 @@ export default function FacultiesView() {
       setName("");
       setCode("");
       setDeanName("");
+      setLogo("");
       setIsModalOpen(false);
     }
   };
@@ -291,6 +295,13 @@ export default function FacultiesView() {
                 onChange={(e) => setDeanName(e.target.value)}
               />
             </div>
+
+            <LogoUploader
+              value={logo}
+              onChange={(url) => setLogo(url || "")}
+              folder="faculty-logos"
+              label="Faculty Logo"
+            />
 
             <div className="modal-actions">
               <button

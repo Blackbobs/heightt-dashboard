@@ -56,7 +56,10 @@ export default function AcademicSessionsView() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createMutation.mutateAsync(formData);
+      await createMutation.mutateAsync({
+        ...formData,
+        status: formData.status as any,
+      });
       setIsModalOpen(false);
       setFormData({
         name: "",
@@ -78,7 +81,10 @@ export default function AcademicSessionsView() {
     try {
       await updateMutation.mutateAsync({
         id: editingSession.id,
-        data: formData,
+        data: {
+          ...formData,
+          status: formData.status as any,
+        },
       });
       setIsModalOpen(false);
       setEditingSession(null);
@@ -271,7 +277,6 @@ export default function AcademicSessionsView() {
             value={institutionFilter}
             onChange={(e) => {
               setInstitutionFilter(e.target.value);
-              setCurrentPage(1);
             }}
           >
             <option value="">All Institutions</option>

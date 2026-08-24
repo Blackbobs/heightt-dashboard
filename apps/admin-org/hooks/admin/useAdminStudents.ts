@@ -1,3 +1,4 @@
+// apps/admin-org/hooks/admin/useAdminStudents.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, adminQueryKeys } from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
@@ -5,6 +6,7 @@ import { useAuthStore } from "@/store/auth-store";
 export function useAdminStudents(params?: {
   page?: number;
   limit?: number;
+  organizationId?: string;
   institutionId?: string;
   facultyId?: string;
   departmentId?: string;
@@ -34,36 +36,16 @@ export function useAdminStudent(id: string) {
   });
 }
 
-export function useAdminStudentPromotions(id: string) {
-  const { token } = useAuthStore();
+export function useCreateStudent() {
+  const queryClient = useQueryClient();
 
-  return useQuery({
-    queryKey: adminQueryKeys.students.promotions(id),
-    queryFn: () => adminApi.getStudentPromotions(id),
-    enabled: !!token && !!id,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-export function useAdminStudentDashboard() {
-  const { token } = useAuthStore();
-
-  return useQuery({
-    queryKey: adminQueryKeys.students.dashboard,
-    queryFn: () => adminApi.getStudentDashboard(),
-    enabled: !!token,
-    staleTime: 2 * 60 * 1000,
-  });
-}
-
-export function useAdminDashboard(params?: { institutionId?: string }) {
-  const { token } = useAuthStore();
-
-  return useQuery({
-    queryKey: adminQueryKeys.students.adminDashboard(params),
-    queryFn: () => adminApi.getAdminDashboard(params),
-    enabled: !!token,
-    staleTime: 5 * 60 * 1000,
+  return useMutation({
+    mutationFn: (data: any) => adminApi.createStudent(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.students.all(),
+      });
+    },
   });
 }
 
@@ -79,6 +61,19 @@ export function useUpdateStudent() {
       });
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.students.one(variables.id),
+      });
+    },
+  });
+}
+
+export function useDeleteStudent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteStudent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.students.all(),
       });
     },
   });

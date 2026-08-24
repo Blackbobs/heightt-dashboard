@@ -49,8 +49,10 @@ export default function InstitutionDetailView() {
     isLoading: instLoading,
     refetch: refetchInstitution,
   } = usePlatformInstitution(institutionId);
-  const { data: faculties, isLoading: facultiesLoading } =
+  const { data: facultiesData, isLoading: facultiesLoading } =
     usePlatformFaculties(institutionId);
+
+  const faculties = Array.isArray(facultiesData) ? facultiesData : (facultiesData as any)?.data || [];
 
   // Mutations
   const updateMutation = useUpdateInstitution();
@@ -91,7 +93,10 @@ export default function InstitutionDetailView() {
     try {
       await updateMutation.mutateAsync({
         id: institutionId,
-        data: formData,
+        data: {
+          ...formData,
+          status: formData.status as any,
+        },
       });
       setIsEditModalOpen(false);
       refetchInstitution();

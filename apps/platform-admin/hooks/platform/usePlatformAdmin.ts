@@ -19,7 +19,7 @@ export function usePlatformAdmin() {
           user?.roles?.includes("PLATFORM_ADMIN") ||
           user?.adminTypes?.includes("PLATFORM_ADMIN");
 
-        setIsAdmin(isPlatformAdmin);
+        setIsAdmin(Boolean(isPlatformAdmin));
 
         if (!isPlatformAdmin) {
           clearUser(); // Clear auth state

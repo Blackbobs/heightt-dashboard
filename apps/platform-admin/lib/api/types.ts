@@ -155,11 +155,13 @@ export interface CreateFacultyDto {
   name: string;
   code: string;
   institutionId: string;
+  logo?: string;
 }
 
 export interface UpdateFacultyDto {
   name?: string;
   code?: string;
+  logo?: string;
   status?: "ACTIVE" | "INACTIVE" | "ARCHIVED";
 }
 
@@ -171,12 +173,14 @@ export interface CreateDepartmentDto {
   name: string;
   code: string;
   facultyId: string;
+  logo?: string;
   promotionType?: "AUTOMATIC" | "MANUAL";
 }
 
 export interface UpdateDepartmentDto {
   name?: string;
   code?: string;
+  logo?: string;
   promotionType?: "AUTOMATIC" | "MANUAL";
   status?: "ACTIVE" | "INACTIVE" | "ARCHIVED";
 }
@@ -604,6 +608,7 @@ export interface AssignAdminRoleDto {
   facultyId?: string;
   departmentId?: string;
   organizationId?: string;
+  academicSessionId?: string;
 }
 
 export interface AdminResponseDto {
@@ -885,3 +890,445 @@ export interface AuthState {
   user: UserResponseDto | null;
   isLoading: boolean;
 }
+
+// ============================================
+// FINANCE TYPES - ADD THESE NEW TYPES
+// ============================================
+
+// Bank Account Types
+export interface CreateBankAccountDto {
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  bankCode?: string;
+  isDefault?: boolean;
+}
+
+export interface UpdateBankAccountDto {
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  bankCode?: string;
+  isDefault?: boolean;
+}
+
+export interface BankAccountResponseDto {
+  id: string;
+  userId: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  bankCode?: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BankAccountListResponseDto {
+  data: BankAccountResponseDto[];
+  meta: PaginationMeta;
+}
+
+// Withdrawal Types
+export interface UserWithdrawalRequestDto {
+  bankAccountId: string;
+  amount: number;
+  reason?: string;
+}
+
+export interface OrganizationWithdrawalRequestDto {
+  organizationId: string;
+  bankAccountId: string;
+  amount: number;
+  reason?: string;
+}
+
+export interface PlatformWithdrawalRequestDto {
+  bankAccountId: string;
+  amount: number;
+  reason?: string;
+}
+
+export interface WithdrawalResponseDto {
+  id: string;
+  userId: string;
+  walletId: string;
+  organizationId?: string;
+  amount: number;
+  fee: number;
+  netAmount: number;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  reference: string;
+  requestedAt: string;
+  processedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  failureReason?: string;
+  metadata: {
+    type: "USER_WITHDRAWAL" | "ORGANIZATION_WITHDRAWAL" | "PLATFORM_WITHDRAWAL";
+    bankAccountId: string;
+    reason?: string;
+    organizationId?: string;
+    requestedBy?: string;
+  };
+  wallet?: {
+    id: string;
+    userId: string;
+    organizationId?: string;
+    isPlatformWallet: boolean;
+  };
+  journalEntry?: {
+    id: string;
+    reference: string;
+    lines: Array<{
+      id: string;
+      type: "DEBIT" | "CREDIT";
+      amount: number;
+      description: string;
+    }>;
+  };
+  user?: {
+    id: string;
+    email: string;
+    username: string;
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+}
+
+export interface WithdrawalListResponseDto {
+  data: WithdrawalResponseDto[];
+  meta: PaginationMeta;
+}
+
+export interface WithdrawalApproveResponseDto {
+  id: string;
+  status: "PROCESSING";
+  processedAt: string;
+  message: string;
+}
+
+export interface WithdrawalRejectRequestDto {
+  reason?: string;
+}
+
+export interface WithdrawalRejectResponseDto {
+  id: string;
+  status: "FAILED";
+  failedAt: string;
+  failureReason: string;
+  message: string;
+}
+
+// Withdrawal History Filters
+export interface WithdrawalFiltersDto {
+  status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  type?: "USER" | "ORGANIZATION" | "PLATFORM";
+  page?: number;
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
+// Webhook Types
+export interface WithdrawalWebhookDto {
+  event: "withdrawal.succeeded" | "withdrawal.failed";
+  reference: string;
+  id: string;
+  amount: string;
+  reason?: string;
+  data: {
+    reference: string;
+    id: string;
+    amount: string;
+    status: "completed" | "failed";
+    reason?: string;
+  };
+}
+
+export interface WebhookResponseDto {
+  received: boolean;
+  event: string;
+  withdrawalId: string;
+  status: string;
+}
+
+export interface PermissionDto {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdminPermissionDto {
+  id: string;
+  adminId: string;
+  permissionKey: string;
+  permissionCategory: string;
+  permissionAction: string;
+  resourceId?: string;
+  grantedBy?: string;
+  grantedAt: string;
+}
+
+export interface AdminWithPermissionsResponseDto extends AdminResponseDto {
+  permissions?: AdminPermissionDto[];
+  allPermissions?: PermissionDto[];
+}
+
+export interface AssignAdminWithPermissionsDto {
+  userId: string;
+  adminType:
+    | "PLATFORM_ADMIN"
+    | "INSTITUTION_ADMIN"
+    | "FACULTY_ADMIN"
+    | "DEPARTMENT_ADMIN"
+    | "ORGANIZATION_ADMIN"
+    | "CLUB_ADMIN";
+  institutionId?: string;
+  facultyId?: string;
+  departmentId?: string;
+  organizationId?: string;
+  academicSessionId?: string;
+  permissions?: string[]; // Array of permission keys to assign
+}
+
+export interface UpdateAdminPermissionsDto {
+  permissions: string[]; // Array of permission keys
+  action: "ADD" | "REMOVE" | "SET";
+}
+
+// ============================================
+// PERMISSION CATEGORIES
+// ============================================
+
+export const PERMISSION_CATEGORIES = {
+  USER: {
+    key: "USER",
+    label: "User Management",
+    permissions: [
+      { key: "users:create", label: "Create Users", action: "CREATE" },
+      { key: "users:read", label: "View Users", action: "READ" },
+      { key: "users:update", label: "Update Users", action: "UPDATE" },
+      { key: "users:delete", label: "Delete Users", action: "DELETE" },
+      { key: "users:manage", label: "Manage Users", action: "MANAGE" },
+    ],
+  },
+  INSTITUTION: {
+    key: "INSTITUTION",
+    label: "Institution Management",
+    permissions: [
+      {
+        key: "institution:create",
+        label: "Create Institutions",
+        action: "CREATE",
+      },
+      { key: "institution:read", label: "View Institutions", action: "READ" },
+      {
+        key: "institution:update",
+        label: "Update Institutions",
+        action: "UPDATE",
+      },
+      {
+        key: "institution:delete",
+        label: "Delete Institutions",
+        action: "DELETE",
+      },
+      {
+        key: "institution:manage",
+        label: "Manage Institutions",
+        action: "MANAGE",
+      },
+    ],
+  },
+  ORGANIZATION: {
+    key: "ORGANIZATION",
+    label: "Organization Management",
+    permissions: [
+      {
+        key: "organization:create",
+        label: "Create Organizations",
+        action: "CREATE",
+      },
+      { key: "organization:read", label: "View Organizations", action: "READ" },
+      {
+        key: "organization:update",
+        label: "Update Organizations",
+        action: "UPDATE",
+      },
+      {
+        key: "organization:delete",
+        label: "Delete Organizations",
+        action: "DELETE",
+      },
+      {
+        key: "organization:manage",
+        label: "Manage Organizations",
+        action: "MANAGE",
+      },
+      {
+        key: "organization:approve",
+        label: "Approve Organizations",
+        action: "APPROVE",
+      },
+    ],
+  },
+  FINANCE: {
+    key: "FINANCE",
+    label: "Finance Management",
+    permissions: [
+      { key: "finance:read", label: "View Finance", action: "READ" },
+      {
+        key: "finance:create",
+        label: "Create Finance Records",
+        action: "CREATE",
+      },
+      {
+        key: "finance:update",
+        label: "Update Finance Records",
+        action: "UPDATE",
+      },
+      {
+        key: "finance:delete",
+        label: "Delete Finance Records",
+        action: "DELETE",
+      },
+      {
+        key: "finance:approve",
+        label: "Approve Transactions",
+        action: "APPROVE",
+      },
+      { key: "finance:export", label: "Export Finance Data", action: "EXPORT" },
+      { key: "finance:review", label: "Review Finance", action: "REVIEW" },
+      {
+        key: "finance:withdrawal:approve",
+        label: "Approve Withdrawals",
+        action: "APPROVE",
+      },
+      {
+        key: "finance:withdrawal:platform",
+        label: "Platform Withdrawals",
+        action: "MANAGE",
+      },
+    ],
+  },
+  STUDENT: {
+    key: "STUDENT",
+    label: "Student Management",
+    permissions: [
+      { key: "student:create", label: "Create Students", action: "CREATE" },
+      { key: "student:read", label: "View Students", action: "READ" },
+      { key: "student:update", label: "Update Students", action: "UPDATE" },
+      { key: "student:delete", label: "Delete Students", action: "DELETE" },
+      { key: "student:verify", label: "Verify Students", action: "VERIFY" },
+      { key: "student:promote", label: "Promote Students", action: "PROMOTE" },
+    ],
+  },
+  ACADEMIC: {
+    key: "ACADEMIC",
+    label: "Academic Management",
+    permissions: [
+      { key: "academic:read", label: "View Academic Data", action: "READ" },
+      {
+        key: "academic:create",
+        label: "Create Academic Records",
+        action: "CREATE",
+      },
+      {
+        key: "academic:update",
+        label: "Update Academic Records",
+        action: "UPDATE",
+      },
+      {
+        key: "academic:delete",
+        label: "Delete Academic Records",
+        action: "DELETE",
+      },
+      {
+        key: "academic:manage",
+        label: "Manage Academic Records",
+        action: "MANAGE",
+      },
+    ],
+  },
+  COMMUNICATION: {
+    key: "COMMUNICATION",
+    label: "Communication",
+    permissions: [
+      {
+        key: "communication:create",
+        label: "Create Announcements",
+        action: "CREATE",
+      },
+      {
+        key: "communication:read",
+        label: "View Announcements",
+        action: "READ",
+      },
+      {
+        key: "communication:update",
+        label: "Update Announcements",
+        action: "UPDATE",
+      },
+      {
+        key: "communication:delete",
+        label: "Delete Announcements",
+        action: "DELETE",
+      },
+      {
+        key: "communication:manage",
+        label: "Manage Communications",
+        action: "MANAGE",
+      },
+    ],
+  },
+  ADMIN: {
+    key: "ADMIN",
+    label: "Administrator Management",
+    permissions: [
+      { key: "admin:assign", label: "Assign Admins", action: "ASSIGN" },
+      { key: "admin:revoke", label: "Revoke Admins", action: "REVOKE" },
+      { key: "admin:view", label: "View Admins", action: "VIEW" },
+      { key: "admin:manage", label: "Manage Admins", action: "MANAGE" },
+    ],
+  },
+  SYSTEM: {
+    key: "SYSTEM",
+    label: "System Management",
+    permissions: [
+      { key: "system:read", label: "View System Data", action: "READ" },
+      { key: "system:update", label: "Update System", action: "UPDATE" },
+      { key: "system:manage", label: "Manage System", action: "MANAGE" },
+      {
+        key: "system:maintenance",
+        label: "System Maintenance",
+        action: "MAINTENANCE",
+      },
+      {
+        key: "system:feature_flag",
+        label: "Manage Feature Flags",
+        action: "FEATURE_FLAG",
+      },
+    ],
+  },
+  ANALYTICS: {
+    key: "ANALYTICS",
+    label: "Analytics",
+    permissions: [
+      { key: "analytics:read", label: "View Analytics", action: "READ" },
+      { key: "analytics:export", label: "Export Analytics", action: "EXPORT" },
+      { key: "analytics:manage", label: "Manage Analytics", action: "MANAGE" },
+    ],
+  },
+};
+
+export type PermissionCategoryKey = keyof typeof PERMISSION_CATEGORIES;
+export type PermissionKey = string;

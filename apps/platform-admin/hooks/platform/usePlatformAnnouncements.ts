@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, Announcement } from "@/lib/api/platform";
+import { platformApi, Announcement, CreateAnnouncementDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -36,14 +36,7 @@ export function useCreateAnnouncement() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: {
-      organizationId: string;
-      title: string;
-      content: string;
-      type: string;
-      priority: string;
-      expiresAt?: string;
-    }) => platformApi.createAnnouncement(data),
+    mutationFn: (data: CreateAnnouncementDto) => platformApi.createAnnouncement(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.announcements.all(),

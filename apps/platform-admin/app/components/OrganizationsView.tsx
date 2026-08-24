@@ -92,7 +92,7 @@ export default function OrganizationsView() {
     data: departmentsData,
     isLoading: departmentsLoading,
     refetch: refetchDepartments,
-  } = usePlatformDepartments(formData.facultyId);
+  } = usePlatformDepartments({ facultyId: formData.facultyId });
 
   const { data: sessionsData, isLoading: sessionsLoading } =
     useAcademicSessions(formData.institutionId);
@@ -108,7 +108,7 @@ export default function OrganizationsView() {
     type: typeFilter || undefined,
     status: statusFilter || undefined,
     academicSessionId: sessionFilter || undefined,
-  });
+  } as any);
 
   const createMutation = useCreateOrganization();
   const deleteMutation = useDeleteOrganization();
@@ -442,7 +442,7 @@ export default function OrganizationsView() {
             }}
           >
             <option value="">All Sessions</option>
-            {sessions.map((session) => (
+            {sessions.map((session: any) => (
               <option key={session.id} value={session.id}>
                 {session.name} {session.isCurrent ? "(Current)" : ""}
               </option>
@@ -725,7 +725,7 @@ export default function OrganizationsView() {
                         ? "Loading sessions..."
                         : "Select Academic Session (Optional)"}
                   </option>
-                  {sessions.map((session) => (
+                  {sessions.map((session: any) => (
                     <option key={session.id} value={session.id}>
                       {session.name} {session.isCurrent ? "(Current)" : ""}
                     </option>

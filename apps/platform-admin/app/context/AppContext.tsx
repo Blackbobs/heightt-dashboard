@@ -471,6 +471,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: data.name,
         code: data.code,
         institutionId: data.institutionId,
+        logo: data.logo || undefined,
       });
       setFaculties((current) => [
         ...current,
@@ -522,6 +523,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: data.name,
         code: data.code,
         facultyId: data.facultyId,
+        logo: data.logo || undefined,
       });
       setDepartments((current) => [
         ...current,

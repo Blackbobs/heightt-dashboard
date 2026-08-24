@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, Institution } from "@/lib/api/platform";
+import { platformApi, Institution, CreateInstitutionDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -34,7 +34,7 @@ export function useCreateInstitution() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Institution>) =>
+    mutationFn: (data: CreateInstitutionDto) =>
       platformApi.createInstitution(data),
     onSuccess: () => {
       queryClient.invalidateQueries({

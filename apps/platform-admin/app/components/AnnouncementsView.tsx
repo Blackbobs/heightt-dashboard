@@ -69,6 +69,8 @@ export default function AnnouncementsView() {
     try {
       await createMutation.mutateAsync({
         ...formData,
+        type: formData.type as any,
+        priority: formData.priority as any,
         expiresAt: formData.expiresAt || undefined,
       });
       setIsModalOpen(false);

@@ -2,39 +2,18 @@
 
 "use client";
 
-import React, { ReactNode, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { ReactNode } from "react";
 import { AppProvider } from "../context/AppContext";
 import PlatformShell from "../components/PlatformShell";
 import PlatformAuthGuard from "../components/PlatformAuthGuard";
-import { useAuthStore } from "@/store/auth-store";
 
 export default function PlatformLayout({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuthStore();
-
-  useEffect(() => {
-    if (!isLoading) {
-      const isAdmin = user?.adminTypes && user.adminTypes.length > 0;
-
-      if (!isAuthenticated || !isAdmin) {
-        router.replace("/signin");
-      }
-    }
-  }, [isAuthenticated, isLoading, user, router]);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-gray-500">Loading…</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !user?.adminTypes?.length) {
-    return null;
-  }
-
+  // IMPORTANT: This layout must always render the exact same structure on the
+  // server and the client's first render. Auth state is only available on the
+  // client (it is loaded from localStorage), so if we branched on it here the
+  // server HTML and client HTML would diverge and React would throw a hydration
+  // mismatch. Instead we always render the guard shell and let
+  // PlatformAuthGuard handle auth gating/loading/redirects after hydration.
   return (
     <AppProvider>
       <PlatformAuthGuard>

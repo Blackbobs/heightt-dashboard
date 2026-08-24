@@ -4,8 +4,9 @@
 
 import React, { useEffect, useState, ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "../context/AppContext";
+import { usePlatformLogout } from "@/hooks/platform/usePlatformAuth";
 import { Role } from "../types";
 import * as Lucide from "lucide-react";
 
@@ -150,6 +151,8 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
+  const router = useRouter();
+  const logoutMutation = usePlatformLogout();
 
   useEffect(() => {
     const handleApiError = (event: Event) =>
@@ -601,7 +604,9 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
                     }}
                     onClick={() => {
                       setIsProfileOpen(false);
-                      alert("Logout functionality");
+                      logoutMutation.mutate(undefined, {
+                        onSuccess: () => router.replace("/signin"),
+                      });
                     }}
                   >
                     <LogOut

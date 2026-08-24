@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, Department } from "@/lib/api/platform";
+import { platformApi, Department, CreateDepartmentDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -53,7 +53,7 @@ export function useCreateDepartment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Department>) =>
+    mutationFn: (data: CreateDepartmentDto) =>
       platformApi.createDepartment(data),
     onSuccess: () => {
       queryClient.invalidateQueries({

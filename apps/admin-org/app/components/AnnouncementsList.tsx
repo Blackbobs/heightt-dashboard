@@ -1,10 +1,17 @@
+// apps/admin-org/components/AnnouncementsList.tsx
 "use client";
 
+import { useAdminContext } from "./AdminContext";
 import { useAdminAnnouncements } from "@/hooks/admin/useAdminAnnouncements";
 import { Megaphone, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function AnnouncementsList() {
+  const { selectedScope } = useAdminContext();
+  const organizationId = selectedScope?.organizationId || "";
+
   const { data, isLoading } = useAdminAnnouncements({
+    organizationId,
     limit: 5,
     isPublished: true,
   });
@@ -29,7 +36,6 @@ export function AnnouncementsList() {
       className="bg-white border rounded-xl overflow-hidden"
       style={{ borderColor: "var(--color-border)" }}
     >
-      {/* Card Header */}
       <div
         className="flex items-center justify-between px-5 py-4 border-b"
         style={{ borderColor: "var(--color-border)" }}
@@ -43,7 +49,6 @@ export function AnnouncementsList() {
         </button>
       </div>
 
-      {/* Announcements */}
       <div className="px-5 py-2">
         {announcements.length === 0 ? (
           <div className="py-6 text-center text-sm text-slate-400">

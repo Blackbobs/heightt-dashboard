@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, User } from "@/lib/api/platform";
+import { platformApi, User, UpdateUserStatusDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -43,7 +43,7 @@ export function useUpdateUserStatus() {
       data,
     }: {
       id: string;
-      data: { status: string; reason?: string };
+      data: UpdateUserStatusDto;
     }) => platformApi.updateUserStatus(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({

@@ -44,8 +44,13 @@ export default function StudentDetailsModal({
 
   if (!isOpen || !student) return null;
 
-  const initials = student.name
-    ? student.name
+  const profile = student?.user?.profile || {};
+  const studentName =
+    `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim() ||
+    student?.user?.username ||
+    "Unknown";
+  const initials = studentName
+    ? studentName
         .split(" ")
         .map((n: string) => n[0])
         .join("")
@@ -89,10 +94,10 @@ export default function StudentDetailsModal({
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900">
-              {student.name || "Unknown"}
+              {studentName}
             </h3>
             <p className="text-sm text-slate-500">
-              {student.email || "No email"}
+              {student?.user?.email || "No email"}
             </p>
             <span
               className={cn(
@@ -129,7 +134,7 @@ export default function StudentDetailsModal({
               <User className="w-3.5 h-3.5" /> Username
             </span>
             <span className="text-sm font-medium text-slate-900">
-              {student.username || "N/A"}
+              {student?.user?.username || "N/A"}
             </span>
           </div>
 
@@ -153,7 +158,7 @@ export default function StudentDetailsModal({
               <BookOpen className="w-3.5 h-3.5" /> Academic Level
             </span>
             <span className="text-sm font-medium text-slate-900">
-              {student.currentAcademicLevelName || "N/A"}
+              {student?.currentAcademicLevel?.name || "N/A"}
             </span>
           </div>
 
@@ -165,7 +170,7 @@ export default function StudentDetailsModal({
               <Building2 className="w-3.5 h-3.5" /> Department
             </span>
             <span className="text-sm font-medium text-slate-900">
-              {student.departmentName || "N/A"}
+              {student?.department?.name || "N/A"}
             </span>
           </div>
 

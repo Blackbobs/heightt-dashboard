@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, Faculty } from "@/lib/api/platform";
+import { platformApi, Faculty, CreateFacultyDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -57,7 +57,7 @@ export function useCreateFaculty() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<Faculty>) => platformApi.createFaculty(data),
+    mutationFn: (data: CreateFacultyDto) => platformApi.createFaculty(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.faculties.all(),

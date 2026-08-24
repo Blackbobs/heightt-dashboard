@@ -1,7 +1,7 @@
+// apps/admin-org/components/Sidebar.tsx
 "use client";
 
 import { useState } from "react";
-import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Coins,
@@ -15,6 +15,9 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Shield,
+  Wallet,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminLogout } from "@/hooks/admin/useAdminAuth";
@@ -24,39 +27,26 @@ interface SidebarProps {
   onNavChange: (nav: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  isFacultyAdmin?: boolean;
+  isInstitutionAdmin?: boolean;
+  isDepartmentAdmin?: boolean;
+  isOrganizationAdmin?: boolean;
+  isPlatformAdmin?: boolean;
+  hasPermission?: (permission: string) => boolean;
 }
-
-const navSections = [
-  {
-    label: "Overview",
-    items: [{ icon: LayoutDashboard, label: "Dashboard" }],
-  },
-  {
-    label: "Management",
-    items: [
-      { icon: Coins, label: "Dues", badge: "3" },
-      { icon: HandCoins, label: "Payments" },
-      { icon: Users, label: "Students", badge: "1.2k" },
-      { icon: Megaphone, label: "Announcements", badge: "2" },
-    ],
-  },
-  {
-    label: "Finance",
-    items: [{ icon: ChartLine, label: "Finance" }],
-  },
-  {
-    label: "Settings",
-    items: [{ icon: Settings, label: "Settings" }],
-  },
-];
 
 export function Sidebar({
   activeNav,
   onNavChange,
   isOpen,
   onClose,
+  isFacultyAdmin = false,
+  isInstitutionAdmin = false,
+  isDepartmentAdmin = false,
+  isOrganizationAdmin = false,
+  isPlatformAdmin = false,
+  hasPermission = () => false,
 }: SidebarProps) {
-  const pathname = usePathname();
   const logoutMutation = useAdminLogout();
   const [expandedSections, setExpandedSections] = useState<string[]>([
     "Overview",
@@ -75,9 +65,89 @@ export function Sidebar({
     await logoutMutation.mutateAsync();
   };
 
+  // Check permissions for each feature
+  const canManageDues =
+    hasPermission("finance:create") ||
+    isFacultyAdmin ||
+    isInstitutionAdmin ||
+    isDepartmentAdmin ||
+    isOrganizationAdmin ||
+    isPlatformAdmin;
+  const canManageStudents =
+    hasPermission("student:read") ||
+    isFacultyAdmin ||
+    isInstitutionAdmin ||
+    isDepartmentAdmin ||
+    isOrganizationAdmin ||
+    isPlatformAdmin;
+  const canManageAnnouncements =
+    hasPermission("communication:create") ||
+    isFacultyAdmin ||
+    isInstitutionAdmin ||
+    isDepartmentAdmin ||
+    isOrganizationAdmin ||
+    isPlatformAdmin;
+  const canViewFinance =
+    hasPermission("finance:read") ||
+    isFacultyAdmin ||
+    isInstitutionAdmin ||
+    isDepartmentAdmin ||
+    isOrganizationAdmin ||
+    isPlatformAdmin;
+  const canViewWithdrawals =
+    hasPermission("finance:read") || isOrganizationAdmin || isPlatformAdmin;
+  const canViewBankAccounts =
+    hasPermission("finance:read") || isOrganizationAdmin || isPlatformAdmin;
+
+  const navSections = [
+    {
+      label: "Overview",
+      items: [{ icon: LayoutDashboard, label: "Dashboard" }],
+    },
+    {
+      label: "Management",
+      items: [
+        ...(canManageDues ? [{ icon: Coins, label: "Dues" }] : []),
+        { icon: HandCoins, label: "Payments" },
+        ...(canManageStudents ? [{ icon: Users, label: "Students" }] : []),
+        ...(canManageAnnouncements
+          ? [{ icon: Megaphone, label: "Announcements" }]
+          : []),
+      ].filter(
+        (item): item is { icon: any; label: string } => item !== undefined,
+      ),
+    },
+    {
+      label: "Finance",
+      items: [
+        ...(canViewFinance ? [{ icon: ChartLine, label: "Finance" }] : []),
+        ...(canViewWithdrawals
+          ? [{ icon: ArrowUpRight, label: "Withdrawals" }]
+          : []),
+        ...(canViewBankAccounts
+          ? [{ icon: Wallet, label: "Bank Accounts" }]
+          : []),
+      ].filter(
+        (item): item is { icon: any; label: string } => item !== undefined,
+      ),
+    },
+    {
+      label: "Settings",
+      items: [{ icon: Settings, label: "Settings" }],
+    },
+  ].filter((section) => section.items.length > 0);
+
+  const getAdminTypeLabel = () => {
+    if (isPlatformAdmin) return "Platform Admin";
+    if (isInstitutionAdmin) return "Institution Admin";
+    if (isFacultyAdmin) return "Faculty Admin";
+    if (isDepartmentAdmin) return "Department Admin";
+    if (isOrganizationAdmin) return "Organization Admin";
+    return "Admin";
+  };
+
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
@@ -85,7 +155,6 @@ export function Sidebar({
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed lg:sticky top-0 left-0 h-screen z-50 w-[270px] bg-white border-r flex flex-col flex-shrink-0 overflow-y-auto transition-transform duration-300 ease-out shadow-xl lg:shadow-none",
@@ -93,7 +162,6 @@ export function Sidebar({
         )}
         style={{ borderColor: "var(--color-border)" }}
       >
-        {/* Brand Header */}
         <div
           className="flex items-center justify-between px-5 py-4 border-b"
           style={{ borderColor: "var(--color-border)" }}
@@ -105,12 +173,19 @@ export function Sidebar({
             >
               <Building2 className="w-4 h-4" />
             </div>
-            <span className="font-bold text-lg text-[#0b1a33]">
-              Heightt Admin
-            </span>
+            <div>
+              <span className="font-bold text-lg text-[#0b1a33]">
+                Heightt Admin
+              </span>
+              <div className="flex items-center gap-1">
+                <Shield className="w-3 h-3 text-blue-500" />
+                <span className="text-[10px] font-medium text-blue-600">
+                  {getAdminTypeLabel()}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Close button for Mobile */}
           <button
             onClick={onClose}
             className="lg:hidden w-8 h-8 rounded-full border-none bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer flex items-center justify-center text-sm"
@@ -120,7 +195,6 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Navigation Sections */}
         <nav className="flex-1 px-3 py-4 flex flex-col gap-2 overflow-y-auto">
           {navSections.map((section) => {
             const isExpanded = expandedSections.includes(section.label);
@@ -133,7 +207,7 @@ export function Sidebar({
                 <button
                   onClick={() => toggleSection(section.label)}
                   className={cn(
-                    "flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors",
+                    "flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors border-none cursor-pointer bg-transparent",
                     isActive ? "text-[#1a5cff]" : "text-[#7a8ba3]",
                   )}
                 >
@@ -159,7 +233,7 @@ export function Sidebar({
                             onClose();
                           }}
                           className={cn(
-                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-left border-none cursor-pointer transition-all duration-150",
+                            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-left border-none cursor-pointer transition-all duration-150 bg-transparent",
                             isItemActive
                               ? "font-semibold bg-blue-50 text-blue-700 shadow-sm"
                               : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
@@ -172,16 +246,6 @@ export function Sidebar({
                             )}
                           />
                           <span className="flex-1">{item.label}</span>
-                          {item.badge && (
-                            <span
-                              className={cn(
-                                "text-[10px] font-bold px-2 py-0.5 rounded-full text-white",
-                                isItemActive ? "bg-blue-600" : "bg-slate-400",
-                              )}
-                            >
-                              {item.badge}
-                            </span>
-                          )}
                         </button>
                       );
                     })}
@@ -192,7 +256,6 @@ export function Sidebar({
           })}
         </nav>
 
-        {/* Sidebar Footer */}
         <div
           className="p-3 border-t"
           style={{ borderColor: "var(--color-border)" }}
@@ -200,7 +263,7 @@ export function Sidebar({
           <button
             onClick={handleLogout}
             disabled={logoutMutation.isPending}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-left border-none cursor-pointer transition-colors text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full text-left border-none cursor-pointer transition-colors bg-transparent text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             <span>

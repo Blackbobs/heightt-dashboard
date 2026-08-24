@@ -46,8 +46,10 @@ export default function FacultyDetailView() {
     isLoading: facultyLoading,
     refetch: refetchFaculty,
   } = usePlatformFaculty(facultyId);
-  const { data: departments, isLoading: deptsLoading } =
-    usePlatformDepartments(facultyId);
+  const { data: departmentsData, isLoading: deptsLoading } =
+    usePlatformDepartments({ facultyId });
+
+  const departments = Array.isArray(departmentsData) ? departmentsData : (departmentsData as any)?.data || [];
 
   // Mutations
   const updateMutation = useUpdateFaculty();
@@ -81,7 +83,10 @@ export default function FacultyDetailView() {
     try {
       await updateMutation.mutateAsync({
         id: facultyId,
-        data: formData,
+        data: {
+          ...formData,
+          status: formData.status as any,
+        },
       });
       setIsEditModalOpen(false);
       refetchFaculty();
@@ -106,7 +111,7 @@ export default function FacultyDetailView() {
       setFormData({
         name: faculty.name || "",
         code: faculty.code || "",
-        deanName: faculty.deanName || "",
+        deanName: (faculty as any).deanName || "",
         status: faculty.status || "ACTIVE",
       });
       setIsEditModalOpen(true);
@@ -214,7 +219,7 @@ export default function FacultyDetailView() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{faculty.name}</h1>
           <p className="text-sm text-slate-500">
-            {faculty.code} • {faculty.institution?.name || "Institution"}
+            {faculty.code} • {(faculty as any).institution?.name || "Institution"}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -257,7 +262,7 @@ export default function FacultyDetailView() {
           <div className="card-body">
             <div className="text-sm text-slate-500">Dean</div>
             <div className="text-2xl font-bold text-slate-900">
-              {faculty.deanName || "TBD"}
+              {(faculty as any).deanName || "TBD"}
             </div>
           </div>
         </div>
@@ -265,7 +270,7 @@ export default function FacultyDetailView() {
           <div className="card-body">
             <div className="text-sm text-slate-500">Institution</div>
             <div className="text-2xl font-bold text-slate-900">
-              {faculty.institution?.name || "N/A"}
+              {(faculty as any).institution?.name || "N/A"}
             </div>
           </div>
         </div>
@@ -288,7 +293,7 @@ export default function FacultyDetailView() {
             </div>
             <div>
               <div className="text-sm text-slate-500">Dean</div>
-              <div>{faculty.deanName || "TBD"}</div>
+              <div>{(faculty as any).deanName || "TBD"}</div>
             </div>
             <div>
               <div className="text-sm text-slate-500">Status</div>
@@ -390,11 +395,11 @@ export default function FacultyDetailView() {
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">Dean</div>
-                  <div>{faculty.deanName || "TBD"}</div>
+                  <div>{(faculty as any).deanName || "TBD"}</div>
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">Institution</div>
-                  <div>{faculty.institution?.name || "N/A"}</div>
+                  <div>{(faculty as any).institution?.name || "N/A"}</div>
                 </div>
               </div>
             </div>

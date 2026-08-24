@@ -23,6 +23,26 @@ export default function PlatformAuthGuard({
     setIsClient(true);
   }, []);
 
+  // True only for users with PLATFORM_ADMIN privileges (the /platform dashboard
+  // is exclusively for platform admins, not any other admin type).
+  const isPlatformAdminUser = (u: any): boolean =>
+    u?.isPlatformAdmin === true ||
+    u?.userType === "PLATFORM_ADMIN" ||
+    u?.roles?.includes("PLATFORM_ADMIN") ||
+    u?.adminTypes?.includes("PLATFORM_ADMIN");
+
+  // Automatic logout: revoke the session server-side (best effort), clear the
+  // local auth state, and send the user to the sign-in page.
+  function logout() {
+    try {
+      void platformApi.logout();
+    } catch {
+      // Ignore network failures; local logout and redirect still apply.
+    }
+    clearUser();
+    router.replace("/signin");
+  }
+
   useEffect(() => {
     let mounted = true;
 
@@ -34,60 +54,39 @@ export default function PlatformAuthGuard({
       try {
         if (token) {
           if (user) {
-            // Check if user has ANY admin role
-            const isAdmin = user.adminTypes && user.adminTypes.length > 0;
-
-            if (!isAdmin) {
-              clearUser();
-              if (mounted) {
-                router.replace("/platform/login");
-              }
+            // Only platform admins may access this dashboard.
+            if (!isPlatformAdminUser(user)) {
+              if (mounted) logout();
               return;
             }
 
-            if (mounted) {
-              setChecking(false);
-            }
+            if (mounted) setChecking(false);
             return;
           }
 
           try {
             const userData = await platformApi.getCurrentUser();
-            
-            const isAdmin = userData?.adminTypes && userData.adminTypes.length > 0;
 
-            if (!isAdmin) {
-              clearUser();
-              if (mounted) {
-                router.replace("/platform/login");
-              }
+            // Fetching the current user returned a valid session, but if they
+            // are not a platform admin, automatically log them out.
+            if (!isPlatformAdminUser(userData)) {
+              if (mounted) logout();
               return;
             }
 
             setAuth(token, userData);
-            if (mounted) {
-              setChecking(false);
-            }
+            if (mounted) setChecking(false);
             return;
           } catch (err) {
-            clearUser();
-            if (mounted) {
-              router.replace("/platform/login");
-            }
+            if (mounted) logout();
             return;
           }
         }
 
-        clearUser();
-        if (mounted) {
-          router.replace("/platform/login");
-        }
+        if (mounted) logout();
       } catch (err) {
         console.error("Auth check error:", err);
-        clearUser();
-        if (mounted) {
-          router.replace("/platform/login");
-        }
+        if (mounted) logout();
       }
     }
 

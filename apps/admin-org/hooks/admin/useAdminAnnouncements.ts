@@ -15,7 +15,8 @@ export function useAdminAnnouncements(params?: {
   return useQuery({
     queryKey: adminQueryKeys.announcements.all(params),
     queryFn: () => adminApi.getAnnouncements(params),
-    enabled: !!token,
+    // Announcements are organization-scoped; never fire with a missing/bogus id.
+    enabled: !!token && !!params?.organizationId,
     staleTime: 2 * 60 * 1000,
   });
 }

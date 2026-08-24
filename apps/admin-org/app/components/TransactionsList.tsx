@@ -1,10 +1,19 @@
+// apps/admin-org/components/TransactionsList.tsx
 "use client";
 
+import { useAdminContext } from "./AdminContext";
 import { useAdminTransactions } from "@/hooks/admin/useAdminFinance";
 import { ArrowDown, ArrowUp, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function TransactionsList() {
-  const { data, isLoading } = useAdminTransactions({ limit: 5 });
+  const { selectedScope } = useAdminContext();
+  const organizationId = selectedScope?.organizationId || "";
+
+  const { data, isLoading } = useAdminTransactions({
+    organizationId,
+    limit: 5,
+  });
 
   if (isLoading) {
     return (
@@ -26,7 +35,6 @@ export function TransactionsList() {
       className="bg-white border rounded-xl overflow-hidden"
       style={{ borderColor: "var(--color-border)" }}
     >
-      {/* Card Header */}
       <div
         className="flex items-center justify-between px-5 py-4 border-b"
         style={{ borderColor: "var(--color-border)" }}
@@ -39,7 +47,6 @@ export function TransactionsList() {
         </button>
       </div>
 
-      {/* Transactions */}
       <div className="px-5 py-2">
         {transactions.length === 0 ? (
           <div className="py-6 text-center text-sm text-slate-400">
@@ -61,7 +68,6 @@ export function TransactionsList() {
                       : "none",
                 }}
               >
-                {/* Icon */}
                 <div
                   className={cn(
                     "w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm",
@@ -77,7 +83,6 @@ export function TransactionsList() {
                   )}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate text-slate-900">
                     {tx.description || tx.type}
@@ -88,7 +93,6 @@ export function TransactionsList() {
                   </div>
                 </div>
 
-                {/* Amount */}
                 <div className="text-right flex-shrink-0">
                   <div
                     className={cn(
@@ -96,7 +100,7 @@ export function TransactionsList() {
                       isCredit ? "text-emerald-600" : "text-slate-900",
                     )}
                   >
-                    {isCredit ? "+" : "-"}₦{tx.amount.toLocaleString()}
+                    {isCredit ? "+" : "-"}₦{(tx.amount || 0).toLocaleString()}
                   </div>
                   {isPending && (
                     <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">

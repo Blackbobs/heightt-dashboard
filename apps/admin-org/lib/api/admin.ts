@@ -1,5 +1,4 @@
 // apps/admin-org/lib/api/admin.ts
-
 import { axiosConfig } from "@/utils/axios-config";
 
 // ============ Auth Types ============
@@ -15,6 +14,13 @@ export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   message: string;
+  // Role info returned by the backend login response
+  isPlatformAdmin?: boolean;
+  adminTypes?: string[];
+  userType?: string;
+  roles?: string[];
+  isAdminSession?: boolean;
+  highestAdminType?: string;
 }
 
 export interface UserProfile {
@@ -76,6 +82,52 @@ export interface User {
   studentProfile?: StudentProfile;
 }
 
+export interface AdminScope {
+  id: string;
+  adminType:
+    | "PLATFORM_ADMIN"
+    | "INSTITUTION_ADMIN"
+    | "FACULTY_ADMIN"
+    | "DEPARTMENT_ADMIN"
+    | "ORGANIZATION_ADMIN"
+    | "CLUB_ADMIN";
+  organizationId?: string;
+  institutionId?: string;
+  facultyId?: string;
+  departmentId?: string;
+  academicLevelId?: string;
+  organization?: {
+    id: string;
+    name: string;
+    slug: string;
+    type: string;
+  };
+  institution?: {
+    id: string;
+    name: string;
+    shortName: string;
+  };
+  faculty?: {
+    id: string;
+    name: string;
+  };
+  department?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface AdminUser extends User {
+  adminScopes: AdminScope[];
+  activeOrganizationId?: string;
+  userType?: string;
+  roles?: string[];
+  adminTypes?: string[];
+  isPlatformAdmin?: boolean;
+  isAdminSession?: boolean;
+  highestAdminType?: string;
+}
+
 // ============ Student Types ============
 export interface Student {
   id: string;
@@ -110,47 +162,17 @@ export interface PaginatedResponse<T> {
   };
 }
 
-// ============ Admin Types ============
-export interface AdminScope {
-  id: string;
-  adminType:
-    | "PLATFORM_ADMIN"
-    | "INSTITUTION_ADMIN"
-    | "FACULTY_ADMIN"
-    | "DEPARTMENT_ADMIN"
-    | "ORGANIZATION_ADMIN"
-    | "CLUB_ADMIN";
-  organizationId?: string;
-  institutionId?: string;
-  facultyId?: string;
-  departmentId?: string;
-  organization?: {
-    id: string;
-    name: string;
-    slug: string;
-    type: string;
-  };
-  institution?: {
-    id: string;
-    name: string;
-    shortName: string;
-  };
-  faculty?: {
-    id: string;
-    name: string;
-  };
-  department?: {
-    id: string;
-    name: string;
-  };
-}
-
-export interface AdminUser extends User {
-  adminScopes: AdminScope[];
-  activeOrganizationId?: string;
-}
-
 // ============ Finance Types ============
+export interface Wallet {
+  id: string;
+  userId?: string;
+  organizationId?: string;
+  balance: number;
+  heldBalance: number;
+  currency: string;
+  status: string;
+}
+
 export interface Due {
   id: string;
   organizationId: string;
@@ -213,6 +235,7 @@ export interface FinancialOverview {
   completedDues?: number;
   totalStudents?: number;
   activeStudents?: number;
+  balance?: number;
 }
 
 // ============ Announcement Types ============
@@ -237,6 +260,20 @@ export interface Announcement {
   };
 }
 
+// ============ Dashboard Stats ============
+export interface DashboardStats {
+  totalStudents: number;
+  activeStudents: number;
+  pendingVerifications: number;
+  totalDues: number;
+  activeDues: number;
+  totalCollections: number;
+  pendingPayments: number;
+  walletBalance: number;
+  recentTransactions: Transaction[];
+  recentAnnouncements: Announcement[];
+}
+
 // ============ Organization Types ============
 export interface OrganizationMembership {
   id: string;
@@ -256,63 +293,43 @@ export interface OrganizationMembership {
   };
 }
 
-// ============ Join Request Types ============
-export interface OrganizationJoinRequest {
+// ============ Bank Account Types ============
+export interface BankAccount {
   id: string;
-  organizationId: string;
   userId: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  membershipType: "STUDENT" | "ADMIN" | "STAFF" | "ALUMNI" | "HONORARY";
-  message?: string;
-  reviewedBy?: string;
-  reviewedAt?: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  bankCode?: string;
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
-  user?: {
-    id: string;
-    email: string;
-    username: string;
-    profile?: {
-      firstName: string;
-      lastName: string;
-      phone?: string;
-      avatar?: string;
-    };
-    studentProfile?: {
-      institutionId: string;
-      facultyId: string;
-      departmentId: string;
-      matricNumber?: string;
-      currentAcademicLevel?: {
-        id: string;
-        name: string;
-      };
-    };
-  };
-  organization?: {
-    id: string;
-    name: string;
-    slug: string;
-    type: string;
-    status: string;
-  };
-  reviewer?: {
-    id: string;
-    username: string;
-    email: string;
-    profile?: {
-      firstName: string;
-      lastName: string;
-    };
-  };
 }
 
-export interface JoinRequestStats {
-  organizationId: string;
-  pending: number;
-  approved: number;
-  rejected: number;
-  total: number;
+// ============ Withdrawal Types ============
+export interface Withdrawal {
+  id: string;
+  userId: string;
+  walletId: string;
+  amount: number;
+  fee: number;
+  netAmount: number;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  reference: string;
+  requestedAt: string;
+  processedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  failureReason?: string;
+  metadata?: {
+    type: string;
+    bankAccountId?: string;
+    reason?: string;
+    organizationId?: string;
+  };
 }
 
 // ============ API Services ============
@@ -342,14 +359,68 @@ export const adminApi = {
     await axiosConfig.post("/v1/auth/logout-all");
   },
 
-  refresh: async (): Promise<void> => {
-    await axiosConfig.post("/v1/auth/refresh");
+  // ============ Dashboard ============
+  getDashboardStats: async (
+    organizationId: string,
+  ): Promise<DashboardStats> => {
+    const [
+      studentsRes,
+      duesRes,
+      financeRes,
+      transactionsRes,
+      announcementsRes,
+    ] = await Promise.all([
+      axiosConfig.get("/v1/students", {
+        params: { organizationId, limit: 1 },
+      }),
+      axiosConfig.get("/v1/finance/dues", {
+        params: { organizationId, limit: 100 },
+      }),
+      axiosConfig.get("/v1/finance/wallet/organization/" + organizationId),
+      axiosConfig.get("/v1/finance/transactions", {
+        params: { organizationId, limit: 10 },
+      }),
+      axiosConfig.get("/v1/communication/announcements", {
+        params: { organizationId, limit: 5, isPublished: true },
+      }),
+    ]);
+
+    const students = studentsRes.data;
+    const dues = duesRes.data;
+    const wallet = financeRes.data;
+    const transactions = transactionsRes.data;
+    const announcements = announcementsRes.data;
+
+    const totalStudents = students.meta?.total || 0;
+    const activeStudents =
+      students.data?.filter((s: any) => s.academicStatus === "ACTIVE").length ||
+      0;
+    const totalDues = dues.data?.length || 0;
+    const activeDues =
+      dues.data?.filter((d: any) => d.status === "ACTIVE").length || 0;
+    const pendingPayments =
+      dues.data?.filter((d: any) => d.status === "ACTIVE").length || 0;
+    const walletBalance = wallet?.balance || 0;
+
+    return {
+      totalStudents,
+      activeStudents,
+      pendingVerifications: 0,
+      totalDues,
+      activeDues,
+      totalCollections: walletBalance,
+      pendingPayments,
+      walletBalance,
+      recentTransactions: transactions.data || [],
+      recentAnnouncements: announcements.data || [],
+    };
   },
 
   // ============ Students ============
   getStudents: async (params?: {
     page?: number;
     limit?: number;
+    organizationId?: string;
     institutionId?: string;
     facultyId?: string;
     departmentId?: string;
@@ -367,9 +438,18 @@ export const adminApi = {
     return response.data;
   },
 
+  createStudent: async (data: any): Promise<Student> => {
+    const response = await axiosConfig.post("/v1/students", data);
+    return response.data;
+  },
+
   updateStudent: async (id: string, data: any): Promise<Student> => {
     const response = await axiosConfig.patch(`/v1/students/${id}`, data);
     return response.data;
+  },
+
+  deleteStudent: async (id: string): Promise<void> => {
+    await axiosConfig.delete(`/v1/students/${id}`);
   },
 
   getStudentPromotions: async (id: string): Promise<any[]> => {
@@ -383,7 +463,7 @@ export const adminApi = {
   },
 
   getAdminDashboard: async (params?: {
-    institutionId?: string;
+    organizationId?: string;
   }): Promise<any> => {
     const response = await axiosConfig.get("/v1/students/admin-dashboard", {
       params,
@@ -392,6 +472,13 @@ export const adminApi = {
   },
 
   // ============ Finance ============
+  getWallet: async (organizationId: string): Promise<Wallet> => {
+    const response = await axiosConfig.get(
+      `/v1/finance/wallet/organization/${organizationId}`,
+    );
+    return response.data;
+  },
+
   getDues: async (params?: {
     organizationId?: string;
     page?: number;
@@ -410,9 +497,14 @@ export const adminApi = {
     await axiosConfig.post(`/v1/finance/dues/${id}/assign`, data);
   },
 
+  deleteDue: async (id: string): Promise<void> => {
+    await axiosConfig.delete(`/v1/finance/dues/${id}`);
+  },
+
   getTransactions: async (params?: {
     page?: number;
     limit?: number;
+    organizationId?: string;
     type?: string;
     status?: string;
     startDate?: string;
@@ -427,9 +519,9 @@ export const adminApi = {
   getReceipts: async (params?: {
     page?: number;
     limit?: number;
+    organizationId?: string;
     startDate?: string;
     endDate?: string;
-    organizationId?: string;
   }): Promise<PaginatedResponse<Receipt>> => {
     const response = await axiosConfig.get("/v1/finance/receipts", { params });
     return response.data;
@@ -438,10 +530,39 @@ export const adminApi = {
   getFinancialOverview: async (
     organizationId: string,
   ): Promise<FinancialOverview> => {
-    const response = await axiosConfig.get(
-      `/v1/finance/organizations/${organizationId}/overview`,
-    );
-    return response.data;
+    const [walletRes, duesRes, transactionsRes] = await Promise.all([
+      axiosConfig.get(`/v1/finance/wallet/organization/${organizationId}`),
+      axiosConfig.get("/v1/finance/dues", {
+        params: { organizationId, limit: 100 },
+      }),
+      axiosConfig.get("/v1/finance/transactions", {
+        params: { organizationId, limit: 100 },
+      }),
+    ]);
+
+    const wallet = walletRes.data;
+    const dues = duesRes.data;
+    const transactions = transactionsRes.data;
+
+    const totalCollections = wallet?.balance || 0;
+    const totalTransactions = transactions.meta?.total || 0;
+    const totalDues = dues.data?.length || 0;
+    const pendingDues =
+      dues.data?.filter((d: any) => d.status === "ACTIVE").length || 0;
+    const completedDues =
+      dues.data?.filter((d: any) => d.status === "COMPLETED").length || 0;
+
+    return {
+      totalCollections,
+      totalTransactions,
+      totalPayments: 0,
+      totalOutstanding: pendingDues * (dues.data?.[0]?.amount || 0),
+      totalWithdrawals: 0,
+      totalDues,
+      pendingDues,
+      completedDues,
+      balance: wallet?.balance || 0,
+    };
   },
 
   getFinanceDashboard: async (organizationId: string): Promise<any> => {
@@ -453,13 +574,100 @@ export const adminApi = {
 
   requestWithdrawal: async (data: {
     organizationId: string;
+    bankAccountId: string;
     amount: number;
+    reason?: string;
+  }): Promise<Withdrawal> => {
+    const response = await axiosConfig.post(
+      "/v1/finance/withdrawals/organization",
+      data,
+    );
+    return response.data;
+  },
+
+  getWithdrawals: async (params?: {
+    status?: string;
+    type?: string;
+    page?: number;
+    limit?: number;
+    organizationId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<PaginatedResponse<Withdrawal>> => {
+    const response = await axiosConfig.get("/v1/finance/withdrawals", {
+      params,
+    });
+    return response.data;
+  },
+
+  getWithdrawal: async (id: string): Promise<Withdrawal> => {
+    const response = await axiosConfig.get(`/v1/finance/withdrawals/${id}`);
+    return response.data;
+  },
+
+  // ============ Bank Accounts ============
+  getBankAccounts: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<BankAccount>> => {
+    const response = await axiosConfig.get("/v1/finance/bank-accounts", {
+      params,
+    });
+
+    // The backend may return either `{ data, meta }` (paginated) or a plain
+    // array of bank accounts. Normalize the plain array so the UI can always
+    // read `.data` and `.meta` (fixes an empty page for the array shape).
+    if (Array.isArray(response.data)) {
+      const bankAccounts = response.data as BankAccount[];
+      const page = params?.page || 1;
+      const limit = params?.limit || bankAccounts.length || 10;
+      return {
+        data: bankAccounts,
+        meta: {
+          page,
+          limit,
+          total: bankAccounts.length,
+          totalPages: Math.max(1, Math.ceil(bankAccounts.length / limit)),
+        },
+      };
+    }
+
+    return response.data;
+  },
+
+  getBankAccount: async (id: string): Promise<BankAccount> => {
+    const response = await axiosConfig.get(`/v1/finance/bank-accounts/${id}`);
+    return response.data;
+  },
+
+  createBankAccount: async (data: {
     bankName: string;
     accountNumber: string;
     accountName: string;
-    reason: string;
-  }): Promise<void> => {
-    await axiosConfig.post("/v1/finance/withdrawals/organization", data);
+    bankCode?: string;
+    isDefault?: boolean;
+  }): Promise<BankAccount> => {
+    const response = await axiosConfig.post("/v1/finance/bank-accounts", data);
+    return response.data;
+  },
+
+  updateBankAccount: async (id: string, data: any): Promise<BankAccount> => {
+    const response = await axiosConfig.patch(
+      `/v1/finance/bank-accounts/${id}`,
+      data,
+    );
+    return response.data;
+  },
+
+  deleteBankAccount: async (id: string): Promise<void> => {
+    await axiosConfig.delete(`/v1/finance/bank-accounts/${id}`);
+  },
+
+  setDefaultBankAccount: async (id: string): Promise<{ message: string }> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/bank-accounts/${id}/default`,
+    );
+    return response.data;
   },
 
   // ============ Announcements ============
@@ -526,7 +734,9 @@ export const adminApi = {
   ): Promise<PaginatedResponse<any>> => {
     const response = await axiosConfig.get(
       `/v1/organizations/${organizationId}/members`,
-      { params },
+      {
+        params,
+      },
     );
     return response.data;
   },
@@ -560,47 +770,20 @@ export const adminApi = {
     });
     return response.data;
   },
-
-  // ============ Organization Join Requests ============
-  getPendingJoinRequests: async (
-    organizationId: string,
-    params?: {
-      page?: number;
-      limit?: number;
-    },
-  ): Promise<PaginatedResponse<OrganizationJoinRequest>> => {
-    const response = await axiosConfig.get(
-      `/v1/organizations/${organizationId}/join-requests/pending`,
-      { params },
-    );
-    return response.data;
-  },
-
-  reviewJoinRequest: async (
-    requestId: string,
-    data: { status: "APPROVED" | "REJECTED"; rejectionReason?: string },
-  ): Promise<OrganizationJoinRequest> => {
-    const response = await axiosConfig.patch(
-      `/v1/organizations/join-requests/${requestId}/review`,
-      data,
-    );
-    return response.data;
-  },
-
-  getJoinRequestStats: async (
-    organizationId: string,
-  ): Promise<JoinRequestStats> => {
-    const response = await axiosConfig.get(
-      `/v1/organizations/${organizationId}/join-requests/stats`,
-    );
-    return response.data;
-  },
 };
 
 // ============ Query Keys ============
 export const adminQueryKeys = {
   auth: {
     user: ["admin", "auth", "user"],
+  },
+  dashboard: {
+    stats: (organizationId: string) => [
+      "admin",
+      "dashboard",
+      "stats",
+      organizationId,
+    ],
   },
   students: {
     all: (params?: any) => ["admin", "students", params],
@@ -614,7 +797,21 @@ export const adminQueryKeys = {
     ],
     promotions: (id: string) => ["admin", "students", id, "promotions"],
   },
+  bankAccounts: {
+    all: (params?: any) => ["admin", "finance", "bank-accounts", params],
+    one: (id: string) => ["admin", "finance", "bank-accounts", id],
+  },
+  withdrawals: {
+    all: (params?: any) => ["admin", "finance", "withdrawals", params],
+    one: (id: string) => ["admin", "finance", "withdrawals", id],
+  },
   finance: {
+    wallet: (organizationId: string) => [
+      "admin",
+      "finance",
+      "wallet",
+      organizationId,
+    ],
     dues: (params?: any) => ["admin", "finance", "dues", params],
     transactions: (params?: any) => [
       "admin",
@@ -650,22 +847,5 @@ export const adminQueryKeys = {
     ],
     stats: (params?: any) => ["admin", "organizations", "stats", params],
     userOrgs: ["admin", "organizations", "user"],
-    joinRequests: {
-      pending: (organizationId: string, params?: any) => [
-        "admin",
-        "organizations",
-        organizationId,
-        "join-requests",
-        "pending",
-        params,
-      ],
-      stats: (organizationId: string) => [
-        "admin",
-        "organizations",
-        organizationId,
-        "join-requests",
-        "stats",
-      ],
-    },
   },
 };

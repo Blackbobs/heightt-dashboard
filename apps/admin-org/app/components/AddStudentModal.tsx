@@ -1,27 +1,41 @@
+// apps/admin-org/components/AddStudentModal.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, UserPlus, Mail, User, BookOpen, BadgeCheck } from "lucide-react";
+import {
+  X,
+  UserPlus,
+  Mail,
+  User,
+  BookOpen,
+  BadgeCheck,
+  Loader2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdminContext } from "./AdminContext";
+import { useCreateStudent } from "@/hooks/admin/useAdminStudents";
 
 interface AddStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (student: any) => void;
+  organizationId?: string;
 }
 
 export default function AddStudentModal({
   isOpen,
   onClose,
-  onSubmit,
+  organizationId,
 }: AddStudentModalProps) {
+  const { selectedScope } = useAdminContext();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [level, setLevel] = useState("100");
+  const [level, setLevel] = useState("");
   const [status, setStatus] = useState("ACTIVE");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const firstInputRef = useRef<HTMLInputElement>(null);
+
+  const createStudentMutation = useCreateStudent();
 
   useEffect(() => {
     if (isOpen) {
@@ -32,7 +46,7 @@ export default function AddStudentModal({
       setName("");
       setEmail("");
       setStudentId("");
-      setLevel("100");
+      setLevel("");
       setStatus("ACTIVE");
     }
     return () => {
@@ -55,18 +69,35 @@ export default function AddStudentModal({
     if (!name || !email) return;
 
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 400));
 
-    onSubmit({
-      name,
-      email,
-      studentId,
-      level: `${level} Level`,
-      status,
-    });
+    try {
+      // Split name into first and last
+      const nameParts = name.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
 
-    setIsSubmitting(false);
-    onClose();
+      const studentData = {
+        userId: "", // This would be a new user ID or the user ID to link
+        firstName,
+        lastName,
+        email,
+        matricNumber: studentId || undefined,
+        currentAcademicLevelId: level || undefined,
+        academicStatus: status,
+        institutionId: selectedScope?.institutionId || "",
+        facultyId: selectedScope?.facultyId || "",
+        departmentId: selectedScope?.departmentId || "",
+        organizationId: organizationId || selectedScope?.organizationId || "",
+      };
+
+      await createStudentMutation.mutateAsync(studentData);
+      onClose();
+    } catch (error) {
+      console.error("Failed to create student:", error);
+      alert("Failed to create student. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -77,7 +108,6 @@ export default function AddStudentModal({
       }}
     >
       <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
-        {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold flex items-center gap-2 text-slate-900">
             <UserPlus className="w-5 h-5 text-[#1a5cff]" />
@@ -92,10 +122,8 @@ export default function AddStudentModal({
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
-            {/* Full Name */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Full Name <span className="text-red-500">*</span>
@@ -114,7 +142,6 @@ export default function AddStudentModal({
               </div>
             </div>
 
-            {/* Email */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Email Address <span className="text-red-500">*</span>
@@ -132,7 +159,6 @@ export default function AddStudentModal({
               </div>
             </div>
 
-            {/* Student ID */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Student ID (Matric No)
@@ -149,42 +175,38 @@ export default function AddStudentModal({
               </div>
             </div>
 
-            {/* Level & Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Academic Level <span className="text-red-500">*</span>
-                </label>
-                <select
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Academic Level
+              </label>
+              <div className="relative">
+                <BookOpen className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
                   value={level}
                   onChange={(e) => setLevel(e.target.value)}
-                  className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
-                >
-                  <option value="100">100 Level</option>
-                  <option value="200">200 Level</option>
-                  <option value="300">300 Level</option>
-                  <option value="400">400 Level</option>
-                </select>
+                  placeholder="e.g. 100 Level"
+                  className="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Status <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="INACTIVE">Inactive</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+              >
+                <option value="ACTIVE">Active</option>
+                <option value="PENDING">Pending</option>
+                <option value="INACTIVE">Inactive</option>
+              </select>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-2.5 mt-6 flex-col sm:flex-row">
             <button
               type="button"
@@ -195,17 +217,17 @@ export default function AddStudentModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || createStudentMutation.isPending}
               className={cn(
                 "order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 border-none",
-                isSubmitting
+                isSubmitting || createStudentMutation.isPending
                   ? "bg-slate-400 cursor-not-allowed"
                   : "bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]",
               )}
             >
-              {isSubmitting ? (
+              {isSubmitting || createStudentMutation.isPending ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                   Adding...
                 </>
               ) : (

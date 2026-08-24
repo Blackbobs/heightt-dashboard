@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { platformApi, AcademicLevel } from "@/lib/api/platform";
+import { platformApi, AcademicLevel, CreateAcademicLevelDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -18,7 +18,7 @@ export function useCreateAcademicLevel() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<AcademicLevel>) =>
+    mutationFn: (data: CreateAcademicLevelDto) =>
       platformApi.createAcademicLevel(data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
