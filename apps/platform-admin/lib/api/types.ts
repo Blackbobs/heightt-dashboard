@@ -900,7 +900,7 @@ export interface CreateBankAccountDto {
   bankName: string;
   accountNumber: string;
   accountName: string;
-  bankCode?: string;
+  bankCode: string;
   isDefault?: boolean;
 }
 
@@ -920,6 +920,12 @@ export interface BankAccountResponseDto {
   accountName: string;
   bankCode?: string;
   isDefault: boolean;
+  payoutDestinationStatus?: "pending_review" | "approved" | "rejected";
+  payoutDestinationUsable?: boolean;
+  payoutDestination?: {
+    status?: "pending_review" | "approved" | "rejected";
+    usable?: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -927,6 +933,21 @@ export interface BankAccountResponseDto {
 export interface BankAccountListResponseDto {
   data: BankAccountResponseDto[];
   meta: PaginationMeta;
+}
+
+export interface SupportedBankDto {
+  name: string;
+  slug: string;
+  code: string;
+  nibss_bank_code?: string | null;
+  country: string;
+}
+
+export interface ResolvedBankAccountDto {
+  accountNumber: string;
+  accountName: string;
+  bankCode: string;
+  bankName: string;
 }
 
 // Withdrawal Types
@@ -1035,6 +1056,11 @@ export interface WithdrawalFiltersDto {
   endDate?: string;
 }
 
+export type AdminOrganizationWithdrawalFiltersDto = Omit<
+  WithdrawalFiltersDto,
+  "type"
+>;
+
 // Webhook Types
 export interface WithdrawalWebhookDto {
   event: "withdrawal.succeeded" | "withdrawal.failed";
@@ -1110,7 +1136,19 @@ export interface UpdateAdminPermissionsDto {
 // PERMISSION CATEGORIES
 // ============================================
 
-export const PERMISSION_CATEGORIES = {
+export interface PermissionOption {
+  key: string;
+  label: string;
+  action: string;
+}
+
+export interface PermissionCategory {
+  key: string;
+  label: string;
+  permissions: PermissionOption[];
+}
+
+export const PERMISSION_CATEGORIES: Record<string, PermissionCategory> = {
   USER: {
     key: "USER",
     label: "User Management",
@@ -1329,6 +1367,50 @@ export const PERMISSION_CATEGORIES = {
     ],
   },
 };
+
+/**
+ * Keep the permission picker aligned with the backend's seeded catalog.
+ * The static entries above remain a fallback while the request is loading.
+ */
+export function mergePermissionCategories(
+  permissions: PermissionResponseDto[],
+): Record<string, PermissionCategory> {
+  if (!Array.isArray(permissions) || permissions.length === 0) {
+    return PERMISSION_CATEGORIES;
+  }
+
+  const grouped: Record<string, PermissionCategory> = {};
+  for (const permission of permissions) {
+    if (!permission?.key) continue;
+    const categoryKey = (permission.category || "OTHER").toUpperCase();
+    const action = permission.key.split(":").at(-1)?.toUpperCase() || "ACCESS";
+    grouped[categoryKey] ??= {
+      key: categoryKey,
+      label: `${categoryKey
+        .toLowerCase()
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (character) => character.toUpperCase())} Permissions`,
+      permissions: [],
+    };
+    grouped[categoryKey].permissions.push({
+      key: permission.key,
+      label: permission.name || permission.key,
+      action,
+    });
+  }
+
+  for (const category of Object.values(grouped)) {
+    category.permissions.sort((left, right) =>
+      left.label.localeCompare(right.label),
+    );
+  }
+
+  for (const key of Object.keys(PERMISSION_CATEGORIES)) {
+    delete PERMISSION_CATEGORIES[key];
+  }
+  Object.assign(PERMISSION_CATEGORIES, grouped);
+  return PERMISSION_CATEGORIES;
+}
 
 export type PermissionCategoryKey = keyof typeof PERMISSION_CATEGORIES;
 export type PermissionKey = string;

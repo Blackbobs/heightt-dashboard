@@ -4,13 +4,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { platformApi } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
+import { mergePermissionCategories } from "@/lib/api/types";
 
 export function usePlatformAllPermissions() {
   const { token } = useAuthStore();
 
   return useQuery({
     queryKey: platformQueryKeys.permissions.all,
-    queryFn: () => platformApi.getAllPermissions(),
+    queryFn: async () => {
+      const permissions = await platformApi.getAllPermissions();
+      mergePermissionCategories(permissions);
+      return permissions;
+    },
+    select: (permissions) => {
+      mergePermissionCategories(permissions);
+      return permissions;
+    },
     enabled: !!token,
     staleTime: 10 * 60 * 1000,
   });

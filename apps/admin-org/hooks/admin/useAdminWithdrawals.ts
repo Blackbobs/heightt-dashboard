@@ -17,7 +17,7 @@ export function useAdminWithdrawals(params?: {
   return useQuery({
     queryKey: adminQueryKeys.withdrawals.all(params),
     queryFn: () => adminApi.getWithdrawals(params),
-    enabled: !!token,
+    enabled: !!token && !!params?.organizationId,
     staleTime: 2 * 60 * 1000,
     refetchInterval: 30 * 1000,
   });
@@ -30,7 +30,9 @@ export function useAdminWithdrawal(id: string) {
     queryKey: adminQueryKeys.withdrawals.one(id),
     queryFn: () => adminApi.getWithdrawal(id),
     enabled: !!token && !!id,
-    staleTime: 3 * 60 * 1000,
+    staleTime: 0,
+    refetchInterval: (query) =>
+      query.state.data?.status === "PROCESSING" ? 10_000 : false,
   });
 }
 
@@ -50,6 +52,12 @@ export function useRequestOrganizationWithdrawal() {
       });
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.transactions(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "organization-overview"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "wallet"],
       });
     },
   });

@@ -33,6 +33,20 @@ export function usePlatformBankAccount(id: string) {
   });
 }
 
+export function usePlatformSupportedBanks() {
+  const { token } = useAuthStore();
+  return useQuery({
+    queryKey: ["platform", "finance", "supported-banks", "NG"],
+    queryFn: () => platformApi.getSupportedBanks("NG"),
+    enabled: !!token,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+export function useResolvePlatformBankAccount() {
+  return useMutation({ mutationFn: platformApi.resolveBankAccount });
+}
+
 export function useCreateBankAccount() {
   const queryClient = useQueryClient();
 
@@ -85,6 +99,22 @@ export function useSetDefaultBankAccount() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.finance.bankAccounts(),
+      });
+    },
+  });
+}
+
+export function useRegisterPayoutDestination() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => platformApi.registerPayoutDestination(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({
+        queryKey: platformQueryKeys.finance.bankAccounts(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: platformQueryKeys.finance.bankAccount(id),
       });
     },
   });

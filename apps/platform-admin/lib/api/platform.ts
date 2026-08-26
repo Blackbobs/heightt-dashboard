@@ -1,6 +1,10 @@
 // src/lib/api/platform.ts
 
-import { axiosConfig } from "@/utils/axios-config";
+import {
+  axiosConfig,
+  clearCsrfToken,
+  getCsrfToken,
+} from "@/utils/axios-config";
 import {
   // Institution types
   CreateInstitutionDto,
@@ -84,6 +88,8 @@ import {
   BankAccountListResponseDto,
   CreateBankAccountDto,
   UpdateBankAccountDto,
+  SupportedBankDto,
+  ResolvedBankAccountDto,
   // Withdrawal types
   UserWithdrawalRequestDto,
   OrganizationWithdrawalRequestDto,
@@ -107,11 +113,13 @@ export const platformApi = {
     identifier: string,
     password: string,
   ): Promise<AuthResponseDto> => {
-    const response = await axiosConfig.post("/v1/auth/login", {
+    clearCsrfToken();
+    await getCsrfToken(true);
+    const response = await axiosConfig.post("/v1/auth/admin/login", {
       identifier,
       password,
     });
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   logout: async (): Promise<void> => {
@@ -658,16 +666,22 @@ export const platformApi = {
   },
 
   // ============ ADMIN PERMISSIONS ============
-  getAllPermissions: async (): Promise<any[]> => {
+  getAllPermissions: async (): Promise<PermissionResponseDto[]> => {
     const response = await axiosConfig.get("/v1/rbac/permissions");
-    return response.data;
+    const payload = response.data;
+    const permissions =
+      payload?.data?.permissions ??
+      payload?.data ??
+      payload?.permissions ??
+      payload;
+    return Array.isArray(permissions) ? permissions : [];
   },
 
   getAdminWithPermissions: async (adminId: string): Promise<any> => {
     const response = await axiosConfig.get(
       `/v1/rbac/admins/${adminId}/permissions`,
     );
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   assignAdminWithPermissions: async (data: {
@@ -825,11 +839,47 @@ export const platformApi = {
     return response.data;
   },
 
+  getSupportedBanks: async (
+    countryCode = "NG",
+  ): Promise<SupportedBankDto[]> => {
+    const response = await axiosConfig.get(
+      "/v1/finance/bank-accounts/supported-banks",
+      { params: { countryCode } },
+    );
+    const payload = response.data;
+    const banks =
+      payload?.data?.banks ?? payload?.data ?? payload?.banks ?? payload;
+    if (!Array.isArray(banks)) return [];
+    return banks.map((bank: SupportedBankDto) => ({
+      ...bank,
+      code: String(bank.code),
+      nibss_bank_code:
+        bank.nibss_bank_code == null ? null : String(bank.nibss_bank_code),
+    }));
+  },
+
+  resolveBankAccount: async (data: {
+    bankCode: string;
+    accountNumber: string;
+  }): Promise<ResolvedBankAccountDto> => {
+    const response = await axiosConfig.post(
+      "/v1/finance/bank-accounts/resolve",
+      data,
+    );
+    const resolved = response.data?.data ?? response.data;
+    return {
+      accountNumber: resolved.accountNumber ?? resolved.account_number,
+      accountName: resolved.accountName ?? resolved.account_name,
+      bankCode: String(resolved.bankCode ?? resolved.bank_code),
+      bankName: resolved.bankName ?? resolved.bank_name,
+    };
+  },
+
   createBankAccount: async (
     data: CreateBankAccountDto,
   ): Promise<BankAccountResponseDto> => {
     const response = await axiosConfig.post("/v1/finance/bank-accounts", data);
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   updateBankAccount: async (
@@ -840,11 +890,20 @@ export const platformApi = {
       `/v1/finance/bank-accounts/${id}`,
       data,
     );
-    return response.data;
+    return response.data?.data ?? response.data;
   },
 
   deleteBankAccount: async (id: string): Promise<void> => {
     await axiosConfig.delete(`/v1/finance/bank-accounts/${id}`);
+  },
+
+  registerPayoutDestination: async (
+    id: string,
+  ): Promise<BankAccountResponseDto> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/bank-accounts/${id}/payout-destination`,
+    );
+    return response.data;
   },
 
   setDefaultBankAccount: async (id: string): Promise<{ message: string }> => {
@@ -940,8 +999,23 @@ export const platformApi = {
   getWithdrawals: async (
     params?: WithdrawalFiltersDto,
   ): Promise<WithdrawalListResponseDto> => {
-    const response = await axiosConfig.get("/v1/finance/withdrawals", {
+    const endpoint =
+      params?.type === "ORGANIZATION"
+        ? "/v1/finance/withdrawals/admin"
+        : "/v1/finance/withdrawals";
+    const response = await axiosConfig.get(endpoint, {
       params,
+    });
+    return response.data;
+  },
+
+  getPendingOrganizationWithdrawals: async (params?: {
+    status?: WithdrawalFiltersDto["status"];
+    page?: number;
+    limit?: number;
+  }): Promise<WithdrawalListResponseDto> => {
+    const response = await axiosConfig.get("/v1/finance/withdrawals/admin", {
+      params: { ...params, type: "ORGANIZATION" },
     });
     return response.data;
   },
@@ -967,4 +1041,3 @@ export type {
 } from "./types";
 
 export * from "./types";
-

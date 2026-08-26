@@ -7,6 +7,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import { AdminScope, AdminUser } from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
@@ -102,9 +103,11 @@ const ADMIN_PERMISSIONS: Record<string, string[]> = {
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuthStore();
-  const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null);
+  const [selectedScopeId, setSelectedScopeId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : localStorage.getItem(STORAGE_KEY),
+  );
 
-  const adminTypes = (user as any)?.adminTypes || [];
+  const adminTypes = useMemo(() => user?.adminTypes || [], [user?.adminTypes]);
   const { data: userOrgsData, isLoading: orgsLoading } = useUserOrganizations();
 
   const isPlatformAdmin =
@@ -154,101 +157,129 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   // ============================================================
   // REAL ORGANIZATION SCOPES
   // ============================================================
-  // The org dashboard only works against real organizations. NEVER fabricate a
-  // scope with the admin's user id (or a faculty/department id) as the
-  // organizationId - that sent org-scoped endpoints (wallet, dues,
-  // announcements, withdrawals) a bogus id and caused 404/403 errors. Scopes
-  // are derived from real organization sources:
-  //   1. Backend /v1/auth/me adminScopes when they reference a real org
-  //   2. The /v1/users/me/organizations memberships (for org/club admins)
-  const defaultAdminType: AdminScope["adminType"] =
-    (adminTypes.find(
-      (t: string) => t === "ORGANIZATION_ADMIN" || t === "CLUB_ADMIN",
-    ) as AdminScope["adminType"]) ||
-    (isOrganizationAdmin
-      ? "ORGANIZATION_ADMIN"
-      : (adminTypes[0] as AdminScope["adminType"]));
+  // Admin scopes authorize access, but FACULTY/DEPARTMENT/INSTITUTION scope
+  // payloads may put the domain entity id in `organizationId`. Organization
+  // endpoints require the generated organization membership id instead.
+  const scopes = useMemo(() => {
+    const activeMemberships = (userOrgsData || []).filter(
+      (membership) =>
+        membership.status === "ACTIVE" && membership.organization?.id,
+    );
+    const expectedOrganizationTypes: Partial<
+      Record<AdminScope["adminType"], string>
+    > = {
+      INSTITUTION_ADMIN: "INSTITUTION",
+      FACULTY_ADMIN: "FACULTY",
+      DEPARTMENT_ADMIN: "DEPARTMENT",
+      CLUB_ADMIN: "CLUB",
+    };
+    const adminTypeByOrganizationType: Record<string, AdminScope["adminType"]> =
+      {
+        INSTITUTION: "INSTITUTION_ADMIN",
+        FACULTY: "FACULTY_ADMIN",
+        DEPARTMENT: "DEPARTMENT_ADMIN",
+        ORGANIZATION: "ORGANIZATION_ADMIN",
+        CLUB: "CLUB_ADMIN",
+      };
+    const normalizeName = (name?: string) =>
+      (name || "")
+        .toLocaleLowerCase()
+        .replace(/\s*\([^)]*\)\s*/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 
-  const membershipScopes: AdminScope[] = (userOrgsData || [])
-    .filter((m) => m.status === "ACTIVE" && m.organization?.id)
-    .map((m) => ({
-      id: m.organizationId,
-      adminType:
-        m.organization.type === "CLUB"
-          ? "CLUB_ADMIN"
-          : defaultAdminType || "ORGANIZATION_ADMIN",
-      organizationId: m.organizationId,
-      organization: {
-        id: m.organization.id,
-        name: m.organization.name,
-        slug: m.organization.slug,
-        type: m.organization.type,
-        status: m.organization.status,
-      },
-    }));
+    const adminScopes = (user?.adminScopes || []).filter(
+      (scope) => !scope.status || scope.status === "ACTIVE",
+    );
 
-  const membershipOrgIds = new Set(
-    membershipScopes.map((s) => s.organizationId),
-  );
+    return activeMemberships.flatMap((membership) => {
+      const organizationType = membership.organization.type;
+      const matchingScope = adminScopes.find((scope) => {
+        if (scope.organizationId === membership.organizationId) return true;
 
-  // Backend /v1/auth/me adminScopes are only trusted when they point at a real
-  // organization (type ORGANIZATION/CLUB) or an org the admin belongs to.
-  const backendRealScopes: AdminScope[] = (user?.adminScopes || [])
-    .filter(
-      (s) =>
-        !!s.organizationId &&
-        (s.organization?.type === "ORGANIZATION" ||
-          s.organization?.type === "CLUB" ||
-          membershipOrgIds.has(s.organizationId as string)),
-    )
-    .map((s) => ({ ...s, id: (s.organizationId as string) || s.id }));
+        const expectedType =
+          expectedOrganizationTypes[scope.adminType] ||
+          scope.organization?.type;
+        if (expectedType !== organizationType) return false;
 
-  const backendScopesByOrgId = new Map<string, AdminScope>(
-    backendRealScopes
-      .filter((s) => !!s.organizationId)
-      .map((s) => [s.organizationId as string, s]),
-  );
+        const scopeName = normalizeName(
+          scope.faculty?.name ||
+            scope.department?.name ||
+            scope.institution?.name ||
+            scope.organization?.name,
+        );
+        const organizationName = normalizeName(membership.organization.name);
 
-  // Prefer the richer backend scope when available for an org, otherwise fall
-  // back to the membership scope derived from /v1/users/me/organizations.
-  const scopes: AdminScope[] = [
-    ...backendScopesByOrgId.values(),
-    ...membershipScopes.filter(
-      (m) => !!m.organizationId && !backendScopesByOrgId.has(m.organizationId),
-    ),
-  ];
+        // Type is authoritative for domain admin scopes. The name check helps
+        // choose correctly when several memberships share the same type.
+        return (
+          !scopeName ||
+          organizationName === scopeName ||
+          organizationName.startsWith(scopeName) ||
+          scopeName.startsWith(organizationName) ||
+          activeMemberships.filter(
+            (candidate) => candidate.organization.type === organizationType,
+          ).length === 1
+        );
+      });
 
-  // Initialize selected scope
-  useEffect(() => {
-    if (scopes.length === 0) {
-      setSelectedScopeId(null);
-      return;
-    }
+      // Login and /auth/me responses do not always include `adminScopes`.
+      // An active organization membership that matches an assigned admin role
+      // is still a valid scope and must not disable every organization query.
+      const fallbackAdminType =
+        adminTypeByOrganizationType[organizationType] ||
+        (adminTypes.includes("ORGANIZATION_ADMIN")
+          ? "ORGANIZATION_ADMIN"
+          : undefined);
 
-    const savedScopeId = localStorage.getItem(STORAGE_KEY);
-    const savedScope = scopes.find((s: any) => s.id === savedScopeId);
+      if (!matchingScope && !fallbackAdminType) return [];
+      if (
+        !matchingScope &&
+        fallbackAdminType !== "PLATFORM_ADMIN" &&
+        !adminTypes.includes(fallbackAdminType)
+      ) {
+        return [];
+      }
 
-    if (savedScope) {
-      setSelectedScopeId(savedScope.id);
-      return;
-    }
+      const resolvedScope: AdminScope = matchingScope || {
+        id: `membership:${membership.id}`,
+        adminType: fallbackAdminType as AdminScope["adminType"],
+        status: "ACTIVE",
+        academicSessionId: membership.joinedSessionId || undefined,
+      };
 
-    setSelectedScopeId(scopes[0].id);
-  }, [scopes]);
-
-  // Persist selection
-  useEffect(() => {
-    if (selectedScopeId) {
-      localStorage.setItem(STORAGE_KEY, selectedScopeId);
-    }
-  }, [selectedScopeId]);
+      return [
+        {
+          ...resolvedScope,
+          id: `${resolvedScope.id}:${membership.organizationId}`,
+          organizationId: membership.organizationId,
+          organization: {
+            id: membership.organization.id,
+            name: membership.organization.name,
+            slug: membership.organization.slug,
+            type: organizationType,
+          },
+        } satisfies AdminScope,
+      ];
+    });
+  }, [adminTypes, user?.adminScopes, userOrgsData]);
 
   const selectedScope =
     scopes.find((s) => s.id === selectedScopeId) || scopes[0] || null;
 
+  // Persist the resolved selection, including the first authorized scope when
+  // a previously saved organization is no longer available.
+  useEffect(() => {
+    if (selectedScope) {
+      localStorage.setItem(STORAGE_KEY, selectedScope.id);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [selectedScope]);
+
   const switchOrganization = useCallback(
     (scopeId: string) => {
-      const scope = scopes.find((s: any) => s.id === scopeId);
+      const scope = scopes.find((candidate) => candidate.id === scopeId);
       if (scope) {
         setSelectedScopeId(scopeId);
       }

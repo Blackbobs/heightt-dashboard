@@ -45,6 +45,16 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+/** Format a backend monetary value stored in kobo as Nigerian naira. */
+export function formatKoboCurrency(amount: number | null | undefined): string {
+  return new Intl.NumberFormat("en-NG", {
+    style: "currency",
+    currency: "NGN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format((amount ?? 0) / 100);
+}
+
 /**
  * Truncate a string to a specified length
  */

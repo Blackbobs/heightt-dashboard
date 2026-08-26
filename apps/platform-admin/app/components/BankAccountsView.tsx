@@ -7,6 +7,9 @@ import {
   useUpdateBankAccount,
   useDeleteBankAccount,
   useSetDefaultBankAccount,
+  useRegisterPayoutDestination,
+  usePlatformSupportedBanks,
+  useResolvePlatformBankAccount,
 } from "@/hooks/platform/usePlatformBankAccounts";
 import {
   Wallet,
@@ -21,6 +24,7 @@ import {
   Building2,
   User,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DataTable from "./DataTable";
@@ -39,6 +43,10 @@ export default function BankAccountsView() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any | null>(null);
+  const [resolvedAccount, setResolvedAccount] = useState<{
+    accountName: string;
+    bankName: string;
+  } | null>(null);
   const [formData, setFormData] = useState({
     bankName: "",
     accountNumber: "",
@@ -56,6 +64,13 @@ export default function BankAccountsView() {
   const updateMutation = useUpdateBankAccount();
   const deleteMutation = useDeleteBankAccount();
   const setDefaultMutation = useSetDefaultBankAccount();
+  const payoutDestinationMutation = useRegisterPayoutDestination();
+  const resolveMutation = useResolvePlatformBankAccount();
+  const { data: supportedBanksData, isLoading: banksLoading } =
+    usePlatformSupportedBanks();
+  const supportedBanks = Array.isArray(supportedBanksData)
+    ? supportedBanksData
+    : [];
 
   const accounts = data?.data || [];
   const meta = data?.meta;
@@ -63,13 +78,25 @@ export default function BankAccountsView() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createMutation.mutateAsync({
+      if (!resolvedAccount) return;
+      const createdAccount = await createMutation.mutateAsync({
         bankName: formData.bankName,
         accountNumber: formData.accountNumber,
         accountName: formData.accountName,
-        bankCode: formData.bankCode || undefined,
+        bankCode: formData.bankCode,
         isDefault: formData.isDefault,
       });
+      try {
+        await payoutDestinationMutation.mutateAsync(createdAccount.id);
+      } catch (destinationError) {
+        const { getApiErrorMessage } = await import("@/lib/api/error");
+        alert(
+          `Account saved. ${getApiErrorMessage(
+            destinationError,
+            "Payout registration failed. Use the refresh action to retry.",
+          )}`,
+        );
+      }
       setIsModalOpen(false);
       setFormData({
         bankName: "",
@@ -78,6 +105,7 @@ export default function BankAccountsView() {
         bankCode: "",
         isDefault: false,
       });
+      setResolvedAccount(null);
       refetch();
     } catch (error) {
       console.error("Failed to create bank account:", error);
@@ -144,7 +172,45 @@ export default function BankAccountsView() {
       bankCode: account.bankCode || "",
       isDefault: account.isDefault || false,
     });
+    setResolvedAccount({
+      accountName: account.accountName,
+      bankName: account.bankName,
+    });
     setIsModalOpen(true);
+  };
+
+  const handleResolveAccount = async () => {
+    if (!formData.bankCode || formData.accountNumber.length !== 10) return;
+    try {
+      const resolved = await resolveMutation.mutateAsync({
+        bankCode: formData.bankCode,
+        accountNumber: formData.accountNumber,
+      });
+      setResolvedAccount({
+        accountName: resolved.accountName,
+        bankName: resolved.bankName,
+      });
+      setFormData((current) => ({
+        ...current,
+        bankName: resolved.bankName,
+        accountName: resolved.accountName,
+      }));
+    } catch (error) {
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(getApiErrorMessage(error, "The account could not be verified."));
+    }
+  };
+
+  const handleRegisterDestination = async (id: string) => {
+    try {
+      await payoutDestinationMutation.mutateAsync(id);
+      refetch();
+    } catch (error) {
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(
+        getApiErrorMessage(error, "Could not register the payout destination."),
+      );
+    }
   };
 
   const columns = useMemo<ColumnDef<any, any>[]>(
@@ -192,6 +258,53 @@ export default function BankAccountsView() {
             {getValue()}
           </span>
         ),
+      },
+      {
+        accessorFn: (r) =>
+          r.payoutDestinationStatus ??
+          r.payoutDestination?.status ??
+          "pending_review",
+        id: "destination",
+        header: "Payout destination",
+        cell: ({ getValue, row }) => {
+          const status = getValue() as string;
+          return (
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-xs font-medium",
+                  status === "approved"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : status === "rejected"
+                      ? "bg-red-50 text-red-700"
+                      : "bg-amber-50 text-amber-700",
+                )}
+              >
+                {status === "approved"
+                  ? "Approved"
+                  : status === "rejected"
+                    ? "Rejected"
+                    : "Awaiting Bachs approval"}
+              </span>
+              {status !== "approved" && (
+                <button
+                  type="button"
+                  title="Register or refresh payout destination"
+                  onClick={() => handleRegisterDestination(row.original.id)}
+                  disabled={payoutDestinationMutation.isPending}
+                  className="p-1 text-blue-600 disabled:opacity-50"
+                >
+                  <RefreshCw
+                    className={cn(
+                      "h-4 w-4",
+                      payoutDestinationMutation.isPending && "animate-spin",
+                    )}
+                  />
+                </button>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorFn: (r) => new Date(r.createdAt).toLocaleDateString(),
@@ -265,6 +378,7 @@ export default function BankAccountsView() {
                 bankCode: "",
                 isDefault: false,
               });
+              setResolvedAccount(null);
               setIsModalOpen(true);
             }}
           >
@@ -325,17 +439,35 @@ export default function BankAccountsView() {
             </div>
             <form onSubmit={editingAccount ? handleUpdate : handleCreate}>
               <div className="form-group">
-                <label className="form-label">Bank Name *</label>
-                <input
-                  type="text"
+                <label className="form-label">Bank *</label>
+                <select
                   className="form-input"
-                  placeholder="e.g. GTBank"
-                  value={formData.bankName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bankName: e.target.value })
-                  }
+                  value={formData.bankCode}
+                  onChange={(e) => {
+                    const bankCode = e.target.value;
+                    const bank = supportedBanks.find(
+                      (item) => item.code === bankCode,
+                    );
+                    setResolvedAccount(null);
+                    setFormData({
+                      ...formData,
+                      bankCode,
+                      bankName: bank?.name ?? "",
+                      accountName: "",
+                    });
+                  }}
                   required
-                />
+                  disabled={banksLoading}
+                >
+                  <option value="">
+                    {banksLoading ? "Loading banks..." : "Select a bank"}
+                  </option>
+                  {supportedBanks.map((bank) => (
+                    <option key={bank.code} value={bank.code}>
+                      {bank.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="form-group">
@@ -345,12 +477,33 @@ export default function BankAccountsView() {
                   className="form-input"
                   placeholder="e.g. 0123456789"
                   value={formData.accountNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, accountNumber: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setResolvedAccount(null);
+                    setFormData({
+                      ...formData,
+                      accountNumber: e.target.value.replace(/\D/g, ""),
+                      accountName: "",
+                    });
+                  }}
                   required
+                  maxLength={10}
                 />
               </div>
+
+              <button
+                type="button"
+                className="btn btn-secondary w-full mb-4"
+                onClick={handleResolveAccount}
+                disabled={
+                  !formData.bankCode ||
+                  formData.accountNumber.length !== 10 ||
+                  resolveMutation.isPending
+                }
+              >
+                {resolveMutation.isPending
+                  ? "Verifying account..."
+                  : "Verify account"}
+              </button>
 
               <div className="form-group">
                 <label className="form-label">Account Name *</label>
@@ -359,27 +512,15 @@ export default function BankAccountsView() {
                   className="form-input"
                   placeholder="e.g. John Doe"
                   value={formData.accountName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, accountName: e.target.value })
-                  }
+                  readOnly
                   required
                 />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Bank Code</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. 058"
-                  value={formData.bankCode}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bankCode: e.target.value })
-                  }
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  Optional bank code for faster processing
-                </p>
+                {resolvedAccount && (
+                  <p className="text-xs font-medium text-emerald-700 mt-1">
+                    Verified: {resolvedAccount.accountName}. Confirm these
+                    details before saving.
+                  </p>
+                )}
               </div>
 
               <div className="form-group flex items-center gap-2">
@@ -411,10 +552,15 @@ export default function BankAccountsView() {
                   type="submit"
                   className="btn btn-primary"
                   disabled={
-                    createMutation.isPending || updateMutation.isPending
+                    !resolvedAccount ||
+                    createMutation.isPending ||
+                    updateMutation.isPending ||
+                    payoutDestinationMutation.isPending
                   }
                 >
-                  {createMutation.isPending || updateMutation.isPending
+                  {createMutation.isPending ||
+                  updateMutation.isPending ||
+                  payoutDestinationMutation.isPending
                     ? "Saving..."
                     : editingAccount
                       ? "Update Account"

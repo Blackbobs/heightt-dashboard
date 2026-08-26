@@ -7,6 +7,9 @@ import {
   useUpdateBankAccount,
   useDeleteBankAccount,
   useSetDefaultBankAccount,
+  useRegisterPayoutDestination,
+  useAdminSupportedBanks,
+  useResolveAdminBankAccount,
 } from "@/hooks/admin/useAdminBankAccounts";
 import {
   Wallet,
@@ -18,6 +21,7 @@ import {
   Star,
   StarOff,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "../context/PermissionContext";
@@ -28,6 +32,10 @@ export function BankAccountsView() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any | null>(null);
+  const [resolvedAccount, setResolvedAccount] = useState<{
+    accountName: string;
+    bankName: string;
+  } | null>(null);
   const [formData, setFormData] = useState({
     bankName: "",
     accountNumber: "",
@@ -48,20 +56,57 @@ export function BankAccountsView() {
   const updateMutation = useUpdateBankAccount();
   const deleteMutation = useDeleteBankAccount();
   const setDefaultMutation = useSetDefaultBankAccount();
+  const payoutDestinationMutation = useRegisterPayoutDestination();
+  const resolveMutation = useResolveAdminBankAccount();
+  const { data: supportedBanksData, isLoading: banksLoading } =
+    useAdminSupportedBanks();
+  const supportedBanks = Array.isArray(supportedBanksData)
+    ? supportedBanksData
+    : [];
 
-  const accounts = data?.data || [];
+  const accounts = useMemo(() => data?.data || [], [data?.data]);
   const meta = data?.meta;
+  const filteredAccounts = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+
+    return accounts.filter((account) =>
+      !query
+        ? true
+        : [
+            account.bankName,
+            account.accountName,
+            account.accountNumber,
+            account.bankCode,
+          ].some((value) =>
+            String(value ?? "")
+              .toLocaleLowerCase()
+              .includes(query),
+          ),
+    );
+  }, [accounts, search]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createMutation.mutateAsync({
+      if (!resolvedAccount) return;
+      const createdAccount = await createMutation.mutateAsync({
         bankName: formData.bankName,
         accountNumber: formData.accountNumber,
         accountName: formData.accountName,
-        bankCode: formData.bankCode || undefined,
+        bankCode: formData.bankCode,
         isDefault: formData.isDefault,
       });
+      try {
+        await payoutDestinationMutation.mutateAsync(createdAccount.id);
+      } catch (destinationError) {
+        const { getApiErrorMessage } = await import("@/lib/api/error");
+        alert(
+          `Account saved. ${getApiErrorMessage(
+            destinationError,
+            "Payout registration failed. Use Register / refresh to retry.",
+          )}`,
+        );
+      }
       setIsModalOpen(false);
       setFormData({
         bankName: "",
@@ -70,6 +115,7 @@ export function BankAccountsView() {
         bankCode: "",
         isDefault: false,
       });
+      setResolvedAccount(null);
       refetch();
     } catch (error) {
       console.error("Failed to create bank account:", error);
@@ -136,7 +182,45 @@ export function BankAccountsView() {
       bankCode: account.bankCode || "",
       isDefault: account.isDefault || false,
     });
+    setResolvedAccount({
+      accountName: account.accountName,
+      bankName: account.bankName,
+    });
     setIsModalOpen(true);
+  };
+
+  const handleResolveAccount = async () => {
+    if (!formData.bankCode || formData.accountNumber.length !== 10) return;
+    try {
+      const resolved = await resolveMutation.mutateAsync({
+        bankCode: formData.bankCode,
+        accountNumber: formData.accountNumber,
+      });
+      setResolvedAccount({
+        accountName: resolved.accountName,
+        bankName: resolved.bankName,
+      });
+      setFormData((current) => ({
+        ...current,
+        bankName: resolved.bankName,
+        accountName: resolved.accountName,
+      }));
+    } catch (error) {
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(getApiErrorMessage(error, "The account could not be verified."));
+    }
+  };
+
+  const handleRegisterDestination = async (id: string) => {
+    try {
+      await payoutDestinationMutation.mutateAsync(id);
+      refetch();
+    } catch (error) {
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(
+        getApiErrorMessage(error, "Could not register the payout destination."),
+      );
+    }
   };
 
   if (isLoading) {
@@ -171,6 +255,7 @@ export function BankAccountsView() {
                 bankCode: "",
                 isDefault: false,
               });
+              setResolvedAccount(null);
               setIsModalOpen(true);
             }}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
@@ -199,7 +284,7 @@ export function BankAccountsView() {
       </div>
 
       {/* Accounts Grid */}
-      {accounts.length === 0 ? (
+      {filteredAccounts.length === 0 ? (
         <div
           className="bg-white border rounded-xl p-12 text-center"
           style={{ borderColor: "var(--color-border)" }}
@@ -214,7 +299,7 @@ export function BankAccountsView() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {accounts.map((account: any) => (
+          {filteredAccounts.map((account: any) => (
             <div
               key={account.id}
               className={cn(
@@ -299,6 +384,46 @@ export function BankAccountsView() {
               <div className="mt-3 text-xs text-slate-400">
                 Added: {new Date(account.createdAt).toLocaleDateString()}
               </div>
+              <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-semibold",
+                    (account.payoutDestinationStatus ??
+                      account.payoutDestination?.status) === "approved"
+                      ? "bg-emerald-50 text-emerald-700"
+                      : (account.payoutDestinationStatus ??
+                            account.payoutDestination?.status) === "rejected"
+                        ? "bg-red-50 text-red-700"
+                        : "bg-amber-50 text-amber-700",
+                  )}
+                >
+                  {(account.payoutDestinationStatus ??
+                    account.payoutDestination?.status) === "approved"
+                    ? "Approved — withdrawals enabled"
+                    : (account.payoutDestinationStatus ??
+                          account.payoutDestination?.status) === "rejected"
+                      ? "Rejected"
+                      : "Awaiting Bachs approval"}
+                </span>
+                {(account.payoutDestinationStatus ??
+                  account.payoutDestination?.status) !== "approved" &&
+                  canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => handleRegisterDestination(account.id)}
+                      disabled={payoutDestinationMutation.isPending}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          payoutDestinationMutation.isPending && "animate-spin",
+                        )}
+                      />
+                      Register / refresh
+                    </button>
+                  )}
+              </div>
             </div>
           ))}
         </div>
@@ -330,18 +455,36 @@ export function BankAccountsView() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Bank Name <span className="text-red-500">*</span>
+                    Bank <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={formData.bankName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bankName: e.target.value })
-                    }
-                    placeholder="e.g. GTBank"
+                  <select
+                    value={formData.bankCode}
+                    onChange={(e) => {
+                      const bankCode = e.target.value;
+                      const bank = supportedBanks.find(
+                        (item) => item.code === bankCode,
+                      );
+                      setResolvedAccount(null);
+                      setFormData({
+                        ...formData,
+                        bankCode,
+                        bankName: bank?.name ?? "",
+                        accountName: "",
+                      });
+                    }}
                     className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
                     required
-                  />
+                    disabled={banksLoading}
+                  >
+                    <option value="">
+                      {banksLoading ? "Loading banks..." : "Select a bank"}
+                    </option>
+                    {supportedBanks.map((bank) => (
+                      <option key={bank.code} value={bank.code}>
+                        {bank.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -351,18 +494,35 @@ export function BankAccountsView() {
                   <input
                     type="text"
                     value={formData.accountNumber}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setResolvedAccount(null);
                       setFormData({
                         ...formData,
-                        accountNumber: e.target.value,
-                      })
-                    }
+                        accountNumber: e.target.value.replace(/\D/g, ""),
+                        accountName: "",
+                      });
+                    }}
                     placeholder="e.g. 0123456789"
                     className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
                     required
                     maxLength={10}
                   />
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleResolveAccount}
+                  disabled={
+                    !formData.bankCode ||
+                    formData.accountNumber.length !== 10 ||
+                    resolveMutation.isPending
+                  }
+                  className="w-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {resolveMutation.isPending
+                    ? "Verifying account..."
+                    : "Verify account"}
+                </button>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -371,31 +531,17 @@ export function BankAccountsView() {
                   <input
                     type="text"
                     value={formData.accountName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, accountName: e.target.value })
-                    }
-                    placeholder="e.g. John Doe"
-                    className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
+                    readOnly
+                    placeholder="Verify the account to retrieve its name"
+                    className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none bg-slate-50 border-slate-200"
                     required
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Bank Code
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bankCode}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bankCode: e.target.value })
-                    }
-                    placeholder="e.g. 058"
-                    className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Optional bank code for faster processing
-                  </p>
+                  {resolvedAccount && (
+                    <p className="mt-1 text-xs font-medium text-emerald-700">
+                      Verified: {resolvedAccount.accountName}. Confirm these
+                      details before saving.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -428,11 +574,16 @@ export function BankAccountsView() {
                 <button
                   type="submit"
                   disabled={
-                    createMutation.isPending || updateMutation.isPending
+                    !resolvedAccount ||
+                    createMutation.isPending ||
+                    updateMutation.isPending ||
+                    payoutDestinationMutation.isPending
                   }
                   className="order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 border-none bg-[#1a5cff] hover:bg-[#0f4ad0] disabled:bg-slate-400 disabled:cursor-not-allowed"
                 >
-                  {createMutation.isPending || updateMutation.isPending ? (
+                  {createMutation.isPending ||
+                  updateMutation.isPending ||
+                  payoutDestinationMutation.isPending ? (
                     <>
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Saving...

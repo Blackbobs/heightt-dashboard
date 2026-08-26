@@ -12,7 +12,7 @@ import {
   Wallet,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatKoboCurrency } from "@/lib/utils";
 import { useAdminBankAccounts } from "@/hooks/admin/useAdminBankAccounts";
 import { useAdminWallet } from "@/hooks/admin/useAdminFinance";
 import { useAdminContext } from "./AdminContext";
@@ -20,7 +20,7 @@ import { useAdminContext } from "./AdminContext";
 interface RequestWithdrawalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => Promise<void>;
 }
 
 export default function RequestWithdrawalModal({
@@ -46,7 +46,17 @@ export default function RequestWithdrawalModal({
     useAdminWallet(organizationId);
 
   const bankAccounts = bankAccountsData?.data || [];
-  const balance = wallet?.balance || 0;
+  const usableBankAccounts = bankAccounts.filter((account: any) => {
+    const status =
+      account.payoutDestinationStatus ?? account.payoutDestination?.status;
+    const usable =
+      account.payoutDestinationUsable ?? account.payoutDestination?.usable;
+    return status === "approved" && usable !== false;
+  });
+  const balance = Math.max(
+    0,
+    (wallet?.balance || 0) - (wallet?.heldBalance || 0),
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -77,17 +87,20 @@ export default function RequestWithdrawalModal({
     e.preventDefault();
     if (!bankAccountId || !amount || parseFloat(amount) <= 0) return;
 
+    const amountInKobo = Math.round(Number(amount) * 100);
+    if (!Number.isSafeInteger(amountInKobo) || amountInKobo <= 0) return;
+
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 400));
-
-    onSubmit({
-      bankAccountId,
-      amount: parseFloat(amount),
-      reason: reason || undefined,
-    });
-
-    setIsSubmitting(false);
-    onClose();
+    try {
+      await onSubmit({
+        bankAccountId,
+        amount: amountInKobo,
+        reason: reason || undefined,
+      });
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isLoading = bankAccountsLoading || walletLoading;
@@ -127,7 +140,7 @@ export default function RequestWithdrawalModal({
                 <div>
                   Available balance:{" "}
                   <strong className="text-blue-900">
-                    ₦{balance.toLocaleString()}
+                    {formatKoboCurrency(balance)}
                   </strong>
                 </div>
               </div>
@@ -144,7 +157,7 @@ export default function RequestWithdrawalModal({
                   required
                 >
                   <option value="">Select Bank Account</option>
-                  {bankAccounts.map((account: any) => (
+                  {usableBankAccounts.map((account: any) => (
                     <option key={account.id} value={account.id}>
                       {account.bankName} - {account.accountNumber} (
                       {account.accountName})
@@ -152,9 +165,10 @@ export default function RequestWithdrawalModal({
                     </option>
                   ))}
                 </select>
-                {bankAccounts.length === 0 && (
+                {usableBankAccounts.length === 0 && (
                   <p className="text-xs text-amber-600 mt-1">
-                    No bank accounts found. Please add a bank account first.
+                    No approved payout destination is available. Register a bank
+                    account and wait for Bachs approval first.
                   </p>
                 )}
               </div>
@@ -173,15 +187,16 @@ export default function RequestWithdrawalModal({
                     type="number"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="500000"
+                    placeholder="5000.00"
                     className="w-full pl-8 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
                     required
-                    min="1"
-                    max={balance}
+                    min="0.01"
+                    step="0.01"
+                    max={balance / 100}
                   />
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
-                  Amount in Kobo (e.g., 500000 = ₦5,000)
+                  Enter the amount in naira. It will be sent securely in kobo.
                 </p>
               </div>
 
@@ -222,10 +237,10 @@ export default function RequestWithdrawalModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || bankAccounts.length === 0}
+                disabled={isSubmitting || usableBankAccounts.length === 0}
                 className={cn(
                   "order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 border-none",
-                  isSubmitting || bankAccounts.length === 0
+                  isSubmitting || usableBankAccounts.length === 0
                     ? "bg-slate-400 cursor-not-allowed"
                     : "bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]",
                 )}

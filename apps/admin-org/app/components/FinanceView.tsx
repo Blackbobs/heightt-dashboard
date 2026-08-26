@@ -3,15 +3,12 @@
 
 import { useState } from "react";
 import {
-  useAdminFinancialOverview,
   useRequestWithdrawal,
-  useAdminWallet,
   useAdminTransactions,
+  useOrganizationFinanceOverview,
 } from "@/hooks/admin/useAdminFinance";
-import { useUserOrganizations } from "@/hooks/admin/useAdminOrganizations";
 import { useAdminContext } from "./AdminContext";
 import {
-  Wallet,
   TrendingUp,
   TrendingDown,
   CreditCard,
@@ -21,7 +18,7 @@ import {
   AlertCircle,
   Building2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatKoboCurrency } from "@/lib/utils";
 import RequestWithdrawalModal from "./RequestWithdrawalModal";
 import { usePermissions } from "../context/PermissionContext";
 
@@ -37,18 +34,15 @@ export function FinanceView() {
   const organizationName = selectedScope?.organization?.name || "Organization";
 
   const { data: overview, isLoading: overviewLoading } =
-    useAdminFinancialOverview(organizationId);
-  const { data: wallet, isLoading: walletLoading } =
-    useAdminWallet(organizationId);
+    useOrganizationFinanceOverview(organizationId);
   const { data: transactions, isLoading: transactionsLoading } =
     useAdminTransactions({
       organizationId,
       limit: 10,
     });
-
   const withdrawalMutation = useRequestWithdrawal();
 
-  const isLoading = overviewLoading || walletLoading || transactionsLoading;
+  const isLoading = overviewLoading || transactionsLoading;
 
   const handleExportReport = () => {
     alert("📄 Exporting financial report (CSV/PDF)...");
@@ -60,11 +54,15 @@ export function FinanceView() {
         ...data,
         organizationId,
       });
-      alert("✅ Withdrawal request submitted successfully!");
+      alert("✅ Withdrawal request submitted and is awaiting approval.");
       setIsWithdrawalModalOpen(false);
     } catch (error) {
       console.error("Failed to submit withdrawal:", error);
-      alert("❌ Failed to submit withdrawal request.");
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(
+        `❌ ${getApiErrorMessage(error, "Failed to submit withdrawal request.")}`,
+      );
+      throw error;
     }
   };
 
@@ -83,37 +81,29 @@ export function FinanceView() {
 
   const stats = [
     {
-      label: "Wallet Balance",
-      value: `₦${(wallet?.balance || 0).toLocaleString()}`,
-      change: "+8.5%",
-      trend: "up" as const,
+      label: "Available Balance",
+      value: formatKoboCurrency(overview?.wallet.availableBalance),
       icon: TrendingUp,
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-600",
     },
     {
       label: "Total Collections",
-      value: `₦${(overview?.totalCollections || 0).toLocaleString()}`,
-      change: "+12%",
-      trend: "up" as const,
+      value: formatKoboCurrency(overview?.collections.totalAmount),
       icon: CreditCard,
       iconBg: "bg-blue-50",
       iconColor: "text-blue-600",
     },
     {
       label: "Total Transactions",
-      value: (overview?.totalTransactions || 0).toLocaleString(),
-      change: "+5%",
-      trend: "up" as const,
+      value: (overview?.transactions.total || 0).toLocaleString(),
       icon: ArrowUpRight,
       iconBg: "bg-purple-50",
       iconColor: "text-purple-600",
     },
     {
-      label: "Pending Dues",
-      value: (overview?.pendingDues || 0).toLocaleString(),
-      change: "-3.2%",
-      trend: "down" as const,
+      label: "Expected Dues",
+      value: formatKoboCurrency(overview?.dues.totalExpected),
       icon: AlertCircle,
       iconBg: "bg-amber-50",
       iconColor: "text-amber-600",
@@ -182,19 +172,6 @@ export function FinanceView() {
               <div className="text-2xl font-bold text-slate-900">
                 {stat.value}
               </div>
-              <div
-                className={cn(
-                  "text-xs font-medium mt-1 flex items-center gap-1",
-                  stat.trend === "up" ? "text-emerald-600" : "text-red-600",
-                )}
-              >
-                {stat.trend === "up" ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                {stat.change} this month
-              </div>
             </div>
           );
         })}
@@ -216,23 +193,16 @@ export function FinanceView() {
         </div>
         <div className="flex items-center gap-4 text-xs text-slate-500">
           <span>
-            Total Dues:{" "}
+            Assigned dues:{" "}
             <strong className="text-slate-900">
-              {overview?.totalDues || 0}
+              {overview?.dues.assignedCount || 0}
             </strong>
           </span>
           <span className="w-px h-4 bg-slate-200" />
           <span>
-            Pending:{" "}
+            Pending assignments:{" "}
             <strong className="text-slate-900">
-              {overview?.pendingDues || 0}
-            </strong>
-          </span>
-          <span className="w-px h-4 bg-slate-200" />
-          <span>
-            Completed:{" "}
-            <strong className="text-slate-900">
-              {overview?.completedDues || 0}
+              {overview?.dues.pendingAssignments || 0}
             </strong>
           </span>
         </div>
@@ -309,7 +279,8 @@ export function FinanceView() {
                         isCredit ? "text-emerald-600" : "text-slate-900",
                       )}
                     >
-                      {isCredit ? "+" : "-"}₦{(tx.amount || 0).toLocaleString()}
+                      {isCredit ? "+" : "-"}
+                      {formatKoboCurrency(tx.amount)}
                     </div>
                     {isPending && (
                       <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">

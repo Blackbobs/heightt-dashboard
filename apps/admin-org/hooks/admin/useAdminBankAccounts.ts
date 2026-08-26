@@ -28,6 +28,20 @@ export function useAdminBankAccount(id: string) {
   });
 }
 
+export function useAdminSupportedBanks() {
+  const { token } = useAuthStore();
+  return useQuery({
+    queryKey: ["admin", "finance", "supported-banks", "NG"],
+    queryFn: () => adminApi.getSupportedBanks("NG"),
+    enabled: !!token,
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
+export function useResolveAdminBankAccount() {
+  return useMutation({ mutationFn: adminApi.resolveBankAccount });
+}
+
 export function useCreateBankAccount() {
   const queryClient = useQueryClient();
 
@@ -36,7 +50,7 @@ export function useCreateBankAccount() {
       bankName: string;
       accountNumber: string;
       accountName: string;
-      bankCode?: string;
+      bankCode: string;
       isDefault?: boolean;
     }) => adminApi.createBankAccount(data),
     onSuccess: () => {
@@ -85,6 +99,22 @@ export function useSetDefaultBankAccount() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.bankAccounts.all(),
+      });
+    },
+  });
+}
+
+export function useRegisterPayoutDestination() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminApi.registerPayoutDestination(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.bankAccounts.all(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.bankAccounts.one(id),
       });
     },
   });

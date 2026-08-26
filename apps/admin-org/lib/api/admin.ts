@@ -1,5 +1,9 @@
 // apps/admin-org/lib/api/admin.ts
-import { axiosConfig } from "@/utils/axios-config";
+import {
+  axiosConfig,
+  clearCsrfToken,
+  getCsrfToken,
+} from "@/utils/axios-config";
 
 // ============ Auth Types ============
 export interface LoginResponse {
@@ -91,11 +95,13 @@ export interface AdminScope {
     | "DEPARTMENT_ADMIN"
     | "ORGANIZATION_ADMIN"
     | "CLUB_ADMIN";
+  status?: string;
   organizationId?: string;
   institutionId?: string;
   facultyId?: string;
   departmentId?: string;
   academicLevelId?: string;
+  academicSessionId?: string;
   organization?: {
     id: string;
     name: string;
@@ -224,6 +230,40 @@ export interface Receipt {
   createdAt: string;
 }
 
+export type PaymentHistoryStatus =
+  "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "EXPIRED" | "CANCELLED";
+
+export interface PaymentHistoryRecord {
+  id: string;
+  amount: number;
+  status: PaymentHistoryStatus;
+  reference?: string;
+  createdAt: string;
+  updatedAt?: string;
+  transaction?: Transaction | null;
+  organization?: {
+    id: string;
+    name: string;
+    slug?: string;
+    type?: string;
+  } | null;
+  payer?: {
+    id: string;
+    email?: string;
+    username?: string;
+    profile?: {
+      firstName?: string;
+      lastName?: string;
+    } | null;
+  } | null;
+  duePayment?: {
+    assignment?: {
+      due?: Due | null;
+    } | null;
+  } | null;
+  receipt?: Receipt | null;
+}
+
 export interface FinancialOverview {
   totalCollections: number;
   totalTransactions: number;
@@ -236,6 +276,43 @@ export interface FinancialOverview {
   totalStudents?: number;
   activeStudents?: number;
   balance?: number;
+}
+
+export interface OrganizationFinanceOverview {
+  organization: {
+    id: string;
+    name: string;
+    slug?: string;
+    type?: string;
+    status?: string;
+  };
+  wallet: {
+    balance: number;
+    heldBalance: number;
+    availableBalance: number;
+    currency: string;
+    status: string;
+  };
+  transactions: {
+    total: number;
+  };
+  collections: {
+    totalAmount: number;
+    completedCount: number;
+    serviceFees: number;
+    pendingAmount: number;
+    pendingCount: number;
+  };
+  dues: {
+    createdCount: number;
+    faceValue: number;
+    assignedCount: number;
+    totalExpected: number;
+    totalCollected: number;
+    completedPayments: number;
+    pendingAssignments: number;
+  };
+  generatedAt: string;
 }
 
 // ============ Announcement Types ============
@@ -283,6 +360,7 @@ export interface OrganizationMembership {
   status: string;
   isPrimary: boolean;
   joinedAt: string;
+  joinedSessionId?: string | null;
   organization: {
     id: string;
     name: string;
@@ -302,8 +380,29 @@ export interface BankAccount {
   accountName: string;
   bankCode?: string;
   isDefault: boolean;
+  payoutDestinationStatus?: "pending_review" | "approved" | "rejected";
+  payoutDestinationUsable?: boolean;
+  payoutDestination?: {
+    status?: "pending_review" | "approved" | "rejected";
+    usable?: boolean;
+  };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SupportedBank {
+  name: string;
+  slug: string;
+  code: string;
+  nibss_bank_code?: string | null;
+  country: string;
+}
+
+export interface ResolvedBankAccount {
+  accountNumber: string;
+  accountName: string;
+  bankCode: string;
+  bankName: string;
 }
 
 // ============ Withdrawal Types ============
@@ -344,6 +443,8 @@ export const adminApi = {
     identifier: string,
     password: string,
   ): Promise<LoginResponse> => {
+    clearCsrfToken();
+    await getCsrfToken(true);
     const response = await axiosConfig.post("/v1/auth/login", {
       identifier,
       password,
@@ -527,6 +628,31 @@ export const adminApi = {
     return response.data;
   },
 
+  getAdminPaymentHistory: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: PaymentHistoryStatus;
+    organizationId?: string;
+    payerId?: string;
+  }): Promise<PaginatedResponse<PaymentHistoryRecord>> => {
+    const response = await axiosConfig.get(
+      "/v1/finance/payments/history/admin",
+      {
+        params,
+      },
+    );
+    return response.data;
+  },
+
+  getOrganizationFinanceOverview: async (
+    organizationId: string,
+  ): Promise<OrganizationFinanceOverview> => {
+    const response = await axiosConfig.get(
+      `/v1/finance/organizations/${organizationId}/overview`,
+    );
+    return response.data;
+  },
+
   getFinancialOverview: async (
     organizationId: string,
   ): Promise<FinancialOverview> => {
@@ -640,15 +766,56 @@ export const adminApi = {
     return response.data;
   },
 
+  getSupportedBanks: async (countryCode = "NG"): Promise<SupportedBank[]> => {
+    const response = await axiosConfig.get(
+      "/v1/finance/bank-accounts/supported-banks",
+      { params: { countryCode } },
+    );
+    const payload = response.data;
+    const banks =
+      payload?.data?.banks ?? payload?.data ?? payload?.banks ?? payload;
+    if (!Array.isArray(banks)) return [];
+    return banks.map((bank: SupportedBank) => ({
+      ...bank,
+      code: String(bank.code),
+      nibss_bank_code:
+        bank.nibss_bank_code == null ? null : String(bank.nibss_bank_code),
+    }));
+  },
+
+  resolveBankAccount: async (data: {
+    bankCode: string;
+    accountNumber: string;
+  }): Promise<ResolvedBankAccount> => {
+    const response = await axiosConfig.post(
+      "/v1/finance/bank-accounts/resolve",
+      data,
+    );
+    const resolved = response.data?.data ?? response.data;
+    return {
+      accountNumber: resolved.accountNumber ?? resolved.account_number,
+      accountName: resolved.accountName ?? resolved.account_name,
+      bankCode: String(resolved.bankCode ?? resolved.bank_code),
+      bankName: resolved.bankName ?? resolved.bank_name,
+    };
+  },
+
   createBankAccount: async (data: {
     bankName: string;
     accountNumber: string;
     accountName: string;
-    bankCode?: string;
+    bankCode: string;
     isDefault?: boolean;
   }): Promise<BankAccount> => {
     const response = await axiosConfig.post("/v1/finance/bank-accounts", data);
-    return response.data;
+    return response.data?.data ?? response.data;
+  },
+
+  registerPayoutDestination: async (id: string): Promise<BankAccount> => {
+    const response = await axiosConfig.post(
+      `/v1/finance/bank-accounts/${id}/payout-destination`,
+    );
+    return response.data?.data ?? response.data;
   },
 
   updateBankAccount: async (id: string, data: any): Promise<BankAccount> => {
@@ -719,7 +886,9 @@ export const adminApi = {
   // ============ Organizations ============
   getUserOrganizations: async (): Promise<OrganizationMembership[]> => {
     const response = await axiosConfig.get("/v1/users/me/organizations");
-    return response.data;
+    if (Array.isArray(response.data)) return response.data;
+    if (Array.isArray(response.data?.data)) return response.data.data;
+    return [];
   },
 
   getOrganizationMembers: async (
@@ -820,10 +989,22 @@ export const adminQueryKeys = {
       params,
     ],
     receipts: (params?: any) => ["admin", "finance", "receipts", params],
+    paymentHistory: (params?: unknown) => [
+      "admin",
+      "finance",
+      "payment-history",
+      params,
+    ],
     overview: (organizationId: string) => [
       "admin",
       "finance",
       "overview",
+      organizationId,
+    ],
+    organizationOverview: (organizationId: string) => [
+      "admin",
+      "finance",
+      "organization-overview",
       organizationId,
     ],
     dashboard: (organizationId: string) => [

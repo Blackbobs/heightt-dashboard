@@ -1,6 +1,11 @@
 // apps/admin-org/utils/axios-config.ts
 
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+
+type RetryableConfig = InternalAxiosRequestConfig & {
+  _authRetry?: boolean;
+  _csrfRetry?: boolean;
+};
 
 // Normalize base URL
 const rawBase =
@@ -11,6 +16,7 @@ export const axiosConfig = axios.create({
   baseURL: normalizedBase,
   withCredentials: true,
   headers: {
+    Accept: "application/json",
     "Content-Type": "application/json",
   },
 });
@@ -23,21 +29,23 @@ let csrfToken: string | null = null;
 let csrfTokenFetching: Promise<string> | null = null;
 
 async function fetchCsrfToken(): Promise<string> {
-  try {
-    const response = await axiosConfig.get("/v1/auth/csrf-token");
-    const token = response.data.csrfToken;
-    if (!token) {
-      throw new Error("No CSRF token received");
-    }
-    return token;
-  } catch (error) {
-    console.error("Failed to fetch CSRF token:", error);
-    throw error;
+  const response = await axiosConfig.get("/v1/auth/csrf-token");
+  const token = response.data?.csrfToken ?? response.data?.token;
+
+  if (!token) {
+    throw new Error("The backend did not return a CSRF token");
   }
+
+  csrfToken = token;
+  return token;
 }
 
-export async function getCsrfToken(): Promise<string> {
-  if (csrfToken) {
+export async function getCsrfToken(forceRefresh = false): Promise<string> {
+  if (forceRefresh) {
+    csrfToken = null;
+  }
+
+  if (!forceRefresh && csrfToken) {
     return csrfToken;
   }
 
@@ -45,21 +53,15 @@ export async function getCsrfToken(): Promise<string> {
     return csrfTokenFetching;
   }
 
-  csrfTokenFetching = fetchCsrfToken()
-    .then((token) => {
-      csrfToken = token;
-      return token;
-    })
-    .finally(() => {
-      csrfTokenFetching = null;
-    });
+  csrfTokenFetching = fetchCsrfToken().finally(() => {
+    csrfTokenFetching = null;
+  });
 
   return csrfTokenFetching;
 }
 
 export function clearCsrfToken() {
   csrfToken = null;
-  csrfTokenFetching = null;
 }
 
 // ============================================
@@ -71,24 +73,15 @@ axiosConfig.interceptors.request.use(
     const skipMethods = ["get", "head", "options"];
     const method = config.method?.toLowerCase() || "";
 
-    const skipUrls = [
-      "/v1/auth/login",
-      "/v1/auth/register",
-      "/v1/auth/csrf-token",
-      "/v1/auth/refresh",
-    ];
-    const isAuthEndpoint = skipUrls.some((url) => config.url?.includes(url));
+    const isCsrfEndpoint = config.url?.includes("/auth/csrf-token");
 
-    if (skipMethods.includes(method) || isAuthEndpoint) {
+    config.withCredentials = true;
+
+    if (skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
     }
 
-    try {
-      const token = await getCsrfToken();
-      config.headers["X-CSRF-Token"] = token;
-    } catch (error) {
-      console.warn("Failed to add CSRF token to request:", error);
-    }
+    config.headers.set("X-CSRF-Token", await getCsrfToken());
 
     return config;
   },
@@ -103,7 +96,7 @@ let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
-  config: any;
+  config: RetryableConfig;
 }> = [];
 
 const processQueue = (error: unknown | null) => {
@@ -119,36 +112,30 @@ const processQueue = (error: unknown | null) => {
 
 axiosConfig.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as RetryableConfig | undefined;
 
     if (!originalRequest) {
       return Promise.reject(error);
     }
 
-    // Prevent infinite loops
-    if (originalRequest._retry) {
-      return Promise.reject(error);
-    }
-
     const status = error.response?.status;
-    const message = error.response?.data?.message || "";
+    const data = error.response?.data as
+      { code?: string; error?: string; message?: string } | undefined;
+    const invalidCsrf =
+      data?.code === "CSRF_TOKEN_INVALID" ||
+      data?.error === "CSRF_TOKEN_INVALID" ||
+      data?.message === "CSRF_TOKEN_INVALID" ||
+      data?.message === "invalid csrf token" ||
+      data?.message === "CSRF token mismatch";
 
     // Handle CSRF token errors
-    if (
-      status === 403 &&
-      (message === "invalid csrf token" || message === "CSRF token mismatch")
-    ) {
+    if (invalidCsrf && !originalRequest._csrfRetry) {
+      originalRequest._csrfRetry = true;
       clearCsrfToken();
-      if (!originalRequest._retry) {
-        originalRequest._retry = true;
-        try {
-          await getCsrfToken();
-          return axiosConfig(originalRequest);
-        } catch (refreshErr) {
-          return Promise.reject(refreshErr);
-        }
-      }
+      const freshToken = await getCsrfToken(true);
+      originalRequest.headers.set("X-CSRF-Token", freshToken);
+      return axiosConfig(originalRequest);
     }
 
     // Handle token refresh for 401 errors
@@ -162,8 +149,8 @@ axiosConfig.interceptors.response.use(
       originalRequest.url?.includes(url),
     );
 
-    if (status === 401 && !isAuthRequest && !originalRequest._retry) {
-      originalRequest._retry = true;
+    if (status === 401 && !isAuthRequest && !originalRequest._authRetry) {
+      originalRequest._authRetry = true;
 
       // If already refreshing, queue the request
       if (isRefreshing) {

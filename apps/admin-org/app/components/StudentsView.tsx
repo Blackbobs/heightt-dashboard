@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import StudentDetailsModal from "./StudentDetailsModal";
 import AddStudentModal from "./AddStudentModal";
 
@@ -30,6 +31,7 @@ export function StudentsView() {
   const [statusFilter, setStatusFilter] = useState("");
   const [levelFilter, setLevelFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -41,23 +43,24 @@ export function StudentsView() {
   const { data, isLoading, refetch } = useAdminStudents({
     page: currentPage,
     limit: ITEMS_PER_PAGE,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     status: statusFilter || undefined,
     organizationId,
   });
 
   const updateStudentMutation = useUpdateStudent();
 
-  const students = data?.data || [];
+  const students = useMemo(() => data?.data || [], [data?.data]);
   const meta = data?.meta;
 
   const filteredStudents = useMemo(() => {
     let filtered = students;
 
     if (levelFilter) {
-      filtered = filtered.filter((s: any) =>
-        s.currentAcademicLevel?.name?.includes(levelFilter) ||
-        s.currentAcademicLevel?.numericLevel?.toString() === levelFilter,
+      filtered = filtered.filter(
+        (s: any) =>
+          s.currentAcademicLevel?.name?.includes(levelFilter) ||
+          s.currentAcademicLevel?.numericLevel?.toString() === levelFilter,
       );
     }
 
@@ -66,12 +69,12 @@ export function StudentsView() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    refetch();
   };
 
   const getStudentName = (student: any): string => {
     const profile = student?.user?.profile;
-    const fullName = `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim();
+    const fullName =
+      `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim();
     return fullName || student?.user?.username || "Unknown";
   };
 

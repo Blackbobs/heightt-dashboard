@@ -19,7 +19,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatKoboCurrency } from "@/lib/utils";
 import { usePermissions } from "../context/PermissionContext";
 import RequestWithdrawalModal from "./RequestWithdrawalModal";
 
@@ -30,6 +30,14 @@ const WITHDRAWAL_STATUSES = [
   "FAILED",
   "CANCELLED",
 ];
+
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: "Awaiting approval",
+  PROCESSING: "Processing payout",
+  COMPLETED: "Paid",
+  FAILED: "Failed / Rejected",
+  CANCELLED: "Cancelled",
+};
 
 const STATUS_CONFIG: Record<
   string,
@@ -80,19 +88,40 @@ export function WithdrawalsView() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const canRequest = hasPermission("WITHDRAWAL_REQUEST");
+  const organizationId = selectedScope?.organizationId;
 
   const { data, isLoading, refetch } = useAdminWithdrawals({
     page: currentPage,
     limit: 10,
     status: statusFilter || undefined,
     type: "ORGANIZATION",
+    organizationId,
   });
 
   const requestMutation = useRequestOrganizationWithdrawal();
 
-  const withdrawals = data?.data || [];
+  const withdrawals = useMemo(() => data?.data || [], [data?.data]);
   const meta = data?.meta;
-  const organizationId = selectedScope?.organizationId;
+  const filteredWithdrawals = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+
+    return withdrawals.filter((withdrawal) =>
+      !query
+        ? true
+        : [
+            withdrawal.reference,
+            withdrawal.bankName,
+            withdrawal.accountName,
+            withdrawal.accountNumber,
+            withdrawal.metadata?.reason,
+            withdrawal.failureReason,
+          ].some((value) =>
+            String(value ?? "")
+              .toLocaleLowerCase()
+              .includes(query),
+          ),
+    );
+  }, [search, withdrawals]);
 
   const handleViewDetails = (withdrawal: any) => {
     setSelectedWithdrawal(withdrawal);
@@ -116,15 +145,14 @@ export function WithdrawalsView() {
       refetch();
     } catch (error) {
       console.error("Failed to request withdrawal:", error);
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(getApiErrorMessage(error, "Failed to submit withdrawal request."));
+      throw error;
     }
   };
 
   const getStatusConfig = (status: string) => {
     return STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `₦${(amount / 100).toLocaleString()}`;
   };
 
   const formatDate = (date: string) => {
@@ -260,7 +288,7 @@ export function WithdrawalsView() {
         className="bg-white border rounded-xl overflow-hidden"
         style={{ borderColor: "var(--color-border)" }}
       >
-        {withdrawals.length === 0 ? (
+        {filteredWithdrawals.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl text-slate-300 mb-3">
               <ArrowUpRight className="w-8 h-8" />
@@ -306,7 +334,7 @@ export function WithdrawalsView() {
                 className="divide-y"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                {withdrawals.map((withdrawal: any) => {
+                {filteredWithdrawals.map((withdrawal: any) => {
                   const statusConfig = getStatusConfig(withdrawal.status);
 
                   return (
@@ -327,10 +355,10 @@ export function WithdrawalsView() {
                       </td>
                       <td className="px-4 py-3.5 align-middle">
                         <div className="font-bold text-sm text-slate-900">
-                          {formatCurrency(withdrawal.amount)}
+                          {formatKoboCurrency(withdrawal.amount)}
                         </div>
                         <div className="text-xs text-slate-400">
-                          Fee: {formatCurrency(withdrawal.fee)}
+                          Fee: {formatKoboCurrency(withdrawal.fee)}
                         </div>
                       </td>
                       <td className="px-4 py-3.5 align-middle">
@@ -353,7 +381,8 @@ export function WithdrawalsView() {
                           )}
                         >
                           {statusConfig.icon}
-                          {withdrawal.status}
+                          {STATUS_LABELS[withdrawal.status] ||
+                            withdrawal.status}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 align-middle">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useAdminAnnouncements,
   useCreateAnnouncement,
@@ -8,7 +8,7 @@ import {
   useDeleteAnnouncement,
   usePublishAnnouncement,
 } from "@/hooks/admin/useAdminAnnouncements";
-import { useUserOrganizations } from "@/hooks/admin/useAdminOrganizations";
+import { useAdminContext } from "./AdminContext";
 import {
   Search,
   Plus,
@@ -55,7 +55,7 @@ const PRIORITY_COLORS: Record<
 
 export function AnnouncementsView() {
   const { hasPermission } = usePermissions();
-  const { data: orgs } = useUserOrganizations();
+  const { selectedScope } = useAdminContext();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -70,7 +70,7 @@ export function AnnouncementsView() {
   const canDelete = hasPermission("ANNOUNCEMENT_DELETE");
   const canPublish = hasPermission("ANNOUNCEMENT_PUBLISH");
 
-  const organizationId = orgs?.[0]?.organizationId;
+  const organizationId = selectedScope?.organizationId;
 
   const { data, isLoading, refetch } = useAdminAnnouncements({
     organizationId,
@@ -85,12 +85,27 @@ export function AnnouncementsView() {
   const deleteMutation = useDeleteAnnouncement();
   const publishMutation = usePublishAnnouncement();
 
-  const announcements = data?.data || [];
+  const announcements = useMemo(() => data?.data || [], [data?.data]);
   const meta = data?.meta;
+  const filteredAnnouncements = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+
+    return announcements.filter((announcement) =>
+      !query
+        ? true
+        : [
+            announcement.title,
+            announcement.content,
+            announcement.organization?.name,
+            announcement.author?.username,
+            announcement.author?.profile?.firstName,
+            announcement.author?.profile?.lastName,
+          ].some((value) => value?.toLocaleLowerCase().includes(query)),
+    );
+  }, [announcements, search]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    refetch();
   };
 
   const handleOpenCreate = () => {
@@ -261,7 +276,7 @@ export function AnnouncementsView() {
       </div>
 
       {/* Announcements Grid */}
-      {announcements.length === 0 ? (
+      {filteredAnnouncements.length === 0 ? (
         <div
           className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white border rounded-xl"
           style={{ borderColor: "var(--color-border)" }}
@@ -280,7 +295,7 @@ export function AnnouncementsView() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {announcements.map((ann: any) => {
+          {filteredAnnouncements.map((ann: any) => {
             const typeStyle = getTypeStyle(ann.type);
             const priorityStyle = getPriorityStyle(ann.priority);
             const isPublished = ann.isPublished;

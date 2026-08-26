@@ -46,10 +46,15 @@ const WITHDRAWAL_STATUSES = [
 ];
 const WITHDRAWAL_TYPES = ["USER", "ORGANIZATION", "PLATFORM"];
 
+const maskAccountNumber = (value?: string) => {
+  if (!value) return "N/A";
+  return `${"•".repeat(Math.max(0, value.length - 4))}${value.slice(-4)}`;
+};
+
 export default function WithdrawalsView() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [typeFilter, setTypeFilter] = useState("ORGANIZATION");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<any | null>(
     null,
@@ -58,7 +63,7 @@ export default function WithdrawalsView() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [requestType, setRequestType] = useState<
     "USER" | "ORGANIZATION" | "PLATFORM"
-  >("USER");
+  >("PLATFORM");
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
@@ -92,6 +97,13 @@ export default function WithdrawalsView() {
   const withdrawals = data?.data || [];
   const meta = data?.meta;
   const bankAccounts = bankAccountsData?.data || [];
+  const usableBankAccounts = bankAccounts.filter((account: any) => {
+    const status =
+      account.payoutDestinationStatus ?? account.payoutDestination?.status;
+    const usable =
+      account.payoutDestinationUsable ?? account.payoutDestination?.usable;
+    return status === "approved" && usable !== false;
+  });
   const organizations = organizationsData?.data || [];
 
   const handleViewDetails = (withdrawal: any) => {
@@ -102,11 +114,7 @@ export default function WithdrawalsView() {
   const handleApprove = async (id: string, type: string) => {
     if (confirm("Are you sure you want to approve this withdrawal?")) {
       try {
-        if (type === "USER") await approveUserMutation.mutateAsync(id);
-        else if (type === "ORGANIZATION")
-          await approveOrgMutation.mutateAsync(id);
-        else if (type === "PLATFORM")
-          await approvePlatformMutation.mutateAsync(id);
+        if (type === "ORGANIZATION") await approveOrgMutation.mutateAsync(id);
         refetch();
       } catch (error) {
         console.error("Failed to approve withdrawal:", error);
@@ -145,27 +153,14 @@ export default function WithdrawalsView() {
 
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
+    const amountInKobo = Math.round(formData.amount * 100);
+    if (!Number.isSafeInteger(amountInKobo) || amountInKobo <= 0) return;
     try {
-      if (requestType === "USER") {
-        await requestUserMutation.mutateAsync({
-          bankAccountId: formData.bankAccountId,
-          amount: formData.amount,
-          reason: formData.reason || undefined,
-        });
-      } else if (requestType === "ORGANIZATION") {
-        await requestOrgMutation.mutateAsync({
-          organizationId: formData.organizationId,
-          bankAccountId: formData.bankAccountId,
-          amount: formData.amount,
-          reason: formData.reason || undefined,
-        });
-      } else {
-        await requestPlatformMutation.mutateAsync({
-          bankAccountId: formData.bankAccountId,
-          amount: formData.amount,
-          reason: formData.reason || undefined,
-        });
-      }
+      await requestPlatformMutation.mutateAsync({
+        bankAccountId: formData.bankAccountId,
+        amount: amountInKobo,
+        reason: formData.reason || undefined,
+      });
       setIsRequestModalOpen(false);
       setFormData({
         bankAccountId: "",
@@ -176,8 +171,21 @@ export default function WithdrawalsView() {
       refetch();
     } catch (error) {
       console.error("Failed to request withdrawal:", error);
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(
+        getApiErrorMessage(error, "Failed to request the platform withdrawal."),
+      );
     }
   };
+
+  const getStatusLabel = (status: string) =>
+    ({
+      PENDING: "Awaiting approval",
+      PROCESSING: "Processing payout",
+      COMPLETED: "Paid",
+      FAILED: "Failed / Rejected",
+      CANCELLED: "Cancelled",
+    })[status] || status;
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -233,6 +241,15 @@ export default function WithdrawalsView() {
         ),
       },
       {
+        accessorFn: (r) =>
+          r.organization?.name ??
+          r.organizationId ??
+          r.metadata?.organizationId ??
+          "N/A",
+        id: "organization",
+        header: "Organization",
+      },
+      {
         accessorFn: (r) => `₦${(r.amount / 100).toLocaleString()}`,
         id: "amount",
         header: "Amount",
@@ -248,7 +265,7 @@ export default function WithdrawalsView() {
           <div>
             <div className="text-sm">{row.original.bankName}</div>
             <div className="text-xs text-slate-400">
-              {row.original.accountNumber}
+              {maskAccountNumber(row.original.accountNumber)}
             </div>
           </div>
         ),
@@ -269,7 +286,7 @@ export default function WithdrawalsView() {
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}
             >
               {getStatusIcon(status)}
-              {status}
+              {getStatusLabel(status)}
             </span>
           );
         },
@@ -295,7 +312,7 @@ export default function WithdrawalsView() {
               >
                 <Eye className="w-4 h-4" />
               </button>
-              {isPending && (
+              {isPending && type === "ORGANIZATION" && (
                 <>
                   <button
                     className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-colors"
@@ -352,9 +369,9 @@ export default function WithdrawalsView() {
           <button
             className="btn btn-primary"
             onClick={() => {
-              setRequestType("USER");
+              setRequestType("PLATFORM");
               setFormData({
-                bankAccountId: bankAccounts[0]?.id || "",
+                bankAccountId: usableBankAccounts[0]?.id || "",
                 organizationId: "",
                 amount: 0,
                 reason: "",
@@ -392,7 +409,7 @@ export default function WithdrawalsView() {
             <option value="">All Status</option>
             {WITHDRAWAL_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {status}
+                {getStatusLabel(status)}
               </option>
             ))}
           </select>
@@ -523,25 +540,8 @@ export default function WithdrawalsView() {
             </div>
             <form onSubmit={handleRequest}>
               <div className="form-group">
-                <label className="form-label">Withdrawal Type *</label>
-                <select
-                  className="form-select"
-                  value={requestType}
-                  onChange={(e) => {
-                    const type = e.target.value as
-                      "USER" | "ORGANIZATION" | "PLATFORM";
-                    setRequestType(type);
-                    setFormData({
-                      ...formData,
-                      organizationId: "",
-                    });
-                  }}
-                  required
-                >
-                  <option value="USER">User Wallet</option>
-                  <option value="ORGANIZATION">Organization Wallet</option>
-                  <option value="PLATFORM">Platform Wallet</option>
-                </select>
+                <label className="form-label">Withdrawal Type</label>
+                <div className="form-input bg-slate-50">Platform Wallet</div>
               </div>
 
               {requestType === "ORGANIZATION" && (
@@ -582,7 +582,7 @@ export default function WithdrawalsView() {
                   required
                 >
                   <option value="">Select Bank Account</option>
-                  {bankAccounts.map((account: any) => (
+                  {usableBankAccounts.map((account: any) => (
                     <option key={account.id} value={account.id}>
                       {account.bankName} - {account.accountNumber} (
                       {account.accountName})
@@ -590,26 +590,32 @@ export default function WithdrawalsView() {
                     </option>
                   ))}
                 </select>
+                {usableBankAccounts.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    No approved, usable payout destination is available.
+                  </p>
+                )}
               </div>
 
               <div className="form-group">
-                <label className="form-label">Amount (in Kobo) *</label>
+                <label className="form-label">Amount (₦) *</label>
                 <input
                   type="number"
                   className="form-input"
-                  placeholder="500000"
+                  placeholder="5000.00"
                   value={formData.amount || ""}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      amount: parseInt(e.target.value) || 0,
+                      amount: parseFloat(e.target.value) || 0,
                     })
                   }
                   required
-                  min="1"
+                  min="0.01"
+                  step="0.01"
                 />
                 <p className="text-xs text-slate-400 mt-1">
-                  Amount in Kobo (e.g., 500000 = ₦5,000)
+                  Enter the amount in naira. It will be sent securely in kobo.
                 </p>
               </div>
 
@@ -637,7 +643,10 @@ export default function WithdrawalsView() {
                       </li>
                       <li>
                         <strong>Amount:</strong> ₦
-                        {(formData.amount / 100).toLocaleString()}
+                        {formData.amount.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </li>
                       <li>
                         <strong>Bank:</strong>{" "}
@@ -662,6 +671,7 @@ export default function WithdrawalsView() {
                   type="submit"
                   className="btn btn-primary"
                   disabled={
+                    usableBankAccounts.length === 0 ||
                     requestUserMutation.isPending ||
                     requestOrgMutation.isPending ||
                     requestPlatformMutation.isPending
@@ -714,7 +724,7 @@ export default function WithdrawalsView() {
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedWithdrawal.status)}`}
                 >
                   {getStatusIcon(selectedWithdrawal.status)}
-                  {selectedWithdrawal.status}
+                  {getStatusLabel(selectedWithdrawal.status)}
                 </span>
               </div>
 
@@ -725,8 +735,14 @@ export default function WithdrawalsView() {
                   ₦{(selectedWithdrawal.amount / 100).toLocaleString()}
                 </div>
                 <div className="text-sm text-slate-400">
-                  Fee: ₦{(selectedWithdrawal.fee / 100).toLocaleString()} • Net:
-                  ₦{(selectedWithdrawal.netAmount / 100).toLocaleString()}
+                  Estimated fee: ₦
+                  {((selectedWithdrawal.fee || 0) / 100).toLocaleString()} •
+                  Total wallet debit: ₦
+                  {(
+                    (selectedWithdrawal.amount +
+                      (selectedWithdrawal.fee || 0)) /
+                    100
+                  ).toLocaleString()}
                 </div>
               </div>
 
@@ -741,13 +757,34 @@ export default function WithdrawalsView() {
                 <div className="p-3 bg-slate-50 rounded-lg">
                   <div className="text-xs text-slate-500">Account Number</div>
                   <div className="font-semibold">
-                    {selectedWithdrawal.accountNumber}
+                    {maskAccountNumber(selectedWithdrawal.accountNumber)}
                   </div>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg col-span-2">
                   <div className="text-xs text-slate-500">Account Name</div>
                   <div className="font-semibold">
                     {selectedWithdrawal.accountName}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="text-xs text-slate-500">Organization</div>
+                  <div className="text-sm font-medium">
+                    {selectedWithdrawal.organization?.name ??
+                      selectedWithdrawal.organizationId ??
+                      selectedWithdrawal.metadata?.organizationId ??
+                      "N/A"}
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <div className="text-xs text-slate-500">Requesting admin</div>
+                  <div className="text-sm font-medium">
+                    {selectedWithdrawal.requestedBy?.email ??
+                      selectedWithdrawal.metadata?.requestedBy ??
+                      selectedWithdrawal.user?.email ??
+                      "N/A"}
                   </div>
                 </div>
               </div>

@@ -1,6 +1,10 @@
 // apps/admin-org/hooks/admin/useAdminFinance.ts
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { adminApi, adminQueryKeys } from "@/lib/api/admin";
+import {
+  adminApi,
+  adminQueryKeys,
+  PaymentHistoryStatus,
+} from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
 
 export function useAdminDues(params?: {
@@ -51,8 +55,25 @@ export function useAdminReceipts(params?: {
   return useQuery({
     queryKey: adminQueryKeys.finance.receipts(params),
     queryFn: () => adminApi.getReceipts(params),
-    enabled: !!token,
+    enabled: !!token && !!params?.organizationId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useAdminPaymentHistory(params?: {
+  page?: number;
+  limit?: number;
+  status?: PaymentHistoryStatus;
+  organizationId?: string;
+  payerId?: string;
+}) {
+  const { token } = useAuthStore();
+
+  return useQuery({
+    queryKey: adminQueryKeys.finance.paymentHistory(params),
+    queryFn: () => adminApi.getAdminPaymentHistory(params),
+    enabled: !!token && !!params?.organizationId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -64,6 +85,17 @@ export function useAdminFinancialOverview(organizationId: string) {
     queryFn: () => adminApi.getFinancialOverview(organizationId),
     enabled: !!token && !!organizationId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useOrganizationFinanceOverview(organizationId: string) {
+  const { token } = useAuthStore();
+
+  return useQuery({
+    queryKey: adminQueryKeys.finance.organizationOverview(organizationId),
+    queryFn: () => adminApi.getOrganizationFinanceOverview(organizationId),
+    enabled: !!token && !!organizationId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -87,6 +119,9 @@ export function useCreateDue() {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.dues(),
       });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "organization-overview"],
+      });
     },
   });
 }
@@ -101,6 +136,9 @@ export function useAssignDue() {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.dues(),
       });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "organization-overview"],
+      });
     },
   });
 }
@@ -113,6 +151,9 @@ export function useDeleteDue() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.dues(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "organization-overview"],
       });
     },
   });
@@ -134,6 +175,9 @@ export function useRequestWithdrawal() {
       });
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.withdrawals.all(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "organization-overview"],
       });
     },
   });

@@ -29,7 +29,7 @@ import {
   Pause,
   FileText,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { usePermissions } from "../context/PermissionContext";
 import CreateDueModal from "./CreateDueModal";
 
@@ -132,14 +132,14 @@ export function DuesView() {
   const assignDueMutation = useAssignDue();
   const deleteDueMutation = useDeleteDue();
 
-  const dues = data?.data || [];
+  const dues = useMemo(() => data?.data || [], [data?.data]);
   const meta = data?.meta;
 
   const filteredDues = useMemo(() => {
     let filtered = dues;
 
     if (search) {
-      const searchLower = search.toLowerCase();
+      const searchLower = search.trim().toLocaleLowerCase();
       filtered = filtered.filter(
         (due: any) =>
           due.name?.toLowerCase().includes(searchLower) ||
@@ -157,7 +157,6 @@ export function DuesView() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    refetch();
   };
 
   const handleCreateDue = async (dueData: any) => {
@@ -213,10 +212,6 @@ export function DuesView() {
 
   const getStatusConfig = (status: string) => {
     return STATUS_CONFIG[status] || STATUS_CONFIG.ACTIVE;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `₦${amount.toLocaleString()}`;
   };
 
   const formatDate = (date: string) => {

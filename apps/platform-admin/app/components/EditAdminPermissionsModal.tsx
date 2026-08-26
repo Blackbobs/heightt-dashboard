@@ -57,7 +57,7 @@ export default function EditAdminPermissionsModal({
   useEffect(() => {
     if (adminData?.permissions) {
       setSelectedPermissions(
-        adminData.permissions.map((p: any) => p.permissionKey)
+        adminData.permissions.map((p: any) => p.permissionKey),
       );
     }
     // Expand all categories by default
@@ -71,7 +71,7 @@ export default function EditAdminPermissionsModal({
     setSelectedPermissions((prev) =>
       prev.includes(permissionKey)
         ? prev.filter((p) => p !== permissionKey)
-        : [...prev, permissionKey]
+        : [...prev, permissionKey],
     );
   };
 
@@ -80,13 +80,14 @@ export default function EditAdminPermissionsModal({
     setExpandedCategories((prev) =>
       prev.includes(categoryKey)
         ? prev.filter((c) => c !== categoryKey)
-        : [...prev, categoryKey]
+        : [...prev, categoryKey],
     );
   };
 
   // Select all permissions in a category
   const selectAllInCategory = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     setSelectedPermissions((prev) => {
@@ -102,31 +103,34 @@ export default function EditAdminPermissionsModal({
 
   // Deselect all permissions in a category
   const deselectAllInCategory = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     setSelectedPermissions((prev) =>
-      prev.filter((p) => !categoryPermissionKeys.includes(p))
+      prev.filter((p) => !categoryPermissionKeys.includes(p)),
     );
   };
 
   // Check if all permissions in a category are selected
   const isCategoryFullySelected = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return false;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     return categoryPermissionKeys.every((key) =>
-      selectedPermissions.includes(key)
+      selectedPermissions.includes(key),
     );
   };
 
   // Check if any permissions in a category are selected
   const isCategoryPartiallySelected = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return false;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     const selectedInCategory = categoryPermissionKeys.filter((key) =>
-      selectedPermissions.includes(key)
+      selectedPermissions.includes(key),
     );
     return (
       selectedInCategory.length > 0 &&
@@ -137,13 +141,29 @@ export default function EditAdminPermissionsModal({
   const handleSave = async () => {
     setIsSubmitting(true);
     try {
-      await updatePermissionsMutation.mutateAsync({
-        adminId,
-        data: {
-          permissions: selectedPermissions,
-          action: "SET",
-        },
-      });
+      const existingPermissions = (adminData?.permissions || []).map(
+        (permission: any) => permission.permissionKey,
+      );
+      const permissionsToAdd = selectedPermissions.filter(
+        (permission) => !existingPermissions.includes(permission),
+      );
+      const permissionsToRemove = existingPermissions.filter(
+        (permission: string) => !selectedPermissions.includes(permission),
+      );
+
+      if (permissionsToAdd.length > 0) {
+        await updatePermissionsMutation.mutateAsync({
+          adminId,
+          data: { permissions: permissionsToAdd, action: "ADD" },
+        });
+      }
+      if (permissionsToRemove.length > 0) {
+        await updatePermissionsMutation.mutateAsync({
+          adminId,
+          data: { permissions: permissionsToRemove, action: "REMOVE" },
+        });
+      }
+      await refetch();
       onSuccess();
       onClose();
     } catch (error) {
@@ -156,10 +176,7 @@ export default function EditAdminPermissionsModal({
 
   if (isLoading) {
     return (
-      <div
-        className="modal-overlay open"
-        onClick={() => onClose()}
-      >
+      <div className="modal-overlay open" onClick={() => onClose()}>
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h2>Loading Permissions...</h2>
@@ -173,28 +190,22 @@ export default function EditAdminPermissionsModal({
   }
 
   return (
-    <div
-      className="modal-overlay open"
-      onClick={() => onClose()}
-    >
+    <div className="modal-overlay open" onClick={() => onClose()}>
       <div className="modal max-w-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="flex items-center gap-2">
             <Shield className="w-5 h-5 text-[#1a5cff]" />
             Edit Permissions: {adminName}
           </h2>
-          <button
-            className="close-btn"
-            onClick={() => onClose()}
-          >
+          <button className="close-btn" onClick={() => onClose()}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-6">
           <p className="text-sm text-slate-500 mb-4">
-            Select the permissions this administrator should have. Deselecting
-            a permission will revoke access to that specific feature.
+            Select the permissions this administrator should have. Deselecting a
+            permission will revoke access to that specific feature.
           </p>
 
           <div className="border rounded-lg overflow-hidden">
@@ -202,15 +213,11 @@ export default function EditAdminPermissionsModal({
               ([categoryKey, category]) => {
                 const isExpanded = expandedCategories.includes(categoryKey);
                 const isFullySelected = isCategoryFullySelected(categoryKey);
-                const isPartiallySelected = isCategoryPartiallySelected(
-                  categoryKey
-                );
+                const isPartiallySelected =
+                  isCategoryPartiallySelected(categoryKey);
 
                 return (
-                  <div
-                    key={categoryKey}
-                    className="border-b last:border-b-0"
-                  >
+                  <div key={categoryKey} className="border-b last:border-b-0">
                     {/* Category Header */}
                     <button
                       type="button"
@@ -225,7 +232,7 @@ export default function EditAdminPermissionsModal({
                               ? "bg-blue-600 border-blue-600"
                               : isPartiallySelected
                                 ? "border-blue-600 bg-blue-100"
-                                : "border-slate-300"
+                                : "border-slate-300",
                           )}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -262,7 +269,7 @@ export default function EditAdminPermissionsModal({
                       <div className="px-4 pb-3 grid grid-cols-2 gap-1.5">
                         {category.permissions.map((perm) => {
                           const isSelected = selectedPermissions.includes(
-                            perm.key
+                            perm.key,
                           );
                           return (
                             <label
@@ -288,7 +295,7 @@ export default function EditAdminPermissionsModal({
                     )}
                   </div>
                 );
-              }
+              },
             )}
           </div>
 
@@ -305,7 +312,7 @@ export default function EditAdminPermissionsModal({
                   if (selectedPermissions.length === 0) {
                     // Select all permissions
                     const allKeys = Object.values(
-                      PERMISSION_CATEGORIES
+                      PERMISSION_CATEGORIES,
                     ).flatMap((cat) => cat.permissions.map((p) => p.key));
                     setSelectedPermissions(allKeys);
                   } else {
@@ -324,7 +331,7 @@ export default function EditAdminPermissionsModal({
                 onClick={() => {
                   if (adminData?.permissions) {
                     setSelectedPermissions(
-                      adminData.permissions.map((p: any) => p.permissionKey)
+                      adminData.permissions.map((p: any) => p.permissionKey),
                     );
                   }
                 }}

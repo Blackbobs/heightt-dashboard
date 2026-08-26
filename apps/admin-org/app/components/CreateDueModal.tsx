@@ -58,15 +58,20 @@ export default function CreateDueModal({
     e.preventDefault();
     if (!name || !amount || !dueDate) return;
 
+    const amountInKobo = Math.round(Number(amount) * 100);
+    const lateFeeInKobo = lateFee ? Math.round(Number(lateFee) * 100) : 0;
+    if (!Number.isSafeInteger(amountInKobo) || amountInKobo <= 0) return;
+    if (!Number.isSafeInteger(lateFeeInKobo) || lateFeeInKobo < 0) return;
+
     setIsSubmitting(true);
     await new Promise((r) => setTimeout(r, 400));
 
     onSubmit({
       name,
       description,
-      amount: parseFloat(amount),
+      amount: amountInKobo,
       dueDate: new Date(dueDate).toISOString(),
-      lateFee: parseFloat(lateFee) || 0,
+      lateFee: lateFeeInKobo,
       isRequired,
       status,
     });
@@ -148,8 +153,8 @@ export default function CreateDueModal({
                     placeholder="0.00"
                     className="w-full pl-8 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
                     required
-                    min="0"
-                    step="100"
+                    min="0.01"
+                    step="0.01"
                   />
                 </div>
               </div>
@@ -188,7 +193,7 @@ export default function CreateDueModal({
                     placeholder="0.00"
                     className="w-full pl-8 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
                     min="0"
-                    step="100"
+                    step="0.01"
                   />
                 </div>
               </div>

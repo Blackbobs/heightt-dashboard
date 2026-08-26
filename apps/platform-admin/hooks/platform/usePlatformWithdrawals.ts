@@ -29,7 +29,24 @@ export function usePlatformWithdrawal(id: string) {
     queryKey: platformQueryKeys.finance.withdrawal(id),
     queryFn: () => platformApi.getWithdrawal(id),
     enabled: !!token && !!id,
-    staleTime: 3 * 60 * 1000,
+    staleTime: 0,
+    refetchInterval: (query) =>
+      query.state.data?.status === "PROCESSING" ? 10_000 : false,
+  });
+}
+
+export function usePendingOrganizationWithdrawals(params?: {
+  status?: WithdrawalFiltersDto["status"];
+  page?: number;
+  limit?: number;
+}) {
+  const { token } = useAuthStore();
+  return useQuery({
+    queryKey: ["platform", "finance", "withdrawals", "admin", params],
+    queryFn: () => platformApi.getPendingOrganizationWithdrawals(params),
+    enabled: !!token,
+    staleTime: 0,
+    refetchInterval: 30_000,
   });
 }
 
@@ -70,6 +87,12 @@ export function useRequestPlatformWithdrawal() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.finance.withdrawals(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: platformQueryKeys.finance.overview(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: platformQueryKeys.finance.transactions(),
       });
     },
   });
@@ -125,6 +148,9 @@ export function useApproveOrganizationWithdrawal() {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.finance.withdrawal(id),
       });
+      queryClient.invalidateQueries({
+        queryKey: platformQueryKeys.finance.overview(),
+      });
     },
   });
 }
@@ -146,6 +172,9 @@ export function useRejectOrganizationWithdrawal() {
       });
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.finance.withdrawal(id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: platformQueryKeys.finance.overview(),
       });
     },
   });

@@ -4,14 +4,24 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { useAuthStore } from "@/store/auth-store";
-import { axiosConfig } from "@/utils/axios-config";
-import { Eye, EyeOff, Lock, Mail, LogIn, Shield, Building2 } from "lucide-react";
+import {
+  axiosConfig,
+  clearCsrfToken,
+  getCsrfToken,
+} from "@/utils/axios-config";
+import { Eye, EyeOff, Lock, Mail, LogIn, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, setAuth, clearUser, user } = useAuthStore();
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    setAuth,
+    user,
+  } = useAuthStore();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -19,7 +29,11 @@ export default function SignInPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated && !authLoading && (user?.isPlatformAdmin || user?.userType === "PLATFORM_ADMIN")) {
+    if (
+      isAuthenticated &&
+      !authLoading &&
+      (user?.isPlatformAdmin || user?.userType === "PLATFORM_ADMIN")
+    ) {
       router.replace("/platform");
     }
   }, [isAuthenticated, authLoading, user, router]);
@@ -36,6 +50,8 @@ export default function SignInPage() {
     setIsSubmitting(true);
 
     try {
+      clearCsrfToken();
+      await getCsrfToken(true);
       const response = await axiosConfig.post("/v1/auth/admin/login", {
         identifier,
         password,
@@ -50,10 +66,14 @@ export default function SignInPage() {
 
       setAuth(accessToken || null, userData);
       router.replace("/platform");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Admin login error:", err);
-      const message = err?.response?.data?.message ||
-        err?.message ||
+      const responseData = axios.isAxiosError(err)
+        ? (err.response?.data as { message?: string } | undefined)
+        : undefined;
+      const message =
+        responseData?.message ||
+        (err instanceof Error ? err.message : undefined) ||
         "Invalid credentials or insufficient permissions.";
       setError(message);
     } finally {

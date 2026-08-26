@@ -5,7 +5,6 @@ import {
   usePlatformFinanceOverview,
   usePlatformTransactions,
   usePlatformDues,
-  usePlatformReceipts,
 } from "@/hooks/platform/usePlatformFinance";
 import {
   CreditCard,
@@ -33,7 +32,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatKoboCurrency } from "@/lib/utils";
 import DataTable from "./DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 
@@ -60,7 +59,6 @@ export default function FinanceView() {
     });
 
   const { data: duesData } = usePlatformDues({ limit: 5 });
-  const { data: receiptsData } = usePlatformReceipts({ limit: 5 });
 
   const isLoading = overviewLoading || transactionsLoading;
 
@@ -86,7 +84,7 @@ export default function FinanceView() {
     return [
       {
         label: "Total Balance",
-        value: `₦${(overviewAny?.totalBalance || 0).toLocaleString()}`,
+        value: formatKoboCurrency(overviewAny?.totalBalance),
         change: `${overviewAny?.totalWallets || 0} wallets`,
         trend: "neutral" as "up" | "down" | "neutral",
         icon: Wallet,
@@ -95,7 +93,7 @@ export default function FinanceView() {
       },
       {
         label: "Total Revenue",
-        value: `₦${totalRevenue.toLocaleString()}`,
+        value: formatKoboCurrency(totalRevenue),
         change: `${overviewAny?.recentPayments?.length || 0} payments`,
         trend: "up" as "up" | "down" | "neutral",
         icon: DollarSign,
@@ -106,7 +104,8 @@ export default function FinanceView() {
         label: "Total Dues",
         value: dueStats.total.toString(),
         change: `${dueStats.paid} paid · ${dueStats.pending} pending`,
-        trend: (dueStats.pending > 0 ? "neutral" : "up") as "up" | "down" | "neutral",
+        trend: (dueStats.pending > 0 ? "neutral" : "up") as
+          "up" | "down" | "neutral",
         icon: Coins,
         iconBg: "bg-purple-50",
         iconColor: "text-purple-600",
@@ -161,7 +160,7 @@ export default function FinanceView() {
         accessorFn: (r) => {
           const isCredit = r.type === "CREDIT" || r.type === "IN";
           const sign = isCredit ? "+" : "-";
-          return `${sign}₦${(r.amount || 0).toLocaleString()}`;
+          return `${sign}${formatKoboCurrency(r.amount)}`;
         },
         id: "amount",
         header: "Amount",
@@ -271,7 +270,7 @@ export default function FinanceView() {
             <div className="card-body">
               <div className="text-sm text-slate-500">Total Balance</div>
               <div className="text-2xl font-bold text-slate-900">
-                ₦{(overviewAny?.totalBalance || 0).toLocaleString()}
+                {formatKoboCurrency(overviewAny?.totalBalance)}
               </div>
               <div className="text-xs text-slate-400">
                 Across {overviewAny?.totalWallets || 0} wallets
@@ -282,7 +281,7 @@ export default function FinanceView() {
             <div className="card-body">
               <div className="text-sm text-slate-500">Held Balance</div>
               <div className="text-2xl font-bold text-amber-600">
-                ₦{(overviewAny?.totalHeld || 0).toLocaleString()}
+                {formatKoboCurrency(overviewAny?.totalHeld)}
               </div>
               <div className="text-xs text-slate-400">Pending settlements</div>
             </div>
@@ -299,55 +298,58 @@ export default function FinanceView() {
         </div>
 
         {/* Recent Payments */}
-        {overviewAny?.recentPayments && overviewAny.recentPayments.length > 0 && (
-          <div className="card mb-6">
-            <div className="card-header">
-              <h3>Recent Payments</h3>
-              <button className="action">View all →</button>
-            </div>
-            <div className="card-body p-0">
-              <div className="table-responsive">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Amount</th>
-                      <th>Payer</th>
-                      <th>Organization</th>
-                      <th>Date</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {overviewAny.recentPayments.map(
-                      (payment: any, index: number) => (
-                        <tr key={payment.id || index}>
-                          <td className="font-bold">
-                            {payment.amountFormatted ||
-                              `₦${(payment.amount || 0).toLocaleString()}`}
-                          </td>
-                          <td>{payment.payer || "Unknown"}</td>
-                          <td>{payment.organization || "Unknown"}</td>
-                          <td>
-                            {payment.createdAt
-                              ? new Date(payment.createdAt).toLocaleDateString()
-                              : "N/A"}
-                          </td>
-                          <td>
-                            <span
-                              className={`status-badge ${(payment.status || "COMPLETED").toLowerCase()}`}
-                            >
-                              {payment.status || "COMPLETED"}
-                            </span>
-                          </td>
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
+        {overviewAny?.recentPayments &&
+          overviewAny.recentPayments.length > 0 && (
+            <div className="card mb-6">
+              <div className="card-header">
+                <h3>Recent Payments</h3>
+                <button className="action">View all →</button>
+              </div>
+              <div className="card-body p-0">
+                <div className="table-responsive">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Amount</th>
+                        <th>Payer</th>
+                        <th>Organization</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overviewAny.recentPayments.map(
+                        (payment: any, index: number) => (
+                          <tr key={payment.id || index}>
+                            <td className="font-bold">
+                              {payment.amountFormatted ||
+                                formatKoboCurrency(payment.amount)}
+                            </td>
+                            <td>{payment.payer || "Unknown"}</td>
+                            <td>{payment.organization || "Unknown"}</td>
+                            <td>
+                              {payment.createdAt
+                                ? new Date(
+                                    payment.createdAt,
+                                  ).toLocaleDateString()
+                                : "N/A"}
+                            </td>
+                            <td>
+                              <span
+                                className={`status-badge ${(payment.status || "COMPLETED").toLowerCase()}`}
+                              >
+                                {payment.status || "COMPLETED"}
+                              </span>
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Transactions Table */}
         <div className="card">

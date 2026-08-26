@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import DataTable from "./DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { PERMISSION_CATEGORIES, PermissionCategoryKey } from "@/lib/api/types";
+import { platformApi } from "@/lib/api/platform";
 
 // ============================================
 // CONSTANTS
@@ -120,25 +121,14 @@ function EditAdminPermissionsModal({
 
   const fetchAdminPermissions = async () => {
     try {
-      // Try to fetch from API, if not available use default empty state
-      const response = await fetch(`/api/v1/rbac/admins/${adminId}/permissions`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data?.permissions) {
-          setAdminPermissions(data.permissions);
-          setSelectedPermissions(data.permissions.map((p: any) => p.permissionKey));
-        }
-      } else {
-        // If API not available, use empty state
-        setAdminPermissions([]);
-        setSelectedPermissions([]);
-      }
+      const data = await platformApi.getAdminWithPermissions(adminId);
+      const permissions = Array.isArray(data?.permissions)
+        ? data.permissions
+        : [];
+      setAdminPermissions(permissions);
+      setSelectedPermissions(
+        permissions.map((permission: any) => permission.permissionKey),
+      );
       // Expand all categories by default
       setExpandedCategories(Object.keys(PERMISSION_CATEGORIES));
     } catch (error) {
@@ -159,7 +149,7 @@ function EditAdminPermissionsModal({
     setSelectedPermissions((prev) =>
       prev.includes(permissionKey)
         ? prev.filter((p) => p !== permissionKey)
-        : [...prev, permissionKey]
+        : [...prev, permissionKey],
     );
   };
 
@@ -168,13 +158,14 @@ function EditAdminPermissionsModal({
     setExpandedCategories((prev) =>
       prev.includes(categoryKey)
         ? prev.filter((c) => c !== categoryKey)
-        : [...prev, categoryKey]
+        : [...prev, categoryKey],
     );
   };
 
   // Select all permissions in a category
   const selectAllInCategory = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     setSelectedPermissions((prev) => {
@@ -190,31 +181,34 @@ function EditAdminPermissionsModal({
 
   // Deselect all permissions in a category
   const deselectAllInCategory = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     setSelectedPermissions((prev) =>
-      prev.filter((p) => !categoryPermissionKeys.includes(p))
+      prev.filter((p) => !categoryPermissionKeys.includes(p)),
     );
   };
 
   // Check if all permissions in a category are selected
   const isCategoryFullySelected = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return false;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     return categoryPermissionKeys.every((key) =>
-      selectedPermissions.includes(key)
+      selectedPermissions.includes(key),
     );
   };
 
   // Check if any permissions in a category are selected
   const isCategoryPartiallySelected = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return false;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     const selectedInCategory = categoryPermissionKeys.filter((key) =>
-      selectedPermissions.includes(key)
+      selectedPermissions.includes(key),
     );
     return (
       selectedInCategory.length > 0 &&
@@ -226,18 +220,40 @@ function EditAdminPermissionsModal({
     setIsSubmitting(true);
     setError(null);
     try {
-      await updatePermissionsMutation.mutateAsync({
-        adminId,
-        data: {
-          permissions: selectedPermissions,
-          action: "SET",
-        },
-      });
+      const existingPermissions = adminPermissions.map(
+        (permission: any) => permission.permissionKey,
+      );
+      const permissionsToAdd = selectedPermissions.filter(
+        (permission) => !existingPermissions.includes(permission),
+      );
+      const permissionsToRemove = existingPermissions.filter(
+        (permission: string) => !selectedPermissions.includes(permission),
+      );
+
+      if (permissionsToAdd.length > 0) {
+        await updatePermissionsMutation.mutateAsync({
+          adminId,
+          data: { permissions: permissionsToAdd, action: "ADD" },
+        });
+      }
+      if (permissionsToRemove.length > 0) {
+        await updatePermissionsMutation.mutateAsync({
+          adminId,
+          data: { permissions: permissionsToRemove, action: "REMOVE" },
+        });
+      }
+
+      // Verify and display the backend's authoritative result.
+      await fetchAdminPermissions();
       onSuccess();
       onClose();
     } catch (error: any) {
       console.error("Failed to update permissions:", error);
-      setError(error?.response?.data?.message || error?.message || "Failed to update permissions. Please try again.");
+      setError(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update permissions. Please try again.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -311,8 +327,8 @@ function EditAdminPermissionsModal({
         )}
 
         <p className="text-sm text-slate-500 mb-4">
-          Select the permissions this administrator should have. Deselecting
-          a permission will revoke access to that specific feature.
+          Select the permissions this administrator should have. Deselecting a
+          permission will revoke access to that specific feature.
         </p>
 
         <div className="border rounded-lg overflow-hidden">
@@ -320,15 +336,11 @@ function EditAdminPermissionsModal({
             ([categoryKey, category]) => {
               const isExpanded = expandedCategories.includes(categoryKey);
               const isFullySelected = isCategoryFullySelected(categoryKey);
-              const isPartiallySelected = isCategoryPartiallySelected(
-                categoryKey
-              );
+              const isPartiallySelected =
+                isCategoryPartiallySelected(categoryKey);
 
               return (
-                <div
-                  key={categoryKey}
-                  className="border-b last:border-b-0"
-                >
+                <div key={categoryKey} className="border-b last:border-b-0">
                   {/* Category Header */}
                   <button
                     type="button"
@@ -343,7 +355,7 @@ function EditAdminPermissionsModal({
                             ? "bg-blue-600 border-blue-600"
                             : isPartiallySelected
                               ? "border-blue-600 bg-blue-100"
-                              : "border-slate-300"
+                              : "border-slate-300",
                         )}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -380,7 +392,7 @@ function EditAdminPermissionsModal({
                     <div className="px-4 pb-3 grid grid-cols-2 gap-1.5">
                       {category.permissions.map((perm) => {
                         const isSelected = selectedPermissions.includes(
-                          perm.key
+                          perm.key,
                         );
                         return (
                           <label
@@ -393,9 +405,7 @@ function EditAdminPermissionsModal({
                               onChange={() => togglePermission(perm.key)}
                               className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <span className="text-slate-600">
-                              {perm.label}
-                            </span>
+                            <span className="text-slate-600">{perm.label}</span>
                             <span className="text-[10px] text-slate-400 ml-auto">
                               {perm.action}
                             </span>
@@ -406,14 +416,13 @@ function EditAdminPermissionsModal({
                   )}
                 </div>
               );
-            }
+            },
           )}
         </div>
 
         <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
           <span>
-            Selected: <strong>{selectedPermissions.length}</strong>{" "}
-            permissions
+            Selected: <strong>{selectedPermissions.length}</strong> permissions
           </span>
           <div className="flex items-center gap-4">
             <button
@@ -422,9 +431,9 @@ function EditAdminPermissionsModal({
               onClick={() => {
                 if (selectedPermissions.length === 0) {
                   // Select all permissions
-                  const allKeys = Object.values(
-                    PERMISSION_CATEGORIES
-                  ).flatMap((cat) => cat.permissions.map((p) => p.key));
+                  const allKeys = Object.values(PERMISSION_CATEGORIES).flatMap(
+                    (cat) => cat.permissions.map((p) => p.key),
+                  );
                   setSelectedPermissions(allKeys);
                 } else {
                   // Deselect all
@@ -432,9 +441,7 @@ function EditAdminPermissionsModal({
                 }
               }}
             >
-              {selectedPermissions.length === 0
-                ? "Select All"
-                : "Deselect All"}
+              {selectedPermissions.length === 0 ? "Select All" : "Deselect All"}
             </button>
             <button
               type="button"
@@ -442,7 +449,7 @@ function EditAdminPermissionsModal({
               onClick={() => {
                 if (adminPermissions) {
                   setSelectedPermissions(
-                    adminPermissions.map((p: any) => p.permissionKey)
+                    adminPermissions.map((p: any) => p.permissionKey),
                   );
                 }
               }}
@@ -546,8 +553,12 @@ export default function AdministratorsView() {
   const administrators = admins || [];
   const users = usersData?.data || [];
   const institutions = institutionsData?.data || [];
-  const faculties = Array.isArray(facultiesData) ? facultiesData : (facultiesData as any)?.data || [];
-  const departments = Array.isArray(departmentsData) ? departmentsData : (departmentsData as any)?.data || [];
+  const faculties = Array.isArray(facultiesData)
+    ? facultiesData
+    : (facultiesData as any)?.data || [];
+  const departments = Array.isArray(departmentsData)
+    ? departmentsData
+    : (departmentsData as any)?.data || [];
   const organizations = organizationsData?.data || [];
   const sessions = sessionsData || [];
   const permissions = allPermissions || [];
@@ -621,7 +632,7 @@ export default function AdministratorsView() {
     setSelectedPermissions((prev) =>
       prev.includes(permissionKey)
         ? prev.filter((p) => p !== permissionKey)
-        : [...prev, permissionKey]
+        : [...prev, permissionKey],
     );
   };
 
@@ -630,13 +641,14 @@ export default function AdministratorsView() {
     setExpandedCategories((prev) =>
       prev.includes(categoryKey)
         ? prev.filter((c) => c !== categoryKey)
-        : [...prev, categoryKey]
+        : [...prev, categoryKey],
     );
   };
 
   // Select all permissions in a category
   const selectAllInCategory = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     setSelectedPermissions((prev) => {
@@ -652,31 +664,34 @@ export default function AdministratorsView() {
 
   // Deselect all permissions in a category
   const deselectAllInCategory = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     setSelectedPermissions((prev) =>
-      prev.filter((p) => !categoryPermissionKeys.includes(p))
+      prev.filter((p) => !categoryPermissionKeys.includes(p)),
     );
   };
 
   // Check if all permissions in a category are selected
   const isCategoryFullySelected = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return false;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     return categoryPermissionKeys.every((key) =>
-      selectedPermissions.includes(key)
+      selectedPermissions.includes(key),
     );
   };
 
   // Check if any permissions in a category are selected
   const isCategoryPartiallySelected = (categoryKey: string) => {
-    const category = PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
+    const category =
+      PERMISSION_CATEGORIES[categoryKey as PermissionCategoryKey];
     if (!category) return false;
     const categoryPermissionKeys = category.permissions.map((p) => p.key);
     const selectedInCategory = categoryPermissionKeys.filter((key) =>
-      selectedPermissions.includes(key)
+      selectedPermissions.includes(key),
     );
     return (
       selectedInCategory.length > 0 &&
@@ -894,10 +909,7 @@ export default function AdministratorsView() {
                   <button
                     className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
                     onClick={() =>
-                      handleRevoke(
-                        admin.id,
-                        admin.user?.username || "Unknown",
-                      )
+                      handleRevoke(admin.id, admin.user?.username || "Unknown")
                     }
                     title="Revoke Admin Access"
                   >
@@ -910,7 +922,7 @@ export default function AdministratorsView() {
         },
       },
     ],
-    [handleEditPermissions, handleRevoke]
+    [handleEditPermissions, handleRevoke],
   );
 
   if (adminsLoading || permissionsLoading) {
@@ -1048,7 +1060,8 @@ export default function AdministratorsView() {
               {shouldShowField("institutionId") && (
                 <div className="form-group">
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Institution {isFieldRequired("institutionId") && (
+                    Institution{" "}
+                    {isFieldRequired("institutionId") && (
                       <span className="text-red-500">*</span>
                     )}
                   </label>
@@ -1081,7 +1094,8 @@ export default function AdministratorsView() {
               {shouldShowField("facultyId") && (
                 <div className="form-group">
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Faculty {isFieldRequired("facultyId") && (
+                    Faculty{" "}
+                    {isFieldRequired("facultyId") && (
                       <span className="text-red-500">*</span>
                     )}
                   </label>
@@ -1119,7 +1133,8 @@ export default function AdministratorsView() {
               {shouldShowField("departmentId") && (
                 <div className="form-group">
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Department {isFieldRequired("departmentId") && (
+                    Department{" "}
+                    {isFieldRequired("departmentId") && (
                       <span className="text-red-500">*</span>
                     )}
                   </label>
@@ -1155,7 +1170,8 @@ export default function AdministratorsView() {
               {shouldShowField("organizationId") && (
                 <div className="form-group">
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Organization {isFieldRequired("organizationId") && (
+                    Organization{" "}
+                    {isFieldRequired("organizationId") && (
                       <span className="text-red-500">*</span>
                     )}
                   </label>
@@ -1239,15 +1255,12 @@ export default function AdministratorsView() {
                 <div className="border rounded-lg overflow-hidden">
                   {Object.entries(PERMISSION_CATEGORIES).map(
                     ([categoryKey, category]) => {
-                      const isExpanded = expandedCategories.includes(
-                        categoryKey
-                      );
-                      const isFullySelected = isCategoryFullySelected(
-                        categoryKey
-                      );
-                      const isPartiallySelected = isCategoryPartiallySelected(
-                        categoryKey
-                      );
+                      const isExpanded =
+                        expandedCategories.includes(categoryKey);
+                      const isFullySelected =
+                        isCategoryFullySelected(categoryKey);
+                      const isPartiallySelected =
+                        isCategoryPartiallySelected(categoryKey);
 
                       return (
                         <div
@@ -1268,7 +1281,7 @@ export default function AdministratorsView() {
                                     ? "bg-blue-600 border-blue-600"
                                     : isPartiallySelected
                                       ? "border-blue-600 bg-blue-100"
-                                      : "border-slate-300"
+                                      : "border-slate-300",
                                 )}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1305,7 +1318,7 @@ export default function AdministratorsView() {
                             <div className="px-4 pb-3 grid grid-cols-2 gap-1.5">
                               {category.permissions.map((perm) => {
                                 const isSelected = selectedPermissions.includes(
-                                  perm.key
+                                  perm.key,
                                 );
                                 return (
                                   <label
@@ -1333,7 +1346,7 @@ export default function AdministratorsView() {
                           )}
                         </div>
                       );
-                    }
+                    },
                   )}
                 </div>
 
@@ -1348,7 +1361,7 @@ export default function AdministratorsView() {
                     onClick={() => {
                       if (selectedPermissions.length === 0) {
                         const allKeys = Object.values(
-                          PERMISSION_CATEGORIES
+                          PERMISSION_CATEGORIES,
                         ).flatMap((cat) => cat.permissions.map((p) => p.key));
                         setSelectedPermissions(allKeys);
                       } else {
@@ -1378,22 +1391,23 @@ export default function AdministratorsView() {
                         <li>
                           <strong>Institution:</strong>{" "}
                           {institutions.find(
-                            (i) => i.id === formData.institutionId
+                            (i) => i.id === formData.institutionId,
                           )?.name || "Selected"}
                         </li>
                       )}
                       {formData.facultyId && (
                         <li>
                           <strong>Faculty:</strong>{" "}
-                          {faculties.find((f: any) => f.id === formData.facultyId)
-                            ?.name || "Selected"}
+                          {faculties.find(
+                            (f: any) => f.id === formData.facultyId,
+                          )?.name || "Selected"}
                         </li>
                       )}
                       {formData.departmentId && (
                         <li>
                           <strong>Department:</strong>{" "}
                           {departments.find(
-                            (d: any) => d.id === formData.departmentId
+                            (d: any) => d.id === formData.departmentId,
                           )?.name || "Selected"}
                         </li>
                       )}
@@ -1401,7 +1415,7 @@ export default function AdministratorsView() {
                         <li>
                           <strong>Organization:</strong>{" "}
                           {organizations.find(
-                            (o) => o.id === formData.organizationId
+                            (o) => o.id === formData.organizationId,
                           )?.name || "Selected"}
                         </li>
                       )}
@@ -1409,7 +1423,7 @@ export default function AdministratorsView() {
                         <li>
                           <strong>Session:</strong>{" "}
                           {sessions.find(
-                            (s) => s.id === formData.academicSessionId
+                            (s) => s.id === formData.academicSessionId,
                           )?.name || "Selected"}
                         </li>
                       )}

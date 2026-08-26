@@ -2,23 +2,10 @@
 "use client";
 
 import { useAdminContext } from "./AdminContext";
-import {
-  useAdminFinancialOverview,
-  useAdminWallet,
-  useAdminDues,
-} from "@/hooks/admin/useAdminFinance";
+import { useOrganizationFinanceOverview } from "@/hooks/admin/useAdminFinance";
 import { useAdminStudents } from "@/hooks/admin/useAdminStudents";
-import {
-  Loader2,
-  Users,
-  Wallet,
-  Clock,
-  Coins,
-  AlertCircle,
-  CheckCircle,
-  UserPlus,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Users, Wallet, Coins, CreditCard } from "lucide-react";
+import { cn, formatKoboCurrency } from "@/lib/utils";
 
 interface StatCardProps {
   label: string;
@@ -64,7 +51,7 @@ function StatCard({
 }
 
 export function StatsGrid() {
-  const { selectedScope, hasPermission } = useAdminContext();
+  const { selectedScope } = useAdminContext();
   const organizationId = selectedScope?.organizationId || "";
 
   // Fetch all data in parallel
@@ -74,16 +61,9 @@ export function StatsGrid() {
   });
 
   const { data: overview, isLoading: overviewLoading } =
-    useAdminFinancialOverview(organizationId);
-  const { data: wallet, isLoading: walletLoading } =
-    useAdminWallet(organizationId);
-  const { data: duesData, isLoading: duesLoading } = useAdminDues({
-    organizationId,
-    limit: 100,
-  });
+    useOrganizationFinanceOverview(organizationId);
 
-  const isLoading =
-    studentsLoading || overviewLoading || walletLoading || duesLoading;
+  const isLoading = studentsLoading || overviewLoading;
 
   if (isLoading) {
     return (
@@ -106,15 +86,6 @@ export function StatsGrid() {
   }
 
   const totalStudents = studentsData?.meta?.total || 0;
-  const activeStudents =
-    studentsData?.data?.filter((s: any) => s.academicStatus === "ACTIVE")
-      .length || 0;
-  const totalDues = duesData?.data?.length || 0;
-  const activeDues =
-    duesData?.data?.filter((d: any) => d.status === "ACTIVE").length || 0;
-  const walletBalance = wallet?.balance || 0;
-  const totalCollections = overview?.totalCollections || 0;
-  const pendingPayments = overview?.pendingDues || 0;
 
   const stats = [
     {
@@ -123,29 +94,27 @@ export function StatsGrid() {
       icon: <Users className="w-4 h-4" />,
       iconBg: "bg-blue-50",
       iconColor: "text-blue-600",
-      subtitle: `${activeStudents} active`,
     },
     {
-      label: "Wallet Balance",
-      value: `₦${walletBalance.toLocaleString()}`,
+      label: "Available Balance",
+      value: formatKoboCurrency(overview?.wallet.availableBalance),
       icon: <Wallet className="w-4 h-4" />,
       iconBg: "bg-emerald-50",
       iconColor: "text-emerald-600",
     },
     {
       label: "Total Collections",
-      value: `₦${totalCollections.toLocaleString()}`,
-      icon: <Coins className="w-4 h-4" />,
+      value: formatKoboCurrency(overview?.collections.totalAmount),
+      icon: <CreditCard className="w-4 h-4" />,
       iconBg: "bg-purple-50",
       iconColor: "text-purple-600",
     },
     {
-      label: "Pending Payments",
-      value: pendingPayments,
-      icon: <Clock className="w-4 h-4" />,
+      label: "Dues Created",
+      value: overview?.dues.createdCount || 0,
+      icon: <Coins className="w-4 h-4" />,
       iconBg: "bg-amber-50",
       iconColor: "text-amber-600",
-      subtitle: `${totalDues} total dues`,
     },
   ];
 

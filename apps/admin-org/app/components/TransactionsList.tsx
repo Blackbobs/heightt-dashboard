@@ -4,7 +4,7 @@
 import { useAdminContext } from "./AdminContext";
 import { useAdminTransactions } from "@/hooks/admin/useAdminFinance";
 import { ArrowDown, ArrowUp, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatKoboCurrency } from "@/lib/utils";
 
 export function TransactionsList() {
   const { selectedScope } = useAdminContext();
@@ -100,7 +100,8 @@ export function TransactionsList() {
                       isCredit ? "text-emerald-600" : "text-slate-900",
                     )}
                   >
-                    {isCredit ? "+" : "-"}₦{(tx.amount || 0).toLocaleString()}
+                    {isCredit ? "+" : "-"}
+                    {formatKoboCurrency(tx.amount)}
                   </div>
                   {isPending && (
                     <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
