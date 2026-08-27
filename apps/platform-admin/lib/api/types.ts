@@ -239,6 +239,7 @@ export interface CreateOrganizationDto {
   name: string;
   slug: string;
   description?: string;
+  logo?: string;
   type:
     | "INSTITUTION"
     | "FACULTY"

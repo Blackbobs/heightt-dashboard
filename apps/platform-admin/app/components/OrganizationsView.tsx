@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DataTable from "./DataTable";
+import LogoUploader from "./LogoUploader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useAcademicSessions } from "./useAcademicSessions";
 
@@ -71,6 +72,7 @@ export default function OrganizationsView() {
     name: "",
     slug: "",
     description: "",
+    logo: "",
     type: "ASSOCIATION",
     scope: "CUSTOM",
     institutionId: "",
@@ -209,6 +211,7 @@ export default function OrganizationsView() {
     };
 
     if (formData.description) data.description = formData.description;
+    if (formData.logo) data.logo = formData.logo;
     if (formData.facultyId && showFacultyField)
       data.facultyId = formData.facultyId;
     if (formData.departmentId && showDepartmentField)
@@ -225,6 +228,7 @@ export default function OrganizationsView() {
         name: "",
         slug: "",
         description: "",
+        logo: "",
         type: "ASSOCIATION",
         scope: "CUSTOM",
         institutionId: "",
@@ -748,6 +752,13 @@ export default function OrganizationsView() {
                   }
                 />
               </div>
+
+              <LogoUploader
+                value={formData.logo}
+                onChange={(url) => setFormData({ ...formData, logo: url || "" })}
+                folder="logos"
+                label="Organization Logo"
+              />
 
               <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 mb-4">
                 <div className="flex items-start gap-2">

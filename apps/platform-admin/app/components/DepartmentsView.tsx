@@ -348,7 +348,7 @@ export default function DepartmentsView() {
             <LogoUploader
               value={logo}
               onChange={(url) => setLogo(url || "")}
-              folder="department-logos"
+              folder="logos"
               label="Department Logo"
             />
 

@@ -1,6 +1,6 @@
 // src/app/components/LogoUploader.tsx
 //
-// Reusable logo picker for institution / faculty / department create forms.
+// Reusable logo picker for entity create forms.
 // Runs the signed Cloudinary upload flow (see lib/api/files.ts) and reports the
 // resulting secure_url back through `onChange` so the parent form can send it
 // as the entity's `logo` field.
@@ -15,14 +15,14 @@ interface LogoUploaderProps {
   /** Current logo URL - empty/null when no logo has been uploaded yet. */
   value?: string | null;
   onChange: (url: string | null) => void;
-  /** Cloudinary folder for this entity, e.g. "institution-logos". */
+  /** Cloudinary folder signed by the API, e.g. "logos". */
   folder: string;
   label?: string;
   disabled?: boolean;
 }
 
-// PNG/JPEG only - receipts are rendered with PDFKit which can't embed webp/SVG.
-const ACCEPTED_TYPES = ["image/png", "image/jpeg"];
+const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_LOGO_SIZE = 5 * 1024 * 1024;
 
 export default function LogoUploader({
   value,
@@ -41,9 +41,12 @@ export default function LogoUploader({
     if (!file) return;
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      alert(
-        "Please choose a PNG or JPEG logo. Other formats can't be embedded in PDF receipts.",
-      );
+      alert("Logo must be JPEG, PNG, or WebP.");
+      return;
+    }
+
+    if (file.size > MAX_LOGO_SIZE) {
+      alert("Logo cannot exceed 5 MB.");
       return;
     }
 
@@ -124,7 +127,7 @@ export default function LogoUploader({
           <input
             ref={inputRef}
             type="file"
-            accept="image/png,image/jpeg"
+            accept="image/png,image/jpeg,image/webp"
             style={{ display: "none" }}
             onChange={handleSelect}
             disabled={disabled || uploading}
@@ -147,7 +150,7 @@ export default function LogoUploader({
             )}
           </button>
           <p className="text-xs text-slate-400 mt-1">
-            PNG or JPEG • square ~256×256 recommended
+            JPEG, PNG, or WebP • max 5 MB • square ~256×256 recommended
           </p>
         </div>
       </div>

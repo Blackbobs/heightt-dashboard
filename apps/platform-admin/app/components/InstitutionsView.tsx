@@ -593,7 +593,7 @@ export default function InstitutionsView() {
               <LogoUploader
                 value={formData.logo}
                 onChange={(url) => setFormData({ ...formData, logo: url || "" })}
-                folder="institution-logos"
+                folder="logos"
                 label="Institution Logo"
               />
 

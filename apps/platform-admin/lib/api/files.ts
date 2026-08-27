@@ -1,16 +1,16 @@
 // src/lib/api/files.ts
 //
 // Signed direct-to-Cloudinary upload flow:
-//   1. GET  /files/upload-url      -> signed params (apiKey, cloudName,
+//   1. GET  /v1/files/upload-url   -> signed params (apiKey, cloudName,
 //                                     folder, signature, timestamp)
 //   2. POST https://api.cloudinary.com/v1_1/{cloudName}/image/upload
 //                                  -> multipart upload straight to Cloudinary
-//   3. POST /files/upload-complete -> register the file record with the API
 //
 // Returns the Cloudinary secure_url which is then stored on the entity
-// (institution / faculty / department) as its `logo` field.
+// (institution / faculty / department / organization) as its `logo` field.
 
 import { axiosConfig } from "@/utils/axios-config";
+import { getState } from "@/store/auth-store";
 
 export interface UploadUrlParams {
   apiKey: string;
@@ -37,8 +37,13 @@ export async function getUploadUrl(
   folder: string,
   purpose: string = "logo",
 ): Promise<UploadUrlParams> {
-  const response = await axiosConfig.get("/files/upload-url", {
+  const accessToken = getState().token;
+  const response = await axiosConfig.get("/v1/files/upload-url", {
     params: { folder, purpose },
+    headers:
+      accessToken && accessToken !== "cookie-auth"
+        ? { Authorization: `Bearer ${accessToken}` }
+        : undefined,
   });
   return response.data;
 }
@@ -80,23 +85,6 @@ export async function uploadToCloudinary(
   return response.json();
 }
 
-/**
- * Step 3 — Register the uploaded file record with the API.
- */
-export async function completeFileUpload(payload: {
-  url: string;
-  filename: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  folder: string;
-  publicId: string;
-  purpose: string;
-}): Promise<unknown> {
-  const response = await axiosConfig.post("/files/upload-complete", payload);
-  return response.data;
-}
-
 export interface EntityLogoUploadResult {
   /** Cloudinary secure_url - store this on the entity's `logo` field. */
   url: string;
@@ -104,10 +92,10 @@ export interface EntityLogoUploadResult {
 }
 
 /**
- * Full logo upload flow for an entity (institution / faculty / department).
+ * Full logo upload flow for an entity.
  *
- * @param file   PNG or JPEG image (PDFKit receipts can't embed webp/SVG).
- * @param folder Cloudinary folder, e.g. "institution-logos".
+ * @param file   JPEG, PNG, or WebP image validated by the picker.
+ * @param folder Cloudinary folder, e.g. "logos".
  */
 export async function uploadEntityLogo(
   file: File,
@@ -118,23 +106,6 @@ export async function uploadEntityLogo(
 
   // Step 2 - direct Cloudinary upload
   const uploaded = await uploadToCloudinary(file, params);
-
-  // Step 3 - register the file record. The file itself is already uploaded at
-  // this point, so a registration failure shouldn't lose the URL.
-  try {
-    await completeFileUpload({
-      url: uploaded.secure_url,
-      filename: `${uploaded.public_id}.${uploaded.format || "png"}`,
-      originalName: file.name,
-      mimeType: file.type || `image/${uploaded.format || "png"}`,
-      size: uploaded.bytes ?? file.size,
-      folder: params.folder,
-      publicId: uploaded.public_id,
-      purpose: params.purpose || "logo",
-    });
-  } catch (error) {
-    console.error("Failed to register uploaded file:", error);
-  }
 
   return { url: uploaded.secure_url, publicId: uploaded.public_id };
 }

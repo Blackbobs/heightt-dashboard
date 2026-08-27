@@ -299,7 +299,7 @@ export default function FacultiesView() {
             <LogoUploader
               value={logo}
               onChange={(url) => setLogo(url || "")}
-              folder="faculty-logos"
+              folder="logos"
               label="Faculty Logo"
             />
 
