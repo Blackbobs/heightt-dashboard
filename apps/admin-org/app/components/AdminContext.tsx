@@ -280,9 +280,22 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     });
   }, [adminTypes, forbiddenSessionIds, user?.adminScopes, userOrgsData]);
 
-  const selectedScope = selectedScopeId
-    ? scopes.find((s) => s.id === selectedScopeId) || null
-    : scopes[0] || null;
+  const selectedScope = useMemo(() => {
+    const savedScope = selectedScopeId
+      ? scopes.find((scope) => scope.id === selectedScopeId)
+      : undefined;
+
+    if (savedScope) return savedScope;
+
+    // Prefer the current/active academic session when a saved session has
+    // expired or the API has told us it is no longer authorized.
+    return (
+      scopes.find((scope) => scope.academicSession?.isCurrent) ||
+      scopes.find((scope) => scope.academicSession?.status === "ACTIVE") ||
+      scopes[0] ||
+      null
+    );
+  }, [scopes, selectedScopeId]);
 
   // Persist the resolved selection, including the first authorized scope when
   // a previously saved organization is no longer available.
