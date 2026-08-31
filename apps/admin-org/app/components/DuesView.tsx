@@ -13,7 +13,6 @@ import {
   Search,
   Plus,
   Coins,
-  Calendar,
   Users,
   Edit,
   Trash2,
@@ -21,7 +20,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  AlertCircle,
   X,
   Clock,
   CheckCircle,
@@ -29,7 +27,7 @@ import {
   Pause,
   FileText,
 } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatKoboCurrency } from "@/lib/utils";
 import { usePermissions } from "../context/PermissionContext";
 import CreateDueModal from "./CreateDueModal";
 
@@ -214,20 +212,6 @@ export function DuesView() {
     return STATUS_CONFIG[status] || STATUS_CONFIG.ACTIVE;
   };
 
-  const formatDate = (date: string) => {
-    if (!date) return "N/A";
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const isOverdue = (dueDate: string) => {
-    if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -264,7 +248,7 @@ export function DuesView() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div
           className="bg-white border rounded-xl p-4"
           style={{ borderColor: "var(--color-border)" }}
@@ -288,19 +272,6 @@ export function DuesView() {
           <div className="text-xs text-slate-500 font-medium">Draft</div>
           <div className="text-lg font-bold text-amber-600">
             {dues.filter((d: any) => d.status === "DRAFT").length}
-          </div>
-        </div>
-        <div
-          className="bg-white border rounded-xl p-4"
-          style={{ borderColor: "var(--color-border)" }}
-        >
-          <div className="text-xs text-slate-500 font-medium">Overdue</div>
-          <div className="text-lg font-bold text-red-600">
-            {
-              dues.filter(
-                (d: any) => d.status === "ACTIVE" && isOverdue(d.dueDate),
-              ).length
-            }
           </div>
         </div>
       </div>
@@ -370,7 +341,7 @@ export function DuesView() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[900px]">
+            <table className="w-full text-left text-sm border-collapse min-w-[760px]">
               <thead>
                 <tr
                   className="bg-slate-50 border-b"
@@ -381,9 +352,6 @@ export function DuesView() {
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Amount
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Due Date
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Status
@@ -397,10 +365,8 @@ export function DuesView() {
                 className="divide-y"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                {filteredDues.map((due: any, index: number) => {
+                {filteredDues.map((due: any) => {
                   const statusConfig = getStatusConfig(due.status);
-                  const overdue =
-                    isOverdue(due.dueDate) && due.status === "ACTIVE";
 
                   return (
                     <tr
@@ -415,36 +381,18 @@ export function DuesView() {
                           <div className="text-xs text-slate-400 truncate max-w-[200px]">
                             {due.description || "No description"}
                           </div>
+                          {due.isRequired && (
+                            <span className="inline-flex mt-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                              Required
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3.5 align-middle">
                         <div>
                           <span className="font-bold text-sm text-slate-900">
-                            {formatCurrency(due.amount)}
+                            {formatKoboCurrency(due.amount)}
                           </span>
-                          {due.lateFee > 0 && (
-                            <div className="text-xs text-red-500">
-                              Late fee: {formatCurrency(due.lateFee)}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle">
-                        <div>
-                          <div className="text-sm text-slate-700">
-                            {formatDate(due.dueDate)}
-                          </div>
-                          {overdue && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-                              <AlertCircle className="w-3 h-3" />
-                              Overdue
-                            </span>
-                          )}
-                          {due.isRequired && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full ml-1">
-                              Required
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3.5 align-middle">

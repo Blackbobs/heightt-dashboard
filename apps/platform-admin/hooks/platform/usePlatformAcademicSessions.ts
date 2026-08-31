@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { platformApi, AcademicSession, CreateAcademicSessionDto } from "@/lib/api/platform";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
+import type { InstitutionPromotionResult } from "@/lib/api/types";
 
 export function usePlatformAcademicSessions(institutionId: string) {
   const { token } = useAuthStore();
@@ -11,6 +12,22 @@ export function usePlatformAcademicSessions(institutionId: string) {
     queryFn: () => platformApi.getAcademicSessions(institutionId),
     enabled: !!token && !!institutionId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function usePromoteInstitution() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ institutionId, currentSessionId, notes }: { institutionId: string; currentSessionId: string; notes?: string }): Promise<InstitutionPromotionResult> =>
+      platformApi.promoteInstitution(institutionId, currentSessionId, notes),
+    retry: false,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["platform", "academic-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["platform", "students"] });
+      queryClient.invalidateQueries({ queryKey: platformQueryKeys.administrators.all });
+      queryClient.invalidateQueries({ queryKey: platformQueryKeys.auth.user });
+      queryClient.invalidateQueries({ queryKey: ["platform", "organizations"] });
+    },
   });
 }
 

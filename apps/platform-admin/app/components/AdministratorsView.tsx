@@ -69,12 +69,12 @@ const ADMIN_TYPES = [
   {
     value: "ORGANIZATION_ADMIN",
     label: "Organization Admin",
-    requires: ["organizationId"],
+    requires: ["organizationId", "academicSessionId"],
   },
   {
     value: "CLUB_ADMIN",
     label: "Club Admin",
-    requires: ["organizationId"],
+    requires: ["organizationId", "academicSessionId"],
   },
 ];
 
@@ -561,6 +561,10 @@ export default function AdministratorsView() {
     : (departmentsData as any)?.data || [];
   const organizations = organizationsData?.data || [];
   const sessions = sessionsData || [];
+  const isOrganizationAssignment = ["ORGANIZATION_ADMIN", "CLUB_ADMIN"].includes(formData.adminType);
+  const currentInstitutionSession = sessions.find(
+    (session) => session.scope === "INSTITUTION" && session.isCurrent && session.status === "ACTIVE",
+  );
   const permissions = allPermissions || [];
 
   // Refetch faculties when institution changes
@@ -583,6 +587,14 @@ export default function AdministratorsView() {
       refetchOrganizations();
     }
   }, [formData.institutionId, refetchOrganizations]);
+
+  useEffect(() => {
+    if (!isOrganizationAssignment) return;
+    setFormData((current) => ({
+      ...current,
+      academicSessionId: currentInstitutionSession?.id || "",
+    }));
+  }, [isOrganizationAssignment, currentInstitutionSession?.id]);
 
   const handleAdminTypeChange = (type: string) => {
     // Reset permissions when admin type changes
@@ -1179,9 +1191,14 @@ export default function AdministratorsView() {
                     className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
                     value={formData.organizationId}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        organizationId: e.target.value,
+                      setFormData((current) => {
+                        const organization = organizations.find((item) => item.id === e.target.value);
+                        return {
+                          ...current,
+                          organizationId: e.target.value,
+                          institutionId: organization?.institutionId || "",
+                          academicSessionId: "",
+                        };
                       })
                     }
                     required={isFieldRequired("organizationId")}
@@ -1210,7 +1227,15 @@ export default function AdministratorsView() {
                       <span className="text-red-500">*</span>
                     )}
                   </label>
-                  <select
+                  {isOrganizationAssignment ? (
+                    <div className="rounded-lg border-2 border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">
+                      {!formData.organizationId
+                        ? "Select an organization first"
+                        : sessionsLoading
+                          ? "Loading current session..."
+                          : currentInstitutionSession?.name || "No active current institution session"}
+                    </div>
+                  ) : <select
                     className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
                     value={formData.academicSessionId}
                     onChange={(e) =>
@@ -1228,12 +1253,15 @@ export default function AdministratorsView() {
                           ? "Loading sessions..."
                           : "Select Academic Session"}
                     </option>
-                    {sessions.map((session) => (
+                    {sessions.filter((session) => session.isCurrent && session.status === "ACTIVE").map((session) => (
                       <option key={session.id} value={session.id}>
                         {session.name} {session.isCurrent ? "(Current)" : ""}
                       </option>
                     ))}
-                  </select>
+                  </select>}
+                  {isOrganizationAssignment && formData.organizationId && !sessionsLoading && !currentInstitutionSession && (
+                    <p className="mt-1 text-xs text-red-500">This organization’s institution has no active current institution-level session.</p>
+                  )}
                   {!formData.institutionId && (
                     <p className="text-xs text-amber-500 mt-1">
                       Please select an institution first

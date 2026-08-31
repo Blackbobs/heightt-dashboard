@@ -134,6 +134,24 @@ export interface AdminUser extends User {
   highestAdminType?: string;
 }
 
+export interface AcademicSession {
+  id: string;
+  institutionId: string;
+  name: string;
+  status: "UPCOMING" | "ACTIVE" | "COMPLETED" | "ARCHIVED";
+  scope: "INSTITUTION" | "FACULTY" | "DEPARTMENT" | "LEVEL";
+  isCurrent: boolean;
+  startDate: string;
+  endDate: string;
+}
+
+export interface InstitutionPromotionResult {
+  institution: { id: string; name: string };
+  previousSession: { id: string; name: string };
+  currentSession: { id: string; name: string; generated: boolean };
+  summary: { eligible: number; promoted: number; graduated: number; skipped: number };
+}
+
 // ============ Student Types ============
 export interface Student {
   id: string;
@@ -186,8 +204,6 @@ export interface Due {
   name: string;
   description?: string;
   amount: number;
-  dueDate: string;
-  lateFee: number;
   isRequired: boolean;
   status: "ACTIVE" | "INACTIVE" | "COMPLETED" | "CANCELLED";
   createdAt: string;
@@ -555,6 +571,19 @@ export const adminApi = {
 
   getStudentPromotions: async (id: string): Promise<any[]> => {
     const response = await axiosConfig.get(`/v1/students/${id}/promotions`);
+    return response.data;
+  },
+
+  getInstitutionSessions: async (institutionId: string): Promise<AcademicSession[]> => {
+    const response = await axiosConfig.get(`/v1/institutions/${encodeURIComponent(institutionId)}/academic-sessions`);
+    return response.data;
+  },
+
+  promoteInstitution: async (institutionId: string, currentSessionId: string, notes?: string): Promise<InstitutionPromotionResult> => {
+    const response = await axiosConfig.post(`/v1/students/institutions/${encodeURIComponent(institutionId)}/promote`, {
+      currentSessionId,
+      ...(notes?.trim() ? { notes: notes.trim() } : {}),
+    });
     return response.data;
   },
 
@@ -946,6 +975,7 @@ export const adminQueryKeys = {
   auth: {
     user: ["admin", "auth", "user"],
   },
+  academicSessions: (institutionId: string) => ["admin", "academic-sessions", institutionId],
   dashboard: {
     stats: (organizationId: string) => [
       "admin",

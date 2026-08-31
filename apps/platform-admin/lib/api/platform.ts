@@ -25,6 +25,7 @@ import {
   // Academic Session types
   CreateAcademicSessionDto,
   AcademicSessionResponseDto,
+  InstitutionPromotionResult,
   // Organization types
   CreateOrganizationDto,
   UpdateOrganizationDto,
@@ -270,6 +271,18 @@ export const platformApi = {
   ): Promise<AcademicSessionResponseDto[]> => {
     const response = await axiosConfig.get(
       `/v1/institutions/${institutionId}/academic-sessions`,
+    );
+    return response.data;
+  },
+
+  promoteInstitution: async (
+    institutionId: string,
+    currentSessionId: string,
+    notes?: string,
+  ): Promise<InstitutionPromotionResult> => {
+    const response = await axiosConfig.post(
+      `/v1/students/institutions/${encodeURIComponent(institutionId)}/promote`,
+      { currentSessionId, ...(notes?.trim() ? { notes: notes.trim() } : {}) },
     );
     return response.data;
   },
@@ -1029,6 +1042,7 @@ export const platformApi = {
 export type {
   AcademicLevelResponseDto as AcademicLevel,
   AcademicSessionResponseDto as AcademicSession,
+  InstitutionPromotionResult,
   AnnouncementResponseDto as Announcement,
   DepartmentResponseDto as Department,
   FacultyResponseDto as Faculty,

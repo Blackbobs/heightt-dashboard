@@ -18,6 +18,7 @@ import {
   Shield,
   Wallet,
   ArrowUpRight,
+  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminLogout } from "@/hooks/admin/useAdminAuth";
@@ -110,6 +111,7 @@ export function Sidebar({
         ...(canManageDues ? [{ icon: Coins, label: "Dues" }] : []),
         { icon: HandCoins, label: "Payments" },
         ...(canManageStudents ? [{ icon: Users, label: "Students" }] : []),
+        ...(isInstitutionAdmin ? [{ icon: GraduationCap, label: "Promotion" }] : []),
         ...(canManageAnnouncements
           ? [{ icon: Megaphone, label: "Announcements" }]
           : []),

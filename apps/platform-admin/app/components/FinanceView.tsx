@@ -65,12 +65,7 @@ export default function FinanceView() {
   // Calculate stats from the actual API response
   const stats = useMemo(() => {
     const overviewAny = overview as any;
-    // Calculate total revenue from recent payments
-    const totalRevenue =
-      overviewAny?.recentPayments?.reduce(
-        (sum: number, p: any) => sum + (p.amount || 0),
-        0,
-      ) || 0;
+    const platformEarnings = overview?.platformEarnings;
 
     // Get dues stats
     const dueStats = overviewAny?.dueStats || { total: 0, paid: 0, pending: 0 };
@@ -92,9 +87,11 @@ export default function FinanceView() {
         iconColor: "text-blue-600",
       },
       {
-        label: "Total Revenue",
-        value: formatKoboCurrency(totalRevenue),
-        change: `${overviewAny?.recentPayments?.length || 0} payments`,
+        label: "Platform Earnings",
+        value:
+          platformEarnings?.amountFormatted ||
+          formatKoboCurrency(platformEarnings?.amount),
+        change: "Service fees earned",
         trend: "up" as "up" | "down" | "neutral",
         icon: DollarSign,
         iconBg: "bg-emerald-50",

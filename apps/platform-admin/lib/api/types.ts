@@ -113,13 +113,22 @@ export interface FacultyResponseDto {
 
 export interface AcademicSessionResponseDto {
   id: string;
+  institutionId: string;
   name: string;
   startDate: string;
   endDate: string;
   status: "UPCOMING" | "ACTIVE" | "COMPLETED" | "ARCHIVED";
   isCurrent: boolean;
+  scope: "INSTITUTION" | "FACULTY" | "DEPARTMENT" | "LEVEL";
   createdAt: string;
   updatedAt: string;
+}
+
+export interface InstitutionPromotionResult {
+  institution: { id: string; name: string };
+  previousSession: { id: string; name: string };
+  currentSession: { id: string; name: string; generated: boolean };
+  summary: { eligible: number; promoted: number; graduated: number; skipped: number };
 }
 
 export interface InstitutionResponseDto {
@@ -544,6 +553,12 @@ export interface ReceiptResponseDto {
 }
 
 export interface FinanceOverviewResponseDto {
+  platformEarnings: {
+    amount: number;
+    amountFormatted: string;
+    currency: string;
+    currencyUnit: "KOBO";
+  };
   totalRevenue: number;
   totalDues: number;
   pendingPayments: number;

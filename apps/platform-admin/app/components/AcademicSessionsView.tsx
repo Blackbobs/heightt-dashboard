@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import DataTable from "./DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
+import { InstitutionPromotionPanel } from "./InstitutionPromotionPanel";
 
 export default function AcademicSessionsView() {
   const [search, setSearch] = useState("");
@@ -313,6 +314,10 @@ export default function AcademicSessionsView() {
         ) : (
           <DataTable columns={columns} data={filteredSessions} />
         )}
+      </div>
+
+      <div className="mt-6">
+        {institutionFilter ? <InstitutionPromotionPanel institutionId={institutionFilter} /> : <div className="rounded-xl border bg-white p-5 text-sm text-slate-500">Select an institution to manage institution-wide promotion.</div>}
       </div>
 
       {/* Create/Edit Modal */}

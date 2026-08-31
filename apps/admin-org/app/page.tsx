@@ -20,6 +20,7 @@ import { PaymentsView } from "./components/PaymentsView";
 import { BottomNav } from "./components/BottomNav";
 import { WithdrawalsView } from "./components/WithdrawalsView";
 import { BankAccountsView } from "./components/BankAccountsView";
+import { InstitutionPromotionView } from "./components/InstitutionPromotionView";
 
 const pageTitles: Record<string, string> = {
   Dashboard: "Dashboard",
@@ -31,6 +32,7 @@ const pageTitles: Record<string, string> = {
   Settings: "Settings",
   Withdrawals: "Withdrawals",
   "Bank Accounts": "Bank Accounts",
+  Promotion: "Institution Promotion",
 };
 
 export default function AdminDashboard() {
@@ -156,6 +158,12 @@ export default function AdminDashboard() {
         return <PaymentsView />;
       case "Students":
         return <StudentsView />;
+      case "Promotion": {
+        const institutionScope = resolvedUser?.adminScopes?.find(
+          (scope: { adminType: string; institutionId?: string }) => scope.adminType === "INSTITUTION_ADMIN" && scope.institutionId,
+        );
+        return institutionScope?.institutionId ? <InstitutionPromotionView institutionId={institutionScope.institutionId} /> : <p className="text-sm text-slate-500">No institution admin scope is available.</p>;
+      }
       case "Announcements":
         return <AnnouncementsView />;
       case "Finance":
