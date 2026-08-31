@@ -102,6 +102,7 @@ export interface AdminScope {
   departmentId?: string;
   academicLevelId?: string;
   academicSessionId?: string;
+  academicSession?: { id: string; name: string; status?: string; isCurrent?: boolean };
   organization?: {
     id: string;
     name: string;
@@ -435,16 +436,33 @@ export interface Withdrawal {
   accountName: string;
   reference: string;
   requestedAt: string;
-  processedAt?: string;
-  completedAt?: string;
-  failedAt?: string;
-  failureReason?: string;
+  providerPayoutId?: string | null;
+  processedAt?: string | null;
+  completedAt?: string | null;
+  failedAt?: string | null;
+  failureReason?: string | null;
+  webhookStatus?: string | null;
   metadata?: {
     type: string;
     bankAccountId?: string;
     reason?: string;
     organizationId?: string;
+    academicSessionId?: string;
   };
+}
+
+export interface WithdrawalQuote {
+  balance: number;
+  heldBalance: number;
+  availableBalance: number;
+  requestedAmount: number | null;
+  fee: number;
+  totalDebit: number;
+  maxWithdrawable: number;
+  canWithdraw: boolean;
+  feePolicy: "WITHDRAWAL_FEE_APPLIES" | "FEE_FREE";
+  currency: "NGN";
+  currencyUnit: "KOBO";
 }
 
 // ============ API Services ============
@@ -545,13 +563,14 @@ export const adminApi = {
     status?: string;
     verificationStatus?: string;
     search?: string;
+    academicSessionId?: string;
   }): Promise<PaginatedResponse<Student>> => {
     const response = await axiosConfig.get("/v1/students", { params });
     return response.data;
   },
 
-  getStudent: async (id: string): Promise<Student> => {
-    const response = await axiosConfig.get(`/v1/students/${id}`);
+  getStudent: async (id: string, academicSessionId?: string): Promise<Student> => {
+    const response = await axiosConfig.get(`/v1/students/${id}`, { params: { academicSessionId } });
     return response.data;
   },
 
@@ -602,9 +621,10 @@ export const adminApi = {
   },
 
   // ============ Finance ============
-  getWallet: async (organizationId: string): Promise<Wallet> => {
+  getWallet: async (organizationId: string, academicSessionId?: string): Promise<Wallet> => {
     const response = await axiosConfig.get(
       `/v1/finance/wallet/organization/${organizationId}`,
+      { params: { academicSessionId } },
     );
     return response.data;
   },
@@ -613,6 +633,7 @@ export const adminApi = {
     organizationId?: string;
     page?: number;
     limit?: number;
+    academicSessionId?: string;
   }): Promise<PaginatedResponse<Due>> => {
     const response = await axiosConfig.get("/v1/finance/dues", { params });
     return response.data;
@@ -639,6 +660,7 @@ export const adminApi = {
     status?: string;
     startDate?: string;
     endDate?: string;
+    academicSessionId?: string;
   }): Promise<PaginatedResponse<Transaction>> => {
     const response = await axiosConfig.get("/v1/finance/transactions", {
       params,
@@ -652,6 +674,7 @@ export const adminApi = {
     organizationId?: string;
     startDate?: string;
     endDate?: string;
+    academicSessionId?: string;
   }): Promise<PaginatedResponse<Receipt>> => {
     const response = await axiosConfig.get("/v1/finance/receipts", { params });
     return response.data;
@@ -663,6 +686,7 @@ export const adminApi = {
     status?: PaymentHistoryStatus;
     organizationId?: string;
     payerId?: string;
+    academicSessionId?: string;
   }): Promise<PaginatedResponse<PaymentHistoryRecord>> => {
     const response = await axiosConfig.get(
       "/v1/finance/payments/history/admin",
@@ -675,9 +699,11 @@ export const adminApi = {
 
   getOrganizationFinanceOverview: async (
     organizationId: string,
+    academicSessionId?: string,
   ): Promise<OrganizationFinanceOverview> => {
     const response = await axiosConfig.get(
       `/v1/finance/organizations/${organizationId}/overview`,
+      { params: { academicSessionId } },
     );
     return response.data;
   },
@@ -737,6 +763,18 @@ export const adminApi = {
       "/v1/finance/withdrawals/organization",
       data,
     );
+    return response.data;
+  },
+
+  getWithdrawalQuote: async (params: {
+    type: "ORGANIZATION" | "PLATFORM";
+    organizationId?: string;
+    amount?: number;
+  }): Promise<WithdrawalQuote> => {
+    const response = await axiosConfig.get("/v1/finance/withdrawals/quote", {
+      params,
+      headers: { "Cache-Control": "no-cache" },
+    });
     return response.data;
   },
 
@@ -874,6 +912,7 @@ export const adminApi = {
     isPublished?: boolean;
     type?: string;
     priority?: string;
+    academicSessionId?: string;
   }): Promise<PaginatedResponse<Announcement>> => {
     const response = await axiosConfig.get("/v1/communication/announcements", {
       params,
@@ -928,6 +967,7 @@ export const adminApi = {
       status?: string;
       membershipType?: string;
       search?: string;
+      academicSessionId?: string;
     },
   ): Promise<PaginatedResponse<any>> => {
     const response = await axiosConfig.get(

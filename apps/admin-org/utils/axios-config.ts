@@ -184,6 +184,20 @@ axiosConfig.interceptors.response.use(
       }
     }
 
+    if (status === 403 && typeof window !== "undefined") {
+      const params = originalRequest.params as { academicSessionId?: string; sessionId?: string } | undefined;
+      let body: { academicSessionId?: string; sessionId?: string } | undefined;
+      if (typeof originalRequest.data === "string") {
+        try { body = JSON.parse(originalRequest.data); } catch { body = undefined; }
+      } else if (originalRequest.data && typeof originalRequest.data === "object") {
+        body = originalRequest.data;
+      }
+      const academicSessionId = params?.academicSessionId || params?.sessionId || body?.academicSessionId || body?.sessionId;
+      if (academicSessionId) {
+        window.dispatchEvent(new CustomEvent("admin-session-forbidden", { detail: academicSessionId }));
+      }
+    }
+
     return Promise.reject(error);
   },
 );

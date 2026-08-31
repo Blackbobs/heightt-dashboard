@@ -58,10 +58,13 @@ export function FinanceView() {
       setIsWithdrawalModalOpen(false);
     } catch (error) {
       console.error("Failed to submit withdrawal:", error);
+      const code = (error as { response?: { data?: { code?: string } } }).response?.data?.code;
+      if (code === "INSUFFICIENT_AVAILABLE_BALANCE") throw error;
       const { getApiErrorMessage } = await import("@/lib/api/error");
       alert(
         `❌ ${getApiErrorMessage(error, "Failed to submit withdrawal request.")}`,
       );
+      throw error;
       throw error;
     }
   };

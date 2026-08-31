@@ -64,23 +64,14 @@ export default function FinanceView() {
 
   // Calculate stats from the actual API response
   const stats = useMemo(() => {
-    const overviewAny = overview as any;
     const platformEarnings = overview?.platformEarnings;
-
-    // Get dues stats
-    const dueStats = overviewAny?.dueStats || { total: 0, paid: 0, pending: 0 };
-
-    // Calculate pending payments amount (from dueStats pending)
-    const pendingPayments = dueStats.pending || 0;
-
-    // Calculate total withdrawals (you might need to calculate this from transactions)
-    const totalWithdrawals = overviewAny?.totalHeld || 0;
+    const dueStats = overview?.dueStats || { total: 0, paid: 0, pending: 0 };
 
     return [
       {
         label: "Total Balance",
-        value: formatKoboCurrency(overviewAny?.totalBalance),
-        change: `${overviewAny?.totalWallets || 0} wallets`,
+        value: formatKoboCurrency(overview?.totalBalance),
+        change: `${overview?.totalWallets || 0} wallets`,
         trend: "neutral" as "up" | "down" | "neutral",
         icon: Wallet,
         iconBg: "bg-blue-50",
@@ -91,7 +82,7 @@ export default function FinanceView() {
         value:
           platformEarnings?.amountFormatted ||
           formatKoboCurrency(platformEarnings?.amount),
-        change: "Service fees earned",
+        change: "Net earnings after withdrawals and payout fees",
         trend: "up" as "up" | "down" | "neutral",
         icon: DollarSign,
         iconBg: "bg-emerald-50",
@@ -109,7 +100,7 @@ export default function FinanceView() {
       },
       {
         label: "Daily Transactions",
-        value: (overviewAny?.dailyTransactions || 0).toString(),
+        value: (overview?.dailyTransactions || 0).toString(),
         change: "Today",
         trend: "neutral" as "up" | "down" | "neutral",
         icon: TrendingUp,
@@ -189,8 +180,6 @@ export default function FinanceView() {
 
   // Render overview tab content
   const renderOverview = () => {
-    const overviewAny = overview as any;
-
     if (isLoading) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
@@ -226,14 +215,49 @@ export default function FinanceView() {
           })}
         </div>
 
+        {overview?.platformEarnings && (
+          <div className="card mb-6">
+            <div className="card-header">
+              <div>
+                <h3>Platform Earnings Breakdown</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Net platform earnings in {overview.platformEarnings.currency}
+                </p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                Net earnings
+              </span>
+            </div>
+            <div className="card-body grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <div className="text-xs font-medium text-slate-500">Gross earnings</div>
+                <div className="mt-1 text-xl font-bold text-slate-900">{overview.platformEarnings.grossAmountFormatted}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-slate-500">Withdrawn</div>
+                <div className="mt-1 text-xl font-bold text-slate-900">{overview.platformEarnings.withdrawnAmountFormatted}</div>
+                <div className="text-xs text-slate-400">{overview.platformEarnings.withdrawalCount} withdrawal{overview.platformEarnings.withdrawalCount === 1 ? "" : "s"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-slate-500">Provider fees</div>
+                <div className="mt-1 text-xl font-bold text-amber-600">{overview.platformEarnings.payoutProviderFeesFormatted}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-slate-500">Available net earnings</div>
+                <div className="mt-1 text-xl font-bold text-emerald-600">{overview.platformEarnings.amountFormatted}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Dues Summary */}
-        {overviewAny?.dueStats && (
+        {overview?.dueStats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="card">
               <div className="card-body">
                 <div className="text-sm text-slate-500">Total Dues</div>
                 <div className="text-2xl font-bold text-slate-900">
-                  {overviewAny.dueStats.total}
+                  {overview.dueStats.total}
                 </div>
                 <div className="text-xs text-slate-400">All active dues</div>
               </div>
@@ -242,10 +266,10 @@ export default function FinanceView() {
               <div className="card-body">
                 <div className="text-sm text-slate-500">Paid Dues</div>
                 <div className="text-2xl font-bold text-emerald-600">
-                  {overviewAny.dueStats.paid}
+                  {overview.dueStats.paid}
                 </div>
                 <div className="text-xs text-slate-400">
-                  {overviewAny.dueStats.completionRate}% completion rate
+                  {overview.dueStats.completionRate}% completion rate
                 </div>
               </div>
             </div>
@@ -253,7 +277,7 @@ export default function FinanceView() {
               <div className="card-body">
                 <div className="text-sm text-slate-500">Pending Dues</div>
                 <div className="text-2xl font-bold text-amber-600">
-                  {overviewAny.dueStats.pending}
+                  {overview.dueStats.pending}
                 </div>
                 <div className="text-xs text-slate-400">Awaiting payment</div>
               </div>
@@ -267,10 +291,10 @@ export default function FinanceView() {
             <div className="card-body">
               <div className="text-sm text-slate-500">Total Balance</div>
               <div className="text-2xl font-bold text-slate-900">
-                {formatKoboCurrency(overviewAny?.totalBalance)}
+                {formatKoboCurrency(overview?.totalBalance)}
               </div>
               <div className="text-xs text-slate-400">
-                Across {overviewAny?.totalWallets || 0} wallets
+                Across {overview?.totalWallets || 0} wallets
               </div>
             </div>
           </div>
@@ -278,7 +302,7 @@ export default function FinanceView() {
             <div className="card-body">
               <div className="text-sm text-slate-500">Held Balance</div>
               <div className="text-2xl font-bold text-amber-600">
-                {formatKoboCurrency(overviewAny?.totalHeld)}
+                {formatKoboCurrency(overview?.totalHeld)}
               </div>
               <div className="text-xs text-slate-400">Pending settlements</div>
             </div>
@@ -287,7 +311,7 @@ export default function FinanceView() {
             <div className="card-body">
               <div className="text-sm text-slate-500">Daily Transactions</div>
               <div className="text-2xl font-bold text-blue-600">
-                {overviewAny?.dailyTransactions || 0}
+                {overview?.dailyTransactions || 0}
               </div>
               <div className="text-xs text-slate-400">Today</div>
             </div>
@@ -295,8 +319,8 @@ export default function FinanceView() {
         </div>
 
         {/* Recent Payments */}
-        {overviewAny?.recentPayments &&
-          overviewAny.recentPayments.length > 0 && (
+        {overview?.recentPayments &&
+          overview.recentPayments.length > 0 && (
             <div className="card mb-6">
               <div className="card-header">
                 <h3>Recent Payments</h3>
@@ -315,8 +339,8 @@ export default function FinanceView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {overviewAny.recentPayments.map(
-                        (payment: any, index: number) => (
+                      {overview.recentPayments.map(
+                        (payment, index) => (
                           <tr key={payment.id || index}>
                             <td className="font-bold">
                               {payment.amountFormatted ||

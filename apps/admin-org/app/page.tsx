@@ -159,8 +159,10 @@ export default function AdminDashboard() {
       case "Students":
         return <StudentsView />;
       case "Promotion": {
-        const institutionScope = resolvedUser?.adminScopes?.find(
-          (scope: { adminType: string; institutionId?: string }) => scope.adminType === "INSTITUTION_ADMIN" && scope.institutionId,
+        const institutionScope = selectedScope?.adminType === "INSTITUTION_ADMIN" && selectedScope.institutionId
+          ? selectedScope
+          : resolvedUser?.adminScopes?.find(
+          (scope: { adminType: string; institutionId?: string; status?: string }) => scope.adminType === "INSTITUTION_ADMIN" && scope.institutionId && (!scope.status || scope.status === "ACTIVE"),
         );
         return institutionScope?.institutionId ? <InstitutionPromotionView institutionId={institutionScope.institutionId} /> : <p className="text-sm text-slate-500">No institution admin scope is available.</p>;
       }
@@ -201,7 +203,13 @@ export default function AdminDashboard() {
           onMenuToggle={() => setSidebarOpen((v) => !v)}
         />
 
-        <div className="flex-1 p-4 md:p-8 pb-24 lg:pb-8">{renderView()}</div>
+        <div className="flex-1 p-4 md:p-8 pb-24 lg:pb-8">
+          {!selectedScope && scopes.length > 0 ? (
+            <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+              Your previous session is no longer authorized for this view. Select one of your assigned organisation sessions from the header.
+            </div>
+          ) : renderView()}
+        </div>
       </main>
 
       <BottomNav activeNav={activeNav} onNavChange={setActiveNav} />

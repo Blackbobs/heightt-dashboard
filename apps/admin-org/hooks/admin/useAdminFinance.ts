@@ -6,17 +6,21 @@ import {
   PaymentHistoryStatus,
 } from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
+import { useAdminContext } from "@/app/components/AdminContext";
 
 export function useAdminDues(params?: {
   organizationId?: string;
   page?: number;
   limit?: number;
+  academicSessionId?: string;
 }) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
 
   return useQuery({
-    queryKey: adminQueryKeys.finance.dues(params),
-    queryFn: () => adminApi.getDues(params),
+    queryKey: adminQueryKeys.finance.dues(scopedParams),
+    queryFn: () => adminApi.getDues(scopedParams),
     // Dues are organization-scoped; never fire with a missing/bogus org id.
     enabled: !!token && !!params?.organizationId,
     staleTime: 3 * 60 * 1000,
@@ -31,12 +35,15 @@ export function useAdminTransactions(params?: {
   status?: string;
   startDate?: string;
   endDate?: string;
+  academicSessionId?: string;
 }) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
 
   return useQuery({
-    queryKey: adminQueryKeys.finance.transactions(params),
-    queryFn: () => adminApi.getTransactions(params),
+    queryKey: adminQueryKeys.finance.transactions(scopedParams),
+    queryFn: () => adminApi.getTransactions(scopedParams),
     // Transactions are organization-scoped; never fire with a missing/bogus id.
     enabled: !!token && !!params?.organizationId,
     staleTime: 2 * 60 * 1000,
@@ -49,12 +56,15 @@ export function useAdminReceipts(params?: {
   organizationId?: string;
   startDate?: string;
   endDate?: string;
+  academicSessionId?: string;
 }) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
 
   return useQuery({
-    queryKey: adminQueryKeys.finance.receipts(params),
-    queryFn: () => adminApi.getReceipts(params),
+    queryKey: adminQueryKeys.finance.receipts(scopedParams),
+    queryFn: () => adminApi.getReceipts(scopedParams),
     enabled: !!token && !!params?.organizationId,
     staleTime: 5 * 60 * 1000,
   });
@@ -66,12 +76,15 @@ export function useAdminPaymentHistory(params?: {
   status?: PaymentHistoryStatus;
   organizationId?: string;
   payerId?: string;
+  academicSessionId?: string;
 }) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
 
   return useQuery({
-    queryKey: adminQueryKeys.finance.paymentHistory(params),
-    queryFn: () => adminApi.getAdminPaymentHistory(params),
+    queryKey: adminQueryKeys.finance.paymentHistory(scopedParams),
+    queryFn: () => adminApi.getAdminPaymentHistory(scopedParams),
     enabled: !!token && !!params?.organizationId,
     staleTime: 30 * 1000,
   });
@@ -90,10 +103,12 @@ export function useAdminFinancialOverview(organizationId: string) {
 
 export function useOrganizationFinanceOverview(organizationId: string) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const academicSessionId = selectedScope?.academicSessionId;
 
   return useQuery({
-    queryKey: adminQueryKeys.finance.organizationOverview(organizationId),
-    queryFn: () => adminApi.getOrganizationFinanceOverview(organizationId),
+    queryKey: [...adminQueryKeys.finance.organizationOverview(organizationId), academicSessionId],
+    queryFn: () => adminApi.getOrganizationFinanceOverview(organizationId, academicSessionId),
     enabled: !!token && !!organizationId,
     staleTime: 30 * 1000,
   });
@@ -101,10 +116,12 @@ export function useOrganizationFinanceOverview(organizationId: string) {
 
 export function useAdminWallet(organizationId: string) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const academicSessionId = selectedScope?.academicSessionId;
 
   return useQuery({
-    queryKey: adminQueryKeys.finance.wallet(organizationId),
-    queryFn: () => adminApi.getWallet(organizationId),
+    queryKey: [...adminQueryKeys.finance.wallet(organizationId), academicSessionId],
+    queryFn: () => adminApi.getWallet(organizationId, academicSessionId),
     enabled: !!token && !!organizationId,
     staleTime: 60 * 1000,
   });
@@ -112,9 +129,10 @@ export function useAdminWallet(organizationId: string) {
 
 export function useCreateDue() {
   const queryClient = useQueryClient();
+  const { selectedScope } = useAdminContext();
 
   return useMutation({
-    mutationFn: (data: any) => adminApi.createDue(data),
+    mutationFn: (data: any) => adminApi.createDue({ ...data, sessionId: selectedScope?.academicSessionId }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.dues(),

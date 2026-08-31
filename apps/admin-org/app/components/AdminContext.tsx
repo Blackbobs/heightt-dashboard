@@ -106,13 +106,26 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [selectedScopeId, setSelectedScopeId] = useState<string | null>(() =>
     typeof window === "undefined" ? null : localStorage.getItem(STORAGE_KEY),
   );
+  const [forbiddenSessionIds, setForbiddenSessionIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const handleForbiddenSession = (event: Event) => {
+      const sessionId = (event as CustomEvent<string>).detail;
+      setForbiddenSessionIds((current) => current.includes(sessionId) ? current : [...current, sessionId]);
+    };
+    window.addEventListener("admin-session-forbidden", handleForbiddenSession);
+    return () => window.removeEventListener("admin-session-forbidden", handleForbiddenSession);
+  }, []);
 
   const adminTypes = useMemo(() => user?.adminTypes || [], [user?.adminTypes]);
   const { data: userOrgsData, isLoading: orgsLoading } = useUserOrganizations();
 
   const isPlatformAdmin =
     adminTypes.includes("PLATFORM_ADMIN") || user?.isPlatformAdmin === true;
-  const isInstitutionAdmin = adminTypes.includes("INSTITUTION_ADMIN");
+  const activeUserScopes = (user?.adminScopes || []).filter((scope) => !scope.status || scope.status === "ACTIVE");
+  const isInstitutionAdmin = activeUserScopes.length
+    ? activeUserScopes.some((scope) => scope.adminType === "INSTITUTION_ADMIN")
+    : adminTypes.includes("INSTITUTION_ADMIN");
   const isFacultyAdmin = adminTypes.includes("FACULTY_ADMIN");
   const isDepartmentAdmin = adminTypes.includes("DEPARTMENT_ADMIN");
   const isOrganizationAdmin =
@@ -188,13 +201,15 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         .replace(/\s+/g, " ")
         .trim();
 
+    const hasAuthoritativeScopes = Boolean(user?.adminScopes?.length);
     const adminScopes = (user?.adminScopes || []).filter(
-      (scope) => !scope.status || scope.status === "ACTIVE",
+      (scope) => (!scope.status || scope.status === "ACTIVE") &&
+        (!scope.academicSessionId || !forbiddenSessionIds.includes(scope.academicSessionId)),
     );
 
     return activeMemberships.flatMap((membership) => {
       const organizationType = membership.organization.type;
-      const matchingScope = adminScopes.find((scope) => {
+      const matchingScopes = adminScopes.filter((scope) => {
         if (scope.organizationId === membership.organizationId) return true;
 
         const expectedType =
@@ -232,26 +247,28 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           ? "ORGANIZATION_ADMIN"
           : undefined);
 
-      if (!matchingScope && !fallbackAdminType) return [];
+      if (hasAuthoritativeScopes && matchingScopes.length === 0) return [];
+
+      if (matchingScopes.length === 0 && !fallbackAdminType) return [];
       if (
-        !matchingScope &&
+        matchingScopes.length === 0 &&
         fallbackAdminType !== "PLATFORM_ADMIN" &&
         !adminTypes.includes(fallbackAdminType)
       ) {
         return [];
       }
 
-      const resolvedScope: AdminScope = matchingScope || {
+      const resolvedScopes: AdminScope[] = matchingScopes.length ? matchingScopes : [{
         id: `membership:${membership.id}`,
         adminType: fallbackAdminType as AdminScope["adminType"],
         status: "ACTIVE",
         academicSessionId: membership.joinedSessionId || undefined,
-      };
+      }];
 
-      return [
-        {
+      return resolvedScopes.map((resolvedScope) => ({
           ...resolvedScope,
-          id: `${resolvedScope.id}:${membership.organizationId}`,
+          id: `${resolvedScope.id}:${membership.organizationId}:${resolvedScope.academicSessionId || membership.joinedSessionId || "all"}`,
+          academicSessionId: resolvedScope.academicSessionId || membership.joinedSessionId || undefined,
           organizationId: membership.organizationId,
           organization: {
             id: membership.organization.id,
@@ -259,13 +276,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             slug: membership.organization.slug,
             type: organizationType,
           },
-        } satisfies AdminScope,
-      ];
+        } satisfies AdminScope));
     });
-  }, [adminTypes, user?.adminScopes, userOrgsData]);
+  }, [adminTypes, forbiddenSessionIds, user?.adminScopes, userOrgsData]);
 
-  const selectedScope =
-    scopes.find((s) => s.id === selectedScopeId) || scopes[0] || null;
+  const selectedScope = selectedScopeId
+    ? scopes.find((s) => s.id === selectedScopeId) || null
+    : scopes[0] || null;
 
   // Persist the resolved selection, including the first authorized scope when
   // a previously saved organization is no longer available.

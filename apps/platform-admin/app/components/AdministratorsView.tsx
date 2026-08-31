@@ -1262,6 +1262,9 @@ export default function AdministratorsView() {
                   {isOrganizationAssignment && formData.organizationId && !sessionsLoading && !currentInstitutionSession && (
                     <p className="mt-1 text-xs text-red-500">This organization’s institution has no active current institution-level session.</p>
                   )}
+                  {isOrganizationAssignment && currentInstitutionSession && (
+                    <p className="mt-1 text-xs text-slate-500">Current institution session. The administrator’s access will be restricted to this session.</p>
+                  )}
                   {!formData.institutionId && (
                     <p className="text-xs text-amber-500 mt-1">
                       Please select an institution first

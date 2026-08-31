@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, adminQueryKeys } from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
+import { useAdminContext } from "@/app/components/AdminContext";
 
 export function useAdminAnnouncements(params?: {
   organizationId?: string;
@@ -9,12 +10,15 @@ export function useAdminAnnouncements(params?: {
   isPublished?: boolean;
   type?: string;
   priority?: string;
+  academicSessionId?: string;
 }) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
 
   return useQuery({
-    queryKey: adminQueryKeys.announcements.all(params),
-    queryFn: () => adminApi.getAnnouncements(params),
+    queryKey: adminQueryKeys.announcements.all(scopedParams),
+    queryFn: () => adminApi.getAnnouncements(scopedParams),
     // Announcements are organization-scoped; never fire with a missing/bogus id.
     enabled: !!token && !!params?.organizationId,
     staleTime: 2 * 60 * 1000,
@@ -34,9 +38,10 @@ export function useAdminAnnouncement(id: string) {
 
 export function useCreateAnnouncement() {
   const queryClient = useQueryClient();
+  const { selectedScope } = useAdminContext();
 
   return useMutation({
-    mutationFn: (data: any) => adminApi.createAnnouncement(data),
+    mutationFn: (data: any) => adminApi.createAnnouncement({ ...data, academicSessionId: selectedScope?.academicSessionId }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.announcements.all(),

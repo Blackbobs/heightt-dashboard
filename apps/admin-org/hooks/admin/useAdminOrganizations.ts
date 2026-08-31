@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi, adminQueryKeys } from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
+import { useAdminContext } from "@/app/components/AdminContext";
 
 export function useUserOrganizations() {
   const { token } = useAuthStore();
@@ -24,10 +25,12 @@ export function useOrganizationMembers(
   },
 ) {
   const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
 
   return useQuery({
-    queryKey: adminQueryKeys.organizations.members(organizationId, params),
-    queryFn: () => adminApi.getOrganizationMembers(organizationId, params),
+    queryKey: adminQueryKeys.organizations.members(organizationId, scopedParams),
+    queryFn: () => adminApi.getOrganizationMembers(organizationId, scopedParams),
     enabled: !!token && !!organizationId,
     staleTime: 3 * 60 * 1000,
   });
@@ -46,6 +49,7 @@ export function useOrganizationStats(params?: { institutionId?: string }) {
 
 export function useAddMember() {
   const queryClient = useQueryClient();
+  const { selectedScope } = useAdminContext();
 
   return useMutation({
     mutationFn: ({
@@ -54,7 +58,7 @@ export function useAddMember() {
     }: {
       organizationId: string;
       data: any;
-    }) => adminApi.addMember(organizationId, data),
+    }) => adminApi.addMember(organizationId, { ...data, sessionId: selectedScope?.academicSessionId }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.organizations.members(

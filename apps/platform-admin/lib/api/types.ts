@@ -553,19 +553,40 @@ export interface ReceiptResponseDto {
 }
 
 export interface FinanceOverviewResponseDto {
+  totalBalance: number;
+  totalHeld: number;
+  totalWallets: number;
   platformEarnings: {
     amount: number;
     amountFormatted: string;
+    grossAmount: number;
+    grossAmountFormatted: string;
+    withdrawnAmount: number;
+    withdrawnAmountFormatted: string;
+    payoutProviderFees: number;
+    payoutProviderFeesFormatted: string;
+    withdrawalCount: number;
     currency: string;
     currencyUnit: "KOBO";
+    scope: "PLATFORM_NET" | "INSTITUTION_GROSS";
   };
-  totalRevenue: number;
-  totalDues: number;
-  pendingPayments: number;
-  totalWithdrawals: number;
-  totalTransactions: number;
-  organizationCount: number;
-  studentCount: number;
+  dueStats: {
+    total: number;
+    paid: number;
+    pending: number;
+    completionRate: number;
+  };
+  recentPayments: Array<{
+    id: string;
+    amount: number;
+    amountFormatted: string;
+    payer: string;
+    organization: string;
+    createdAt: string;
+    status: "COMPLETED" | "PENDING" | "FAILED";
+    journalEntryId: string;
+  }>;
+  dailyTransactions: number;
 }
 
 // ============================================
@@ -1000,10 +1021,12 @@ export interface WithdrawalResponseDto {
   accountName: string;
   reference: string;
   requestedAt: string;
-  processedAt?: string;
-  completedAt?: string;
-  failedAt?: string;
-  failureReason?: string;
+  providerPayoutId?: string | null;
+  processedAt?: string | null;
+  completedAt?: string | null;
+  failedAt?: string | null;
+  failureReason?: string | null;
+  webhookStatus?: string | null;
   metadata: {
     type: "USER_WITHDRAWAL" | "ORGANIZATION_WITHDRAWAL" | "PLATFORM_WITHDRAWAL";
     bankAccountId: string;
@@ -1036,6 +1059,20 @@ export interface WithdrawalResponseDto {
       lastName: string;
     };
   };
+}
+
+export interface WithdrawalQuoteDto {
+  balance: number;
+  heldBalance: number;
+  availableBalance: number;
+  requestedAmount: number | null;
+  fee: number;
+  totalDebit: number;
+  maxWithdrawable: number;
+  canWithdraw: boolean;
+  feePolicy: "WITHDRAWAL_FEE_APPLIES" | "FEE_FREE";
+  currency: "NGN";
+  currencyUnit: "KOBO";
 }
 
 export interface WithdrawalListResponseDto {

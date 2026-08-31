@@ -11,6 +11,8 @@ import {
   useRequestUserWithdrawal,
   useRequestOrganizationWithdrawal,
   useRequestPlatformWithdrawal,
+  usePlatformWithdrawalQuote,
+  usePlatformWithdrawal,
 } from "@/hooks/platform/usePlatformWithdrawals";
 import { usePlatformBankAccounts } from "@/hooks/platform/usePlatformBankAccounts";
 import { usePlatformOrganizations } from "@/hooks/platform/usePlatformOrganizations";
@@ -56,7 +58,7 @@ export default function WithdrawalsView() {
   const [statusFilter, setStatusFilter] = useState("PENDING");
   const [typeFilter, setTypeFilter] = useState("ORGANIZATION");
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedWithdrawal, setSelectedWithdrawal] = useState<any | null>(
+  const [selectedWithdrawalSnapshot, setSelectedWithdrawal] = useState<any | null>(
     null,
   );
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -67,6 +69,7 @@ export default function WithdrawalsView() {
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
+  const [balanceError, setBalanceError] = useState("");
 
   const [formData, setFormData] = useState({
     bankAccountId: "",
@@ -93,6 +96,11 @@ export default function WithdrawalsView() {
   const requestUserMutation = useRequestUserWithdrawal();
   const requestOrgMutation = useRequestOrganizationWithdrawal();
   const requestPlatformMutation = useRequestPlatformWithdrawal();
+  const requestedAmountInKobo = formData.amount > 0 ? Math.round(formData.amount * 100) : undefined;
+  const quoteQuery = usePlatformWithdrawalQuote(requestedAmountInKobo);
+  const quote = quoteQuery.data;
+  const selectedWithdrawalQuery = usePlatformWithdrawal(isDetailModalOpen ? selectedWithdrawalSnapshot?.id || "" : "");
+  const selectedWithdrawal = selectedWithdrawalQuery.data || selectedWithdrawalSnapshot;
 
   const withdrawals = data?.data || [];
   const meta = data?.meta;
@@ -162,6 +170,7 @@ export default function WithdrawalsView() {
         reason: formData.reason || undefined,
       });
       setIsRequestModalOpen(false);
+      setBalanceError("");
       setFormData({
         bankAccountId: "",
         organizationId: "",
@@ -170,6 +179,12 @@ export default function WithdrawalsView() {
       });
       refetch();
     } catch (error) {
+      const response = (error as { response?: { data?: { code?: string; maxWithdrawable?: number } } }).response?.data;
+      if (response?.code === "INSUFFICIENT_AVAILABLE_BALANCE") {
+        await quoteQuery.refetch();
+        setBalanceError(`Your available balance changed. The maximum you can now withdraw is ₦${((response.maxWithdrawable || 0) / 100).toLocaleString()}.`);
+        return;
+      }
       console.error("Failed to request withdrawal:", error);
       const { getApiErrorMessage } = await import("@/lib/api/error");
       alert(
@@ -613,6 +628,7 @@ export default function WithdrawalsView() {
                   required
                   min="0.01"
                   step="0.01"
+                  max={(quote?.maxWithdrawable || 0) / 100}
                 />
                 <p className="text-xs text-slate-400 mt-1">
                   Enter the amount in naira. It will be sent securely in kobo.
@@ -637,27 +653,16 @@ export default function WithdrawalsView() {
                   <DollarSign className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-blue-700">
                     <p className="font-semibold">Summary:</p>
-                    <ul className="list-disc list-inside mt-1 space-y-0.5">
-                      <li>
-                        <strong>Type:</strong> {requestType} Withdrawal
-                      </li>
-                      <li>
-                        <strong>Amount:</strong> ₦
-                        {formData.amount.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </li>
-                      <li>
-                        <strong>Bank:</strong>{" "}
-                        {bankAccounts.find(
-                          (a: any) => a.id === formData.bankAccountId,
-                        )?.bankName || "Not selected"}
-                      </li>
-                    </ul>
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between"><span>Available balance</span><strong>{quote ? `₦${(quote.availableBalance / 100).toLocaleString()}` : "—"}</strong></div>
+                      <div className="flex justify-between"><span>Withdrawal amount</span><strong>{quote ? `₦${((quote.requestedAmount || 0) / 100).toLocaleString()}` : "—"}</strong></div>
+                      <div className="flex justify-between"><span>Fee</span><strong>{quote ? `₦${(quote.fee / 100).toLocaleString()}` : "—"}</strong></div>
+                      <div className="flex justify-between border-t border-blue-200 pt-1"><span>Total debit</span><strong>{quote ? `₦${(quote.totalDebit / 100).toLocaleString()}` : "—"}</strong></div>
+                    </div>
                   </div>
                 </div>
               </div>
+              {balanceError && <p role="alert" className="mb-4 text-sm text-red-600">{balanceError}</p>}
 
               <div className="modal-actions">
                 <button
@@ -672,6 +677,8 @@ export default function WithdrawalsView() {
                   className="btn btn-primary"
                   disabled={
                     usableBankAccounts.length === 0 ||
+                    !quote?.canWithdraw ||
+                    quoteQuery.isFetching ||
                     requestUserMutation.isPending ||
                     requestOrgMutation.isPending ||
                     requestPlatformMutation.isPending
@@ -727,6 +734,13 @@ export default function WithdrawalsView() {
                   {getStatusLabel(selectedWithdrawal.status)}
                 </span>
               </div>
+              <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800" aria-live="polite">
+                {selectedWithdrawal.status === "PENDING" && "This withdrawal is waiting for approval."}
+                {selectedWithdrawal.status === "PROCESSING" && "The payout has been submitted. This status refreshes automatically until the provider confirms it."}
+                {selectedWithdrawal.status === "COMPLETED" && "The payout provider confirmed this transfer as completed."}
+                {selectedWithdrawal.status === "FAILED" && "The payout failed. Review the failure reason below."}
+                {selectedWithdrawal.status === "CANCELLED" && "This withdrawal was cancelled."}
+              </p>
 
               {/* Amount */}
               <div className="p-4 bg-slate-50 rounded-lg text-center">
@@ -735,7 +749,7 @@ export default function WithdrawalsView() {
                   ₦{(selectedWithdrawal.amount / 100).toLocaleString()}
                 </div>
                 <div className="text-sm text-slate-400">
-                  Estimated fee: ₦
+                  Fee: ₦
                   {((selectedWithdrawal.fee || 0) / 100).toLocaleString()} •
                   Total wallet debit: ₦
                   {(
@@ -817,7 +831,13 @@ export default function WithdrawalsView() {
                     </div>
                   </div>
                 )}
-                {selectedWithdrawal.failureReason && (
+                {selectedWithdrawal.failedAt && (
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <div className="text-xs text-slate-500">Failed</div>
+                    <div className="text-sm font-medium">{new Date(selectedWithdrawal.failedAt).toLocaleString()}</div>
+                  </div>
+                )}
+                {selectedWithdrawal.status === "FAILED" && selectedWithdrawal.failureReason && (
                   <div className="p-3 bg-red-50 rounded-lg border border-red-200 col-span-2">
                     <div className="text-xs text-red-600">Failure Reason</div>
                     <div className="text-sm text-red-800">
@@ -839,6 +859,9 @@ export default function WithdrawalsView() {
             </div>
 
             <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => selectedWithdrawalQuery.refetch()} disabled={selectedWithdrawalQuery.isFetching}>
+                <RefreshCw className={cn("h-4 w-4", selectedWithdrawalQuery.isFetching && "animate-spin")} /> Refresh status
+              </button>
               <button
                 className="btn btn-secondary"
                 onClick={() => setIsDetailModalOpen(false)}

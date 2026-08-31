@@ -35,6 +35,7 @@ const {
   Menu,
   Calendar,
   Globe,
+  GraduationCap,
 } = Lucide as any;
 
 const navItems = [
@@ -98,6 +99,12 @@ const navItems = [
     path: "/platform/academic-sessions",
     label: "Academic Sessions",
     icon: Calendar,
+    badge: null,
+  },
+  {
+    path: "/platform/student-promotion",
+    label: "Student Promotion",
+    icon: GraduationCap,
     badge: null,
   },
   {

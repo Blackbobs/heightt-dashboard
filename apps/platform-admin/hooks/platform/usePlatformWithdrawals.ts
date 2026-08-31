@@ -18,20 +18,46 @@ export function usePlatformWithdrawals(params?: WithdrawalFiltersDto) {
     queryFn: () => platformApi.getWithdrawals(params),
     enabled: !!token,
     staleTime: 2 * 60 * 1000,
-    refetchInterval: 30 * 1000, // Refetch every 30s for status updates
+    refetchInterval: (query) =>
+      query.state.data?.data?.some((item) =>
+        item.status === "PENDING" || item.status === "PROCESSING",
+      )
+        ? 30_000
+        : false,
   });
 }
 
 export function usePlatformWithdrawal(id: string) {
   const { token } = useAuthStore();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: platformQueryKeys.finance.withdrawal(id),
-    queryFn: () => platformApi.getWithdrawal(id),
+    queryFn: async () => {
+      const withdrawal = await platformApi.getWithdrawal(id);
+      queryClient.invalidateQueries({ queryKey: platformQueryKeys.finance.withdrawals() });
+      queryClient.invalidateQueries({ queryKey: platformQueryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: ["platform", "finance", "wallet"] });
+      return withdrawal;
+    },
     enabled: !!token && !!id,
     staleTime: 0,
-    refetchInterval: (query) =>
-      query.state.data?.status === "PROCESSING" ? 10_000 : false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "PROCESSING" ? 10_000 : false;
+    },
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function usePlatformWithdrawalQuote(amount?: number) {
+  const { token } = useAuthStore();
+  return useQuery({
+    queryKey: ["platform", "finance", "withdrawal-quote", "PLATFORM", amount],
+    queryFn: () => platformApi.getWithdrawalQuote({ type: "PLATFORM", amount }),
+    enabled: !!token,
+    staleTime: 0,
+    retry: false,
   });
 }
 
@@ -84,6 +110,7 @@ export function useRequestPlatformWithdrawal() {
   return useMutation({
     mutationFn: (data: PlatformWithdrawalRequestDto) =>
       platformApi.requestPlatformWithdrawal(data),
+    retry: false,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.finance.withdrawals(),
@@ -94,6 +121,8 @@ export function useRequestPlatformWithdrawal() {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.finance.transactions(),
       });
+      queryClient.invalidateQueries({ queryKey: ["platform", "finance", "withdrawal-quote"] });
+      queryClient.invalidateQueries({ queryKey: ["platform", "finance", "wallet"] });
     },
   });
 }
@@ -192,6 +221,8 @@ export function useApprovePlatformWithdrawal() {
       queryClient.invalidateQueries({
         queryKey: platformQueryKeys.finance.withdrawal(id),
       });
+      queryClient.invalidateQueries({ queryKey: platformQueryKeys.finance.overview() });
+      queryClient.invalidateQueries({ queryKey: ["platform", "finance", "wallet"] });
     },
   });
 }

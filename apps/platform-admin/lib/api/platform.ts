@@ -101,6 +101,7 @@ import {
   WithdrawalRejectRequestDto,
   WithdrawalRejectResponseDto,
   WithdrawalFiltersDto,
+  WithdrawalQuoteDto,
 } from "./types";
 
 export const platformApi = {
@@ -844,6 +845,23 @@ export const platformApi = {
     const response = await axiosConfig.get("/v1/finance/bank-accounts", {
       params,
     });
+
+    if (Array.isArray(response.data)) {
+      const accounts = response.data as BankAccountResponseDto[];
+      const page = params?.page || 1;
+      const limit = params?.limit || accounts.length || 10;
+
+      return {
+        data: accounts,
+        meta: {
+          page,
+          limit,
+          total: accounts.length,
+          totalPages: Math.max(1, Math.ceil(accounts.length / limit)),
+        },
+      };
+    }
+
     return response.data;
   },
 
@@ -927,6 +945,18 @@ export const platformApi = {
   },
 
   // ============ User Withdrawals ============
+  getWithdrawalQuote: async (params: {
+    type: "ORGANIZATION" | "PLATFORM";
+    organizationId?: string;
+    amount?: number;
+  }): Promise<WithdrawalQuoteDto> => {
+    const response = await axiosConfig.get("/v1/finance/withdrawals/quote", {
+      params,
+      headers: { "Cache-Control": "no-cache" },
+    });
+    return response.data;
+  },
+
   requestUserWithdrawal: async (
     data: UserWithdrawalRequestDto,
   ): Promise<WithdrawalResponseDto> => {

@@ -203,6 +203,9 @@ export function OrganizationSwitcher({
                 <div className="flex-1 min-w-0">
                   <div className="truncate font-medium">{displayName}</div>
                   <div className="text-[10px] text-slate-400">{typeLabel}</div>
+                  <div className="text-[10px] font-medium text-blue-500">
+                    {scope.academicSession?.name || (scope.academicSessionId ? `Session ${scope.academicSessionId}` : "All sessions")}
+                  </div>
                 </div>
                 {isSelected && (
                   <Check className="w-4 h-4 text-blue-600 flex-shrink-0" />

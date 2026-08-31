@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import { useAdminBankAccounts } from "@/hooks/admin/useAdminBankAccounts";
-import { useAdminWallet } from "@/hooks/admin/useAdminFinance";
+import { useOrganizationWithdrawalQuote } from "@/hooks/admin/useAdminWithdrawals";
 import { useAdminContext } from "./AdminContext";
 
 interface RequestWithdrawalModalProps {
@@ -33,6 +33,7 @@ export default function RequestWithdrawalModal({
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [balanceError, setBalanceError] = useState("");
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   const organizationId = selectedScope?.organizationId || "";
@@ -42,8 +43,12 @@ export default function RequestWithdrawalModal({
       limit: 100,
     });
 
-  const { data: wallet, isLoading: walletLoading } =
-    useAdminWallet(organizationId);
+  const amountInKobo = amount ? Math.round(Number(amount) * 100) : undefined;
+  const quoteQuery = useOrganizationWithdrawalQuote(
+    organizationId,
+    amountInKobo && amountInKobo > 0 ? amountInKobo : undefined,
+  );
+  const quote = quoteQuery.data;
 
   const bankAccounts = bankAccountsData?.data || [];
   const usableBankAccounts = bankAccounts.filter((account: any) => {
@@ -53,10 +58,6 @@ export default function RequestWithdrawalModal({
       account.payoutDestinationUsable ?? account.payoutDestination?.usable;
     return status === "approved" && usable !== false;
   });
-  const balance = Math.max(
-    0,
-    (wallet?.balance || 0) - (wallet?.heldBalance || 0),
-  );
 
   useEffect(() => {
     if (isOpen) {
@@ -67,6 +68,7 @@ export default function RequestWithdrawalModal({
       setBankAccountId("");
       setAmount("");
       setReason("");
+      setBalanceError("");
     }
     return () => {
       document.body.style.overflow = "";
@@ -87,23 +89,29 @@ export default function RequestWithdrawalModal({
     e.preventDefault();
     if (!bankAccountId || !amount || parseFloat(amount) <= 0) return;
 
-    const amountInKobo = Math.round(Number(amount) * 100);
-    if (!Number.isSafeInteger(amountInKobo) || amountInKobo <= 0) return;
+    const requestedAmount = Math.round(Number(amount) * 100);
+    if (!Number.isSafeInteger(requestedAmount) || requestedAmount <= 0) return;
 
     setIsSubmitting(true);
     try {
       await onSubmit({
         bankAccountId,
-        amount: amountInKobo,
+        amount: requestedAmount,
         reason: reason || undefined,
       });
       onClose();
+    } catch (error) {
+      const response = (error as { response?: { data?: { code?: string; maxWithdrawable?: number } } }).response?.data;
+      if (response?.code === "INSUFFICIENT_AVAILABLE_BALANCE") {
+        await quoteQuery.refetch();
+        setBalanceError(`Your available balance changed. The maximum you can now withdraw is ${formatKoboCurrency(response.maxWithdrawable || 0)}.`);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isLoading = bankAccountsLoading || walletLoading;
+  const isLoading = bankAccountsLoading || quoteQuery.isLoading;
 
   return (
     <div
@@ -140,7 +148,7 @@ export default function RequestWithdrawalModal({
                 <div>
                   Available balance:{" "}
                   <strong className="text-blue-900">
-                    {formatKoboCurrency(balance)}
+                    {formatKoboCurrency(quote?.availableBalance || 0)}
                   </strong>
                 </div>
               </div>
@@ -192,13 +200,21 @@ export default function RequestWithdrawalModal({
                     required
                     min="0.01"
                     step="0.01"
-                    max={balance / 100}
+                    max={(quote?.maxWithdrawable || 0) / 100}
                   />
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
                   Enter the amount in naira. It will be sent securely in kobo.
                 </p>
               </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                <div className="flex justify-between py-1"><span>Available balance</span><strong>{formatKoboCurrency(quote?.availableBalance || 0)}</strong></div>
+                <div className="flex justify-between py-1"><span>Withdrawal amount</span><strong>{formatKoboCurrency(quote?.requestedAmount || 0)}</strong></div>
+                <div className="flex justify-between py-1"><span>Fee</span><strong>{formatKoboCurrency(quote?.fee || 0)}</strong></div>
+                <div className="mt-1 flex justify-between border-t border-slate-200 pt-2"><span>Total debit</span><strong>{formatKoboCurrency(quote?.totalDebit || 0)}</strong></div>
+              </div>
+              {balanceError && <p role="alert" className="text-xs font-medium text-red-600">{balanceError}</p>}
 
               {/* Reason */}
               <div>
@@ -237,10 +253,10 @@ export default function RequestWithdrawalModal({
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || usableBankAccounts.length === 0}
+                disabled={isSubmitting || usableBankAccounts.length === 0 || !quote?.canWithdraw}
                 className={cn(
                   "order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 border-none",
-                  isSubmitting || usableBankAccounts.length === 0
+                  isSubmitting || usableBankAccounts.length === 0 || !quote?.canWithdraw
                     ? "bg-slate-400 cursor-not-allowed"
                     : "bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]",
                 )}

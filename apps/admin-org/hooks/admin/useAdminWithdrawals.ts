@@ -9,6 +9,7 @@ export function useAdminWithdrawals(params?: {
   page?: number;
   limit?: number;
   organizationId?: string;
+  academicSessionId?: string;
   startDate?: string;
   endDate?: string;
 }) {
@@ -19,20 +20,53 @@ export function useAdminWithdrawals(params?: {
     queryFn: () => adminApi.getWithdrawals(params),
     enabled: !!token && !!params?.organizationId,
     staleTime: 2 * 60 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: (query) =>
+      query.state.data?.data?.some((item) =>
+        item.status === "PENDING" || item.status === "PROCESSING",
+      )
+        ? 30_000
+        : false,
   });
 }
 
 export function useAdminWithdrawal(id: string) {
   const { token } = useAuthStore();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: adminQueryKeys.withdrawals.one(id),
-    queryFn: () => adminApi.getWithdrawal(id),
+    queryFn: async () => {
+      const withdrawal = await adminApi.getWithdrawal(id);
+      queryClient.invalidateQueries({ queryKey: adminQueryKeys.withdrawals.all() });
+      queryClient.invalidateQueries({ queryKey: ["admin", "finance", "wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "finance", "organization-overview"] });
+      return withdrawal;
+    },
     enabled: !!token && !!id,
     staleTime: 0,
-    refetchInterval: (query) =>
-      query.state.data?.status === "PROCESSING" ? 10_000 : false,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "PENDING" || status === "PROCESSING" ? 10_000 : false;
+    },
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useOrganizationWithdrawalQuote(
+  organizationId: string,
+  amount?: number,
+) {
+  const { token } = useAuthStore();
+  return useQuery({
+    queryKey: ["admin", "finance", "withdrawal-quote", organizationId, amount],
+    queryFn: () => adminApi.getWithdrawalQuote({
+      type: "ORGANIZATION",
+      organizationId,
+      amount,
+    }),
+    enabled: !!token && !!organizationId,
+    staleTime: 0,
+    retry: false,
   });
 }
 
@@ -46,6 +80,7 @@ export function useRequestOrganizationWithdrawal() {
       amount: number;
       reason?: string;
     }) => adminApi.requestWithdrawal(data),
+    retry: false,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.withdrawals.all(),
@@ -58,6 +93,9 @@ export function useRequestOrganizationWithdrawal() {
       });
       queryClient.invalidateQueries({
         queryKey: ["admin", "finance", "wallet"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "withdrawal-quote"],
       });
     },
   });
