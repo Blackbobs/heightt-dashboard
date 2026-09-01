@@ -101,13 +101,18 @@ export function OrganizationSwitcher({
       ADMIN_TYPE_ICONS[singleScope.adminType] ||
       ADMIN_TYPE_ICONS.ORGANIZATION_ADMIN;
     return (
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-3 py-2" aria-label="Current organisation and session">
         {Icon}
-        <span className="text-sm font-medium text-slate-700 truncate max-w-[200px]">
-          {singleScope.organization?.name || "Unknown Organization"}
-        </span>
-        <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-          {ADMIN_TYPE_LABELS[singleScope.adminType] || "Admin"}
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-slate-700 truncate max-w-[200px]">
+            {singleScope.organization?.name || "Unknown Organization"}
+          </span>
+          <span className="block text-[10px] font-medium text-blue-500 truncate max-w-[200px]">
+            {singleScope.academicSession?.name ||
+              (singleScope.academicSessionId
+                ? `Session ${singleScope.academicSessionId}`
+                : "All sessions")}
+          </span>
         </span>
       </div>
     );
@@ -131,7 +136,12 @@ export function OrganizationSwitcher({
     );
   };
 
-  const selectedDisplayName = selectedOrg?.name || "Select Organization";
+  const selectedDisplayName = selectedOrg?.name || "Select organisation";
+  const selectedSessionName =
+    selectedScope?.academicSession?.name ||
+    (selectedScope?.academicSessionId
+      ? `Session ${selectedScope.academicSessionId}`
+      : "All sessions");
   const selectedTypeLabel = ADMIN_TYPE_LABELS[selectedAdminType] || "Admin";
   const SelectedIcon = getScopeIcon(selectedScope || scopes[0]);
 
@@ -145,8 +155,13 @@ export function OrganizationSwitcher({
       >
         <span className="flex items-center gap-2 min-w-0">
           {SelectedIcon}
-          <span className="text-sm font-medium text-slate-700 truncate max-w-[180px]">
-            {selectedDisplayName}
+          <span className="min-w-0">
+            <span className="block text-sm font-medium text-slate-700 truncate max-w-[180px]">
+              {selectedDisplayName}
+            </span>
+            <span className="block text-[10px] font-medium text-blue-500 truncate max-w-[180px]">
+              {selectedSessionName}
+            </span>
           </span>
         </span>
         <span className="hidden sm:inline text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
@@ -171,7 +186,7 @@ export function OrganizationSwitcher({
             style={{ borderColor: "var(--color-border)" }}
           >
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              Switch Organization
+              Switch organisation or session
             </p>
           </div>
 
