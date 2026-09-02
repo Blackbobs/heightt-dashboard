@@ -96,9 +96,10 @@ axiosConfig.interceptors.request.use(
       config.headers.set("Authorization", `Bearer ${accessToken}`);
     }
 
-    // CSRF protects cookie sessions. Bearer requests are isolated from cookies
-    // and must not fetch a CSRF token using the other dashboard's session.
-    if (hasBearerToken || skipMethods.includes(method) || isCsrfEndpoint) {
+    // The API enforces CSRF on state-changing requests even when they use a
+    // bearer token. Fetch and attach the token, while the business request
+    // itself remains isolated from the shared authentication cookie.
+    if (skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
     }
 
