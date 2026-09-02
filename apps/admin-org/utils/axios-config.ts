@@ -1,6 +1,7 @@
 // apps/admin-org/utils/axios-config.ts
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { getAuthState } from "@/store/auth-store";
 
 type RetryableConfig = InternalAxiosRequestConfig & {
   _authRetry?: boolean;
@@ -76,6 +77,14 @@ axiosConfig.interceptors.request.use(
     const isCsrfEndpoint = config.url?.includes("/auth/csrf-token");
 
     config.withCredentials = true;
+
+    // Production serves the dashboard and API from different origins, where
+    // the session cookie may not be available. The login access token is
+    // persisted specifically for this authenticated fallback.
+    const accessToken = getAuthState().token;
+    if (accessToken && accessToken !== "cookie-auth") {
+      config.headers.set("Authorization", `Bearer ${accessToken}`);
+    }
 
     if (skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
@@ -163,7 +172,14 @@ axiosConfig.interceptors.response.use(
 
       try {
         // The refresh response updates the httpOnly cookie used by axiosConfig.
-        await axiosConfig.post("/v1/auth/refresh");
+        const refreshResponse = await axiosConfig.post("/v1/auth/refresh");
+        const refreshedToken =
+          refreshResponse.data?.data?.accessToken ??
+          refreshResponse.data?.accessToken;
+        const currentUser = getAuthState().user;
+        if (refreshedToken && currentUser) {
+          getAuthState().setAuth(refreshedToken, currentUser);
+        }
 
         processQueue(null);
 
