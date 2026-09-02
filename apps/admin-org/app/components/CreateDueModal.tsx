@@ -24,8 +24,9 @@ export default function CreateDueModal({
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let focusTimeout: ReturnType<typeof setTimeout> | undefined;
     if (isOpen) {
-      setTimeout(() => firstInputRef.current?.focus(), 120);
+      focusTimeout = setTimeout(() => firstInputRef.current?.focus(), 120);
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -36,6 +37,7 @@ export default function CreateDueModal({
       setStatus("DRAFT");
     }
     return () => {
+      if (focusTimeout) clearTimeout(focusTimeout);
       document.body.style.overflow = "";
     };
   }, [isOpen]);

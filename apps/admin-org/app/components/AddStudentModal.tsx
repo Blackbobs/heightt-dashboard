@@ -38,8 +38,9 @@ export default function AddStudentModal({
   const createStudentMutation = useCreateStudent();
 
   useEffect(() => {
+    let focusTimeout: ReturnType<typeof setTimeout> | undefined;
     if (isOpen) {
-      setTimeout(() => firstInputRef.current?.focus(), 120);
+      focusTimeout = setTimeout(() => firstInputRef.current?.focus(), 120);
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -50,6 +51,7 @@ export default function AddStudentModal({
       setStatus("ACTIVE");
     }
     return () => {
+      if (focusTimeout) clearTimeout(focusTimeout);
       document.body.style.overflow = "";
     };
   }, [isOpen]);
