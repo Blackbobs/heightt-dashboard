@@ -176,7 +176,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const scopes = useMemo(() => {
     const activeMemberships = (userOrgsData || []).filter(
       (membership) =>
-        membership.status === "ACTIVE" && membership.organization?.id,
+        membership.status === "ACTIVE" &&
+        (membership.organizationId || membership.organization?.id),
     );
     const expectedOrganizationTypes: Partial<
       Record<AdminScope["adminType"], string>
@@ -208,9 +209,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     );
 
     return activeMemberships.flatMap((membership) => {
+      const organizationId =
+        membership.organizationId || membership.organization.id;
       const organizationType = membership.organization.type;
       const matchingScopes = adminScopes.filter((scope) => {
-        if (scope.organizationId === membership.organizationId) return true;
+        if (scope.organizationId === organizationId) return true;
 
         const expectedType =
           expectedOrganizationTypes[scope.adminType] ||
@@ -267,9 +270,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
       return resolvedScopes.map((resolvedScope) => ({
           ...resolvedScope,
-          id: `${resolvedScope.id}:${membership.organizationId}:${resolvedScope.academicSessionId || membership.joinedSessionId || "all"}`,
+          id: `${resolvedScope.id}:${organizationId}:${resolvedScope.academicSessionId || membership.joinedSessionId || "all"}`,
           academicSessionId: resolvedScope.academicSessionId || membership.joinedSessionId || undefined,
-          organizationId: membership.organizationId,
+          organizationId,
           organization: {
             id: membership.organization.id,
             name: membership.organization.name,
