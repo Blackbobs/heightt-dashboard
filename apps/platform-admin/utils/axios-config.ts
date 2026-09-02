@@ -109,7 +109,10 @@ axiosConfig.interceptors.request.use(
       config.headers.set("Authorization", `Bearer ${token}`);
     }
 
-    if (hasBearerToken || skipMethods.includes(method) || isCsrfEndpoint) {
+    // Platform mutations also require CSRF with bearer authentication. The
+    // token endpoint may use credentials, but this business request continues
+    // to use only the platform bearer identity.
+    if (skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
     }
 
