@@ -10,16 +10,37 @@ interface AuthState {
   isAuthenticated: boolean;
 }
 
+const STORAGE_KEY = "platform-admin-auth-storage";
+const LEGACY_STORAGE_KEY = "auth-storage";
+
+const isPlatformAdminUser = (user: UserResponseDto | null): boolean =>
+  Boolean(
+    user?.isPlatformAdmin === true ||
+      user?.userType === "PLATFORM_ADMIN" ||
+      user?.roles?.includes("PLATFORM_ADMIN") ||
+      user?.adminTypes?.includes("PLATFORM_ADMIN"),
+  );
+
 // Load from localStorage on startup
 const loadState = (): AuthState | null => {
   if (typeof window === "undefined") return null;
   try {
-    const stored = localStorage.getItem("auth-storage");
+    const namespacedState = localStorage.getItem(STORAGE_KEY);
+    const legacyState = localStorage.getItem(LEGACY_STORAGE_KEY);
+    const stored = namespacedState || legacyState;
     if (stored) {
       const parsed = JSON.parse(stored);
+      const user = parsed.user || null;
+      if (!isPlatformAdminUser(user)) return null;
+
+      if (!namespacedState && legacyState) {
+        localStorage.setItem(STORAGE_KEY, legacyState);
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
+
       return {
         token: parsed.token || null,
-        user: parsed.user || null,
+        user,
         isLoading: false,
         isAuthenticated: parsed.isAuthenticated || false,
       };
@@ -52,7 +73,7 @@ function persistState(newState: AuthState) {
   if (typeof window === "undefined") return;
   try {
     const data = JSON.stringify(newState);
-    localStorage.setItem("auth-storage", data);
+    localStorage.setItem(STORAGE_KEY, data);
   } catch (e) {
     console.error("Failed to persist auth state:", e);
   }
