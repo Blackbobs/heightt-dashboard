@@ -479,15 +479,19 @@ export const adminApi = {
   ): Promise<LoginResponse> => {
     clearCsrfToken();
     await getCsrfToken(true);
-    const response = await axiosConfig.post("/v1/auth/login", {
+    const response = await axiosConfig.post("/v1/auth/admin/login", {
       identifier,
       password,
     });
-    return response.data;
+    const payload = response.data?.data ?? response.data;
+    if (!payload?.accessToken) {
+      throw new Error("Login succeeded without an access token");
+    }
+    return payload;
   },
 
   logout: async (): Promise<void> => {
-    await axiosConfig.post("/v1/auth/logout");
+    await axiosConfig.post("/v1/auth/admin/logout");
   },
 
   logoutAll: async (): Promise<void> => {

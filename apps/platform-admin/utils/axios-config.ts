@@ -6,6 +6,9 @@ type RetryableConfig = InternalAxiosRequestConfig & {
   _csrfRetry?: boolean;
 };
 
+const LOGIN_PATH = "/v1/auth/platform/login";
+const REFRESH_PATH = "/v1/auth/platform/refresh";
+
 // Normalize base URL so callers that include `/v1` in paths don't duplicate it.
 const rawBase =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
@@ -46,7 +49,9 @@ const processQueue = (error: unknown | null) => {
 };
 
 async function fetchCsrfToken(): Promise<string> {
-  const response = await axiosConfig.get("/v1/auth/csrf-token");
+  const response = await axiosConfig.get("/v1/auth/csrf-token", {
+    withCredentials: true,
+  });
   const token = response.data?.csrfToken ?? response.data?.token;
 
   if (!token) {
@@ -93,25 +98,25 @@ axiosConfig.interceptors.request.use(
     const isCsrfEndpoint = config.url?.includes("/auth/csrf-token");
     const isCredentialAuthEndpoint =
       isCsrfEndpoint ||
-      ["/auth/login", "/auth/admin/login", "/auth/register", "/auth/refresh"].some(
-        (url) => config.url?.includes(url),
+      [LOGIN_PATH, REFRESH_PATH].some((path) =>
+        config.url?.includes(path),
       );
 
-    // Both dashboards use the same API cookie domain in production. Always
-    // isolate bearer requests from that cookie because some backend guards
-    // resolve the cookie before the Authorization header.
+    // CSRF validation requires the HTTP-only secret cookie on the mutation as
+    // well as the token header. The backend must prioritize this bearer token
+    // over the shared access-token cookie when both are present.
     const token = getState().token;
     const hasBearerToken = Boolean(
       token && token !== "cookie-auth" && !isCredentialAuthEndpoint,
     );
-    config.withCredentials = !hasBearerToken;
+    config.withCredentials = true;
     if (hasBearerToken) {
       config.headers.set("Authorization", `Bearer ${token}`);
     }
 
     // Platform mutations also require CSRF with bearer authentication. The
-    // token endpoint may use credentials, but this business request continues
-    // to use only the platform bearer identity.
+    // backend uses the platform bearer as the identity and the accompanying
+    // cookie only to validate the CSRF secret.
     if (skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
     }
@@ -158,30 +163,9 @@ axiosConfig.interceptors.response.use(
     // Handle token refresh for 401 errors
     // Retry every failed authenticated request once. Auth endpoints are excluded
     // so an invalid refresh cookie cannot create a refresh loop.
-    const skipRefreshUrls = [
-      "/auth/login",
-      "/auth/admin/login",
-      "/auth/register",
-      "/auth/refresh",
-      "/auth/csrf-token",
-    ];
-    const isAuthRequest = skipRefreshUrls.some((url) =>
-      originalRequest.url?.includes(url),
+    const isAuthRequest = [LOGIN_PATH, REFRESH_PATH].some((path) =>
+      originalRequest.url?.includes(path),
     );
-    const usedBearerToken = Boolean(
-      originalRequest.headers?.get("Authorization"),
-    );
-
-    // A shared refresh cookie may belong to Admin Org. Never use it to refresh
-    // a platform bearer session, otherwise the identity can cross dashboards.
-    if (status === 401 && usedBearerToken) {
-      clearUser();
-      clearCsrfToken();
-      if (typeof window !== "undefined") {
-        window.location.href = "/signin";
-      }
-      return Promise.reject(error);
-    }
 
     if (status === 401 && !isAuthRequest && !originalRequest._authRetry) {
       originalRequest._authRetry = true;
@@ -196,8 +180,7 @@ axiosConfig.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // The refresh response updates the httpOnly cookie used by axiosConfig.
-        const refreshResponse = await axiosConfig.post("/v1/auth/refresh");
+        const refreshResponse = await axiosConfig.post(REFRESH_PATH, {});
         const refreshedToken =
           refreshResponse.data?.data?.accessToken ??
           refreshResponse.data?.accessToken;

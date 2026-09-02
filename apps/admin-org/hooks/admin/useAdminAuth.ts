@@ -50,7 +50,7 @@ export function useAdminLogin() {
       console.log("Login successful, setting auth data:", data);
 
       // Detect whether the signed-in user actually holds admin privileges. The
-      // /v1/auth/login response carries the user's admin role info (adminTypes,
+      // /v1/auth/admin/login carries the user's admin role info (adminTypes,
       // roles, userType, isPlatformAdmin, ...). We must persist it here so the
       // AdminGuard (which runs on the very next render after redirect) sees the
       // user as an admin instead of treating them as a non-admin and bouncing

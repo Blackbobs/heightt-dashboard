@@ -52,19 +52,19 @@ export default function SignInPage() {
     try {
       clearCsrfToken();
       await getCsrfToken(true);
-      const response = await axiosConfig.post("/v1/auth/admin/login", {
+      const response = await axiosConfig.post("/v1/auth/platform/login", {
         identifier,
         password,
       });
 
-      const { accessToken, ...userData } = response.data;
+      const payload = response.data?.data ?? response.data;
+      const { accessToken, ...userData } = payload;
 
-      if (accessToken) {
-        axiosConfig.defaults.headers.common["Authorization"] =
-          `Bearer ${accessToken}`;
+      if (!accessToken) {
+        throw new Error("Login succeeded without an access token");
       }
 
-      setAuth(accessToken || null, userData);
+      setAuth(accessToken, userData);
       router.replace("/platform");
     } catch (err: unknown) {
       console.error("Admin login error:", err);
