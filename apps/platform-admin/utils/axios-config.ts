@@ -91,18 +91,25 @@ axiosConfig.interceptors.request.use(
     const method = config.method?.toLowerCase() || "";
 
     const isCsrfEndpoint = config.url?.includes("/auth/csrf-token");
-
-    config.withCredentials = true;
+    const isCredentialAuthEndpoint =
+      isCsrfEndpoint ||
+      ["/auth/login", "/auth/admin/login", "/auth/register", "/auth/refresh"].some(
+        (url) => config.url?.includes(url),
+      );
 
     // Both dashboards use the same API cookie domain in production. Always
-    // send this dashboard's token so a cookie created by another app cannot
-    // select the wrong identity.
+    // isolate bearer requests from that cookie because some backend guards
+    // resolve the cookie before the Authorization header.
     const token = getState().token;
-    if (token && token !== "cookie-auth") {
+    const hasBearerToken = Boolean(
+      token && token !== "cookie-auth" && !isCredentialAuthEndpoint,
+    );
+    config.withCredentials = !hasBearerToken;
+    if (hasBearerToken) {
       config.headers.set("Authorization", `Bearer ${token}`);
     }
 
-    if (skipMethods.includes(method) || isCsrfEndpoint) {
+    if (hasBearerToken || skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
     }
 
@@ -158,6 +165,20 @@ axiosConfig.interceptors.response.use(
     const isAuthRequest = skipRefreshUrls.some((url) =>
       originalRequest.url?.includes(url),
     );
+    const usedBearerToken = Boolean(
+      originalRequest.headers?.get("Authorization"),
+    );
+
+    // A shared refresh cookie may belong to Admin Org. Never use it to refresh
+    // a platform bearer session, otherwise the identity can cross dashboards.
+    if (status === 401 && usedBearerToken) {
+      clearUser();
+      clearCsrfToken();
+      if (typeof window !== "undefined") {
+        window.location.href = "/signin";
+      }
+      return Promise.reject(error);
+    }
 
     if (status === 401 && !isAuthRequest && !originalRequest._authRetry) {
       originalRequest._authRetry = true;

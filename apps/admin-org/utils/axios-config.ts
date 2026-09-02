@@ -75,18 +75,30 @@ axiosConfig.interceptors.request.use(
     const method = config.method?.toLowerCase() || "";
 
     const isCsrfEndpoint = config.url?.includes("/auth/csrf-token");
-
-    config.withCredentials = true;
+    const isCredentialAuthEndpoint =
+      isCsrfEndpoint ||
+      ["/auth/login", "/auth/register", "/auth/refresh"].some((url) =>
+        config.url?.includes(url),
+      );
 
     // Production serves the dashboard and API from different origins, where
-    // the session cookie may not be available. The login access token is
-    // persisted specifically for this authenticated fallback.
+    // both dashboards otherwise send the same API-domain session cookie. A
+    // bearer-authenticated request must not include that shared cookie because
+    // some backend guards resolve the cookie before the Authorization header.
     const accessToken = getAuthState().token;
-    if (accessToken && accessToken !== "cookie-auth") {
+    const hasBearerToken = Boolean(
+      accessToken &&
+        accessToken !== "cookie-auth" &&
+        !isCredentialAuthEndpoint,
+    );
+    config.withCredentials = !hasBearerToken;
+    if (hasBearerToken) {
       config.headers.set("Authorization", `Bearer ${accessToken}`);
     }
 
-    if (skipMethods.includes(method) || isCsrfEndpoint) {
+    // CSRF protects cookie sessions. Bearer requests are isolated from cookies
+    // and must not fetch a CSRF token using the other dashboard's session.
+    if (hasBearerToken || skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
     }
 
@@ -157,6 +169,21 @@ axiosConfig.interceptors.response.use(
     const isAuthRequest = skipRefreshUrls.some((url) =>
       originalRequest.url?.includes(url),
     );
+    const usedBearerToken = Boolean(
+      originalRequest.headers?.get("Authorization"),
+    );
+
+    // Never refresh a bearer session with the shared production cookie. It may
+    // belong to the other dashboard and would switch identities.
+    if (status === 401 && usedBearerToken) {
+      const { clearAuth } = await import("@/store/auth-store");
+      clearAuth();
+      clearCsrfToken();
+      if (typeof window !== "undefined") {
+        window.location.href = "/signin";
+      }
+      return Promise.reject(error);
+    }
 
     if (status === 401 && !isAuthRequest && !originalRequest._authRetry) {
       originalRequest._authRetry = true;
