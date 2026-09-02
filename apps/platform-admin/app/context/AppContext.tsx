@@ -7,6 +7,8 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useRef,
   ReactNode,
 } from "react";
 import { useAuthStore } from "@/store/auth-store";
@@ -80,7 +82,6 @@ interface AppContextType {
 
   auditLogs: AuditLog[];
   addAuditLog: (action: string, resource: string) => void;
-
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -124,6 +125,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     message: string;
     type: "success" | "info" | "warning" | "danger";
   } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
   // Sync dark class to <html> tag
   useEffect(() => {
@@ -155,13 +163,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const showToast = (
-    message: string,
-    type: "success" | "info" | "warning" | "danger" = "success",
-  ) => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3500);
-  };
+  const showToast = useCallback(
+    (
+      message: string,
+      type: "success" | "info" | "warning" | "danger" = "success",
+    ) => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      setToast({ message, type });
+      toastTimeoutRef.current = setTimeout(() => {
+        setToast(null);
+        toastTimeoutRef.current = null;
+      }, 3500);
+    },
+    [],
+  );
 
   // Data state
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -180,7 +195,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lastUpdatedBy: "",
   });
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-
 
   // Sync current user from auth store
   useEffect(() => {
@@ -405,8 +419,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             metadata: item.metadata,
           })),
         );
-
-
       } catch (err) {
         if (mounted) {
           showToast(

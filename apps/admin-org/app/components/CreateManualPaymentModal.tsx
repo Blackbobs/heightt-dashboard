@@ -112,13 +112,15 @@ export default function CreateManualPaymentModal({
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let focusTimeout: ReturnType<typeof setTimeout> | undefined;
     if (isOpen) {
-      setTimeout(() => titleRef.current?.focus(), 120);
+      focusTimeout = setTimeout(() => titleRef.current?.focus(), 120);
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => {
+      if (focusTimeout) clearTimeout(focusTimeout);
       document.body.style.overflow = "";
     };
   }, [isOpen]);

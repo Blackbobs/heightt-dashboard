@@ -28,6 +28,7 @@ export default function AnnouncementModal({
   const isEditing = Boolean(editingAnnouncement);
 
   useEffect(() => {
+    let focusTimeout: ReturnType<typeof setTimeout> | undefined;
     if (isOpen) {
       if (editingAnnouncement) {
         setTitle(editingAnnouncement.title);
@@ -46,12 +47,13 @@ export default function AnnouncementModal({
         setPriority("NORMAL");
         setExpiresAt("");
       }
-      setTimeout(() => firstInputRef.current?.focus(), 120);
+      focusTimeout = setTimeout(() => firstInputRef.current?.focus(), 120);
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => {
+      if (focusTimeout) clearTimeout(focusTimeout);
       document.body.style.overflow = "";
     };
   }, [isOpen, editingAnnouncement]);

@@ -9,18 +9,17 @@ export function AuthHydrator({ children }: { children: ReactNode }) {
   const { _hasHydrated, setHasHydrated } = useAuthStore();
 
   useEffect(() => {
-    // Check if we're already hydrated
-    const checkHydration = () => {
-      const state = useAuthStore.getState();
-      if (state.token || state.user) {
-        setHasHydrated(true);
-      } else {
-        // If not hydrated, set a timeout to check again
-        setTimeout(checkHydration, 100);
-      }
-    };
+    // Zustand exposes hydration completion directly. Subscribing to that event
+    // avoids an unbounded polling timer for signed-out users and is safe under
+    // React Strict Mode's mount/unmount checks.
+    if (useAuthStore.persist.hasHydrated()) {
+      setHasHydrated(true);
+      return;
+    }
 
-    checkHydration();
+    return useAuthStore.persist.onFinishHydration(() => {
+      setHasHydrated(true);
+    });
   }, [setHasHydrated]);
 
   if (!_hasHydrated) {
