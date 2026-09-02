@@ -8,6 +8,9 @@ type RetryableConfig = InternalAxiosRequestConfig & {
   _csrfRetry?: boolean;
 };
 
+const LOGIN_PATH = "/v1/auth/admin/login";
+const REFRESH_PATH = "/v1/auth/admin/refresh";
+
 // Normalize base URL
 const rawBase =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
@@ -30,7 +33,9 @@ let csrfToken: string | null = null;
 let csrfTokenFetching: Promise<string> | null = null;
 
 async function fetchCsrfToken(): Promise<string> {
-  const response = await axiosConfig.get("/v1/auth/csrf-token");
+  const response = await axiosConfig.get("/v1/auth/csrf-token", {
+    withCredentials: true,
+  });
   const token = response.data?.csrfToken ?? response.data?.token;
 
   if (!token) {
@@ -77,28 +82,28 @@ axiosConfig.interceptors.request.use(
     const isCsrfEndpoint = config.url?.includes("/auth/csrf-token");
     const isCredentialAuthEndpoint =
       isCsrfEndpoint ||
-      ["/auth/login", "/auth/register", "/auth/refresh"].some((url) =>
-        config.url?.includes(url),
+      [LOGIN_PATH, REFRESH_PATH].some((path) =>
+        config.url?.includes(path),
       );
 
-    // Production serves the dashboard and API from different origins, where
-    // both dashboards otherwise send the same API-domain session cookie. A
-    // bearer-authenticated request must not include that shared cookie because
-    // some backend guards resolve the cookie before the Authorization header.
+    // The CSRF header is derived from an HTTP-only cookie, so credentials must
+    // accompany both the token request and the state-changing request. The
+    // backend must prioritize the bearer header when both auth mechanisms are
+    // present so the shared API cookie cannot select another dashboard user.
     const accessToken = getAuthState().token;
     const hasBearerToken = Boolean(
       accessToken &&
         accessToken !== "cookie-auth" &&
         !isCredentialAuthEndpoint,
     );
-    config.withCredentials = !hasBearerToken;
+    config.withCredentials = true;
     if (hasBearerToken) {
       config.headers.set("Authorization", `Bearer ${accessToken}`);
     }
 
     // The API enforces CSRF on state-changing requests even when they use a
-    // bearer token. Fetch and attach the token, while the business request
-    // itself remains isolated from the shared authentication cookie.
+    // bearer token. The backend treats that bearer token as the authoritative
+    // identity while the accompanying cookie validates the CSRF secret.
     if (skipMethods.includes(method) || isCsrfEndpoint) {
       return config;
     }
@@ -161,30 +166,9 @@ axiosConfig.interceptors.response.use(
     }
 
     // Handle token refresh for 401 errors
-    const skipRefreshUrls = [
-      "/auth/login",
-      "/auth/register",
-      "/auth/refresh",
-      "/auth/csrf-token",
-    ];
-    const isAuthRequest = skipRefreshUrls.some((url) =>
-      originalRequest.url?.includes(url),
+    const isAuthRequest = [LOGIN_PATH, REFRESH_PATH].some((path) =>
+      originalRequest.url?.includes(path),
     );
-    const usedBearerToken = Boolean(
-      originalRequest.headers?.get("Authorization"),
-    );
-
-    // Never refresh a bearer session with the shared production cookie. It may
-    // belong to the other dashboard and would switch identities.
-    if (status === 401 && usedBearerToken) {
-      const { clearAuth } = await import("@/store/auth-store");
-      clearAuth();
-      clearCsrfToken();
-      if (typeof window !== "undefined") {
-        window.location.href = "/signin";
-      }
-      return Promise.reject(error);
-    }
 
     if (status === 401 && !isAuthRequest && !originalRequest._authRetry) {
       originalRequest._authRetry = true;
@@ -199,8 +183,7 @@ axiosConfig.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // The refresh response updates the httpOnly cookie used by axiosConfig.
-        const refreshResponse = await axiosConfig.post("/v1/auth/refresh");
+        const refreshResponse = await axiosConfig.post(REFRESH_PATH, {});
         const refreshedToken =
           refreshResponse.data?.data?.accessToken ??
           refreshResponse.data?.accessToken;
