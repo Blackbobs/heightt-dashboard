@@ -94,13 +94,12 @@ axiosConfig.interceptors.request.use(
 
     config.withCredentials = true;
 
-    // RBAC endpoints require the platform-admin bearer token returned by the
-    // dedicated admin login endpoint.
-    if (config.url?.includes("/rbac/")) {
-      const token = getState().token;
-      if (token && token !== "cookie-auth") {
-        config.headers.set("Authorization", `Bearer ${token}`);
-      }
+    // Both dashboards use the same API cookie domain in production. Always
+    // send this dashboard's token so a cookie created by another app cannot
+    // select the wrong identity.
+    const token = getState().token;
+    if (token && token !== "cookie-auth") {
+      config.headers.set("Authorization", `Bearer ${token}`);
     }
 
     if (skipMethods.includes(method) || isCsrfEndpoint) {
