@@ -30,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import AnnouncementModal from "./AnnouncementModal";
 import { usePermissions } from "../context/PermissionContext";
+import { PageHeader } from "./OperationsUI";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -139,6 +140,7 @@ export function AnnouncementsView() {
       setEditingAnnouncement(null);
     } catch (error) {
       console.error("Failed to save announcement:", error);
+      throw error;
     }
   };
 
@@ -178,7 +180,7 @@ export function AnnouncementsView() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
@@ -192,18 +194,8 @@ export function AnnouncementsView() {
   }
 
   return (
-    <div>
-      {/* Page Header */}
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-            Announcements
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Create and manage announcements for your organization
-          </p>
-        </div>
-        {canCreate && (
+    <div className="operations-page">
+      <PageHeader eyebrow="Communication" title="Announcements" description="Create and manage organization announcements." actions={canCreate ? (
           <button
             onClick={handleOpenCreate}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
@@ -211,11 +203,10 @@ export function AnnouncementsView() {
             <Plus className="w-4 h-4" />
             Create Announcement
           </button>
-        )}
-      </div>
+        ) : undefined} />
 
       {/* Filter Bar */}
-      <div className="flex gap-3 mb-6 flex-wrap items-center">
+      <div className="operations-toolbar">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -278,7 +269,7 @@ export function AnnouncementsView() {
       {/* Announcements Grid */}
       {filteredAnnouncements.length === 0 ? (
         <div
-          className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white border rounded-xl"
+          className="operations-surface flex flex-col items-center justify-center py-16 px-4 text-center"
           style={{ borderColor: "var(--color-border)" }}
         >
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl text-slate-300 mb-3">
@@ -294,7 +285,7 @@ export function AnnouncementsView() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="announcement-list grid grid-cols-1 gap-3">
           {filteredAnnouncements.map((ann: any) => {
             const typeStyle = getTypeStyle(ann.type);
             const priorityStyle = getPriorityStyle(ann.priority);
@@ -303,7 +294,7 @@ export function AnnouncementsView() {
             return (
               <div
                 key={ann.id}
-                className="bg-white border rounded-xl p-5 flex flex-col transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                className="operations-surface p-5 flex flex-col"
                 style={{ borderColor: "var(--color-border)" }}
               >
                 {/* Header */}

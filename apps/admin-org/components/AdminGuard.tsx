@@ -53,6 +53,12 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, user, token, pathname, router, _hasHydrated]);
 
+  // Keep public forms mounted while their own request is pending. Replacing the
+  // page here used to erase the sign-in form and its accessible status state.
+  if (pathname === "/signin" && _hasHydrated) {
+    return <>{children}</>;
+  }
+
   if (isLoading || isChecking || !_hasHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8faff]">
@@ -62,10 +68,6 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
-  }
-
-  if (pathname === "/signin") {
-    return <>{children}</>;
   }
 
   const adminTypes = (user as any)?.adminTypes || [];

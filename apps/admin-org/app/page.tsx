@@ -1,8 +1,8 @@
 // apps/admin-org/app/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useAdminContext } from "./components/AdminContext";
 import { useAdminUser } from "@/hooks/admin/useAdminAuth";
@@ -37,10 +37,10 @@ const pageTitles: Record<string, string> = {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: userData, isLoading: userLoading } = useAdminUser();
   const {
     user,
-    scopes,
     selectedScope,
     isLoading: contextLoading,
     isFacultyAdmin,
@@ -51,43 +51,19 @@ export default function AdminDashboard() {
     hasPermission,
   } = useAdminContext();
 
-  const [activeNav, setActiveNav] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const routeToNav: Record<string, string> = {
+    dues: "Dues", payments: "Payments", students: "Students",
+    announcements: "Announcements", finance: "Finance", settings: "Settings",
+    withdrawals: "Withdrawals", "bank-accounts": "Bank Accounts", promotion: "Promotion",
+  };
+  const routeSegment = pathname.split("/").filter(Boolean)[0] || "dashboard";
+  const activeNav = routeToNav[routeSegment] || "Dashboard";
 
   const isLoading = userLoading || contextLoading;
 
-  useEffect(() => {
-    if (user) {
-      console.log("👤 User data:", user);
-      console.log("🔑 Admin types:", (user as any)?.adminTypes);
-      console.log("📋 Scopes:", scopes);
-      console.log("🎯 Selected scope:", selectedScope);
-    }
-  }, [user, scopes, selectedScope]);
-
   const pageTitle = pageTitles[activeNav] || activeNav;
-
-  const getDisplayName = () => {
-    if (selectedScope?.organization?.name) {
-      return selectedScope.organization.name;
-    }
-    const adminTypes = (user as any)?.adminTypes || [];
-    if (adminTypes.includes("PLATFORM_ADMIN")) return "Platform Admin";
-    if (adminTypes.includes("INSTITUTION_ADMIN")) return "Institution Admin";
-    if (adminTypes.includes("FACULTY_ADMIN")) return "Faculty Admin";
-    if (adminTypes.includes("DEPARTMENT_ADMIN")) return "Department Admin";
-    if (
-      adminTypes.includes("ORGANIZATION_ADMIN") ||
-      adminTypes.includes("CLUB_ADMIN")
-    ) {
-      return "Organization Admin";
-    }
-    return "Admin Dashboard";
-  };
-
-  const organizationName = getDisplayName();
-  const organizationType =
-    selectedScope?.organization?.type || (user as any)?.adminTypes?.[0] || "";
 
   if (isLoading) {
     return (
@@ -136,15 +112,12 @@ export default function AdminDashboard() {
     );
   }
 
-  const subtitle = selectedScope
-    ? `${organizationName}${organizationType ? ` (${organizationType})` : ""}`
-    : organizationName;
-
   const renderView = () => {
     switch (activeNav) {
       case "Dashboard":
         return (
           <>
+            <div className="mb-6"><p className="text-xs font-semibold text-blue-600 uppercase tracking-[.12em] mb-2">Organization overview</p><h1 className="text-[28px] leading-9 font-bold tracking-tight text-slate-950">Welcome back, {resolvedUser?.profile?.firstName || "Admin"}</h1><p className="text-sm text-slate-500 mt-1">Here’s the latest activity for your organization.</p></div>
             <StatsGrid />
             <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
               <TransactionsList />
@@ -182,10 +155,17 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f8faff]">
+    <div className="flex min-h-screen bg-[#F8FAFC]">
       <Sidebar
         activeNav={activeNav}
-        onNavChange={setActiveNav}
+        onNavChange={(nav) => {
+          const routes: Record<string, string> = {
+            Dashboard: "/", Dues: "/dues", Payments: "/payments", Students: "/students",
+            Announcements: "/announcements", Finance: "/finance", Settings: "/settings",
+            Withdrawals: "/withdrawals", "Bank Accounts": "/bank-accounts", Promotion: "/promotion",
+          };
+          router.push(routes[nav] || "/");
+        }}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         isFacultyAdmin={isFacultyAdmin}
@@ -199,16 +179,18 @@ export default function AdminDashboard() {
       <main className="flex-1 min-w-0 flex flex-col">
         <Header
           pageTitle={pageTitle}
-          pageSubtitle={subtitle}
           onMenuToggle={() => setSidebarOpen((v) => !v)}
         />
 
-        <div className="flex-1 p-4 md:p-8 pb-24 lg:pb-8">
+        <div className="flex-1 p-4 md:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1600px] w-full mx-auto">
           {renderView()}
         </div>
       </main>
 
-      <BottomNav activeNav={activeNav} onNavChange={setActiveNav} />
+      <BottomNav activeNav={activeNav} onNavChange={(nav) => {
+        const route = nav === "Dashboard" ? "/" : `/${nav.toLowerCase().replaceAll(" ", "-")}`;
+        router.push(route);
+      }} />
     </div>
   );
 }

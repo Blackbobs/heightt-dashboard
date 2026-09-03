@@ -220,15 +220,6 @@ export default function StudentDetailsModal({
           >
             Close
           </button>
-          <button
-            onClick={() => {
-              alert(`Editing student: ${student.name}`);
-              onClose();
-            }}
-            className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#1a5cff] hover:bg-[#0f4ad0] transition-all cursor-pointer border-none"
-          >
-            Edit Student
-          </button>
         </div>
       </div>
     </div>

@@ -6,14 +6,13 @@ import { PaymentHistoryRecord, PaymentHistoryStatus } from "@/lib/api/admin";
 import {
   Search,
   CreditCard,
-  Download,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Loader2,
 } from "lucide-react";
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import { useAdminContext } from "./AdminContext";
+import { PageHeader } from "./OperationsUI";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -126,11 +125,7 @@ export function PaymentsView() {
     });
   };
 
-  const handleDownload = (id: string, ref: string) => {
-    alert(`Downloading receipt ${ref}...`);
-  };
-
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
@@ -144,21 +139,11 @@ export function PaymentsView() {
   }
 
   return (
-    <div>
-      {/* Page Header */}
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-            Payments
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            View completed, pending, and failed due payments
-          </p>
-        </div>
-      </div>
+    <div className="operations-page">
+      <PageHeader eyebrow="Finance" title="Payments" description="Review completed, pending, and failed due payments." />
 
       {/* Filter Bar */}
-      <div className="flex gap-3 mb-6 flex-wrap items-center">
+      <div className="operations-toolbar">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -206,7 +191,7 @@ export function PaymentsView() {
 
       {/* Payments Table */}
       <div
-        className="bg-white border rounded-xl overflow-hidden"
+        className="operations-surface"
         style={{ borderColor: "var(--color-border)" }}
       >
         {filteredPayments.length === 0 ? (
@@ -245,9 +230,6 @@ export function PaymentsView() {
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Status
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">
-                    Actions
                   </th>
                 </tr>
               </thead>
@@ -332,28 +314,6 @@ export function PaymentsView() {
                           />
                           {statusColor.label}
                         </span>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => alert(`View payment: ${reference}`)}
-                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-blue-50 text-slate-400 hover:text-blue-600 cursor-pointer flex items-center justify-center transition-colors"
-                            title="View Receipt"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              receipt &&
-                              handleDownload(receipt.id, receipt.receiptNumber)
-                            }
-                            disabled={!receipt}
-                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 cursor-pointer flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Download Receipt"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   );

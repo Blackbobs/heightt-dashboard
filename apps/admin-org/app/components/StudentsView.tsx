@@ -4,13 +4,12 @@
 import { useState, useMemo } from "react";
 import {
   useAdminStudents,
-  useUpdateStudent,
+  useDeleteStudent,
 } from "@/hooks/admin/useAdminStudents";
 import { useAdminContext } from "./AdminContext";
 import {
   Search,
   Plus,
-  UserPlus,
   Eye,
   UserMinus,
   ChevronLeft,
@@ -22,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import StudentDetailsModal from "./StudentDetailsModal";
 import AddStudentModal from "./AddStudentModal";
+import { PageHeader } from "./OperationsUI";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -40,7 +40,7 @@ export function StudentsView() {
   const canDeleteStudent = hasPermission("student:delete");
   const organizationId = selectedScope?.organizationId || "";
 
-  const { data, isLoading, refetch } = useAdminStudents({
+  const { data, isLoading } = useAdminStudents({
     page: currentPage,
     limit: ITEMS_PER_PAGE,
     search: debouncedSearch || undefined,
@@ -48,7 +48,7 @@ export function StudentsView() {
     organizationId,
   });
 
-  const updateStudentMutation = useUpdateStudent();
+  const deleteStudentMutation = useDeleteStudent();
 
   const students = useMemo(() => data?.data || [], [data?.data]);
   const meta = data?.meta;
@@ -89,16 +89,14 @@ export function StudentsView() {
   const handleRemoveStudent = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove ${name}?`)) {
       try {
-        // Call delete API
-        alert(`Student ${name} removed successfully`);
-        refetch();
+        await deleteStudentMutation.mutateAsync(id);
       } catch (error) {
         console.error("Failed to remove student:", error);
       }
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
@@ -112,18 +110,8 @@ export function StudentsView() {
   }
 
   return (
-    <div>
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-            Students
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage all students in{" "}
-            {selectedScope?.organization?.name || "your organization"}
-          </p>
-        </div>
-        {canAddStudent && (
+    <div className="operations-page">
+      <PageHeader eyebrow="Management" title="Students" description={<>Manage student records in {selectedScope?.organization?.name || "your organization"}.</>} actions={canAddStudent ? (
           <button
             onClick={() => setIsAddOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
@@ -131,11 +119,10 @@ export function StudentsView() {
             <Plus className="w-4 h-4" />
             Add Student
           </button>
-        )}
-      </div>
+        ) : undefined} />
 
-      <div className="mb-6 space-y-3">
-        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+      <div className="mb-[18px]">
+        <div className="operations-toolbar flex flex-col md:flex-row items-stretch md:items-center">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -197,7 +184,7 @@ export function StudentsView() {
       </div>
 
       <div
-        className="bg-white border rounded-xl overflow-hidden"
+        className="operations-surface"
         style={{ borderColor: "var(--color-border)" }}
       >
         {filteredStudents.length === 0 ? (

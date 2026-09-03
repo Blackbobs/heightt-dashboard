@@ -4,45 +4,33 @@
 import { useAdminContext } from "./AdminContext";
 import { useOrganizationFinanceOverview } from "@/hooks/admin/useAdminFinance";
 import { useAdminStudents } from "@/hooks/admin/useAdminStudents";
-import { Users, Wallet, Coins, CreditCard } from "lucide-react";
-import { cn, formatKoboCurrency } from "@/lib/utils";
+import { formatKoboCurrency } from "@/lib/utils";
 
 interface StatCardProps {
   label: string;
   value: string | number;
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
   subtitle?: string;
+  accent?: boolean;
 }
 
 function StatCard({
   label,
   value,
-  icon,
-  iconBg,
-  iconColor,
   subtitle,
+  accent,
 }: StatCardProps) {
   return (
     <div
-      className="bg-white border rounded-xl p-5 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      className="relative bg-white border rounded-lg p-5"
       style={{ borderColor: "var(--color-border)" }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+      {accent && <span className="absolute top-0 left-5 right-5 h-0.5 bg-blue-600" />}
+      <div className="mb-3">
+        <span className="text-xs font-semibold text-slate-500">
           {label}
         </span>
-        <div
-          className={cn(
-            "w-9 h-9 rounded-lg flex items-center justify-center",
-            iconBg,
-          )}
-        >
-          <div className={cn("w-4 h-4", iconColor)}>{icon}</div>
-        </div>
       </div>
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
+      <div className="text-[26px] leading-8 font-bold tracking-tight tabular-nums text-slate-950">{value}</div>
       {subtitle && (
         <div className="text-xs text-slate-400 mt-0.5">{subtitle}</div>
       )}
@@ -71,12 +59,11 @@ export function StatsGrid() {
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="bg-white border rounded-xl p-5 animate-pulse"
+            className="bg-white border rounded-lg p-5 animate-pulse"
             style={{ borderColor: "var(--color-border)" }}
           >
             <div className="flex items-center justify-between mb-2">
               <div className="w-16 h-3 bg-slate-200 rounded" />
-              <div className="w-9 h-9 rounded-lg bg-slate-200" />
             </div>
             <div className="w-20 h-7 bg-slate-200 rounded" />
           </div>
@@ -91,35 +78,28 @@ export function StatsGrid() {
     {
       label: "Total Students",
       value: totalStudents,
-      icon: <Users className="w-4 h-4" />,
-      iconBg: "bg-blue-50",
-      iconColor: "text-blue-600",
+      subtitle: "Active student records",
     },
     {
       label: "Available Balance",
       value: formatKoboCurrency(overview?.wallet.availableBalance),
-      icon: <Wallet className="w-4 h-4" />,
-      iconBg: "bg-emerald-50",
-      iconColor: "text-emerald-600",
+      subtitle: "Ready for withdrawal",
+      accent: true,
     },
     {
       label: "Total Collections",
       value: formatKoboCurrency(overview?.collections.totalAmount),
-      icon: <CreditCard className="w-4 h-4" />,
-      iconBg: "bg-purple-50",
-      iconColor: "text-purple-600",
+      subtitle: "Collected for this organization",
     },
     {
       label: "Dues Created",
       value: overview?.dues.createdCount || 0,
-      icon: <Coins className="w-4 h-4" />,
-      iconBg: "bg-amber-50",
-      iconColor: "text-amber-600",
+      subtitle: "Across this organization",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden mb-6">
       {stats.map((stat) => (
         <StatCard key={stat.label} {...stat} />
       ))}

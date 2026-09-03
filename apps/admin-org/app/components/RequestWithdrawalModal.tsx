@@ -17,6 +17,7 @@ import { useAdminBankAccounts } from "@/hooks/admin/useAdminBankAccounts";
 import { useOrganizationWithdrawalQuote } from "@/hooks/admin/useAdminWithdrawals";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useAdminContext } from "./AdminContext";
+import { getApiErrorMessage } from "@/lib/api/error";
 
 interface RequestWithdrawalModalProps {
   isOpen: boolean;
@@ -83,11 +84,11 @@ export default function RequestWithdrawalModal({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !isSubmitting) onClose();
     };
     if (isOpen) window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSubmitting]);
 
   if (!isOpen) return null;
 
@@ -117,6 +118,8 @@ export default function RequestWithdrawalModal({
         setBalanceError(
           `Your available balance changed. The maximum you can now withdraw is ${formatKoboCurrency(response.maxWithdrawable || 0)}.`,
         );
+      } else {
+        setBalanceError(getApiErrorMessage(error, "The withdrawal request could not be submitted."));
       }
     } finally {
       setIsSubmitting(false);
@@ -129,7 +132,7 @@ export default function RequestWithdrawalModal({
     <div
       className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
@@ -279,6 +282,7 @@ export default function RequestWithdrawalModal({
               <button
                 type="button"
                 onClick={onClose}
+                disabled={isSubmitting}
                 className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-600 hover:border-[#1a5cff] hover:text-[#1a5cff]"
               >
                 Cancel

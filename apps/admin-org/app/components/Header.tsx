@@ -1,20 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Menu, Bell, ChevronDown, User as UserIcon, LogOut, Settings as SettingsIcon, HelpCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Menu, Bell, ChevronDown, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useAdminLogout } from '@/hooks/admin/useAdminAuth';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { useAdminContext } from './AdminContext';
 
 interface HeaderProps {
   pageTitle: string;
-  pageSubtitle?: string;
   onMenuToggle: () => void;
 }
 
-export function Header({ pageTitle, pageSubtitle, onMenuToggle }: HeaderProps) {
+export function Header({ pageTitle, onMenuToggle }: HeaderProps) {
   const logoutMutation = useAdminLogout();
+  const router = useRouter();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const { user, scopes, selectedScopeId, switchOrganization, isLoading } = useAdminContext();
 
@@ -50,16 +50,7 @@ export function Header({ pageTitle, pageSubtitle, onMenuToggle }: HeaderProps) {
         >
           <Menu className="w-4 h-4" />
         </button>
-        <div className="min-w-0">
-          <h1 className="text-base sm:text-lg md:text-xl font-bold tracking-tight truncate leading-snug text-slate-900">
-            {pageTitle}
-          </h1>
-          {pageSubtitle && (
-            <p className="text-[11px] sm:text-xs md:text-[13px] truncate leading-none mt-0.5 text-slate-500">
-              {pageSubtitle}
-            </p>
-          )}
-        </div>
+        <div className="min-w-0 flex items-center gap-2 text-sm"><span className="hidden sm:inline text-slate-400">Organization</span><span className="hidden sm:inline text-slate-300">/</span><span className="font-semibold text-slate-800 truncate">{pageTitle}</span></div>
       </div>
 
       {/* Center: Organization Switcher */}
@@ -87,11 +78,10 @@ export function Header({ pageTitle, pageSubtitle, onMenuToggle }: HeaderProps) {
         {/* Notifications */}
         <button
           className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border-none bg-transparent flex items-center justify-center text-sm sm:text-base cursor-pointer relative transition-all duration-200 hover:bg-slate-100 flex-shrink-0 text-slate-500"
-          onClick={() => alert('Notifications panel would open here')}
+          onClick={() => router.push('/announcements')}
           aria-label="Notifications"
         >
           <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full border-2 border-white" style={{ background: 'var(--color-destructive)' }} />
         </button>
 
         {/* Profile Dropdown */}
@@ -122,29 +112,18 @@ export function Header({ pageTitle, pageSubtitle, onMenuToggle }: HeaderProps) {
               <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border p-1.5 z-20 animate-fade-in" style={{ borderColor: 'var(--color-border)' }}>
                 <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
                   <div className="text-sm font-bold text-slate-900">{getDisplayName()}</div>
-                  <div className="text-xs text-slate-500">{user?.email || 'admin@heightt.com'}</div>
+                  {user?.email && <div className="text-xs text-slate-500">{user.email}</div>}
                 </div>
 
                 <button
                   onClick={() => {
                     setProfileDropdownOpen(false);
-                    // Navigate to settings
+                    router.push('/settings');
                   }}
                   className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors border-none cursor-pointer"
                 >
                   <SettingsIcon className="w-4 h-4 text-slate-400" />
                   <span>Settings</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setProfileDropdownOpen(false);
-                    // Show help
-                  }}
-                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-slate-700 hover:bg-slate-50 transition-colors border-none cursor-pointer"
-                >
-                  <HelpCircle className="w-4 h-4 text-slate-400" />
-                  <span>Help & Support</span>
                 </button>
 
                 <div className="border-t my-1" style={{ borderColor: 'var(--color-border)' }} />
