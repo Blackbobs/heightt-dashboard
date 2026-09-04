@@ -14,9 +14,7 @@ import {
   Plus,
   Coins,
   Users,
-  Edit,
   Trash2,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -30,6 +28,7 @@ import {
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import { usePermissions } from "../context/PermissionContext";
 import CreateDueModal from "./CreateDueModal";
+import { PageHeader } from "./OperationsUI";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -111,11 +110,8 @@ export function DuesView() {
   const [statusFilter, setStatusFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedDue, setSelectedDue] = useState<any | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const canCreateDue = hasPermission("DUE_CREATE");
-  const canEditDue = hasPermission("DUE_UPDATE");
   const canDeleteDue = hasPermission("DUE_DELETE");
 
   const organizationId = selectedScope?.organizationId || "";
@@ -167,6 +163,7 @@ export function DuesView() {
       setIsCreateModalOpen(false);
     } catch (error) {
       console.error("Failed to create due:", error);
+      throw error;
     }
   };
 
@@ -203,16 +200,11 @@ export function DuesView() {
     }
   };
 
-  const handleViewDue = (due: any) => {
-    setSelectedDue(due);
-    setIsDetailModalOpen(true);
-  };
-
   const getStatusConfig = (status: string) => {
     return STATUS_CONFIG[status] || STATUS_CONFIG.ACTIVE;
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
@@ -226,18 +218,8 @@ export function DuesView() {
   }
 
   return (
-    <div>
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-            Dues
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage all dues for{" "}
-            {selectedScope?.organization?.name || "your organization"}
-          </p>
-        </div>
-        {canCreateDue && (
+    <div className="operations-page">
+      <PageHeader eyebrow="Finance" title="Dues" description={<>Create, assign, and track dues for {selectedScope?.organization?.name || "your organization"}.</>} actions={canCreateDue ? (
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
@@ -245,10 +227,9 @@ export function DuesView() {
             <Plus className="w-4 h-4" />
             Create Due
           </button>
-        )}
-      </div>
+        ) : undefined} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div className="operations-stats grid grid-cols-1 sm:grid-cols-3">
         <div
           className="bg-white border rounded-xl p-4"
           style={{ borderColor: "var(--color-border)" }}
@@ -276,7 +257,7 @@ export function DuesView() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="operations-toolbar flex flex-col sm:flex-row">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -322,7 +303,7 @@ export function DuesView() {
       </div>
 
       <div
-        className="bg-white border rounded-xl overflow-hidden"
+        className="operations-surface"
         style={{ borderColor: "var(--color-border)" }}
       >
         {filteredDues.length === 0 ? (
@@ -409,24 +390,6 @@ export function DuesView() {
                       </td>
                       <td className="px-4 py-3.5 align-middle text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleViewDue(due)}
-                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-blue-50 text-slate-400 hover:text-blue-600 cursor-pointer flex items-center justify-center transition-colors"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-
-                          {canEditDue && (
-                            <button
-                              onClick={() => alert(`Edit due: ${due.name}`)}
-                              className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-amber-50 text-slate-400 hover:text-amber-600 cursor-pointer flex items-center justify-center transition-colors"
-                              title="Edit Due"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )}
-
                           {due.status === "DRAFT" && (
                             <button
                               onClick={() => handleAssignDue(due.id)}

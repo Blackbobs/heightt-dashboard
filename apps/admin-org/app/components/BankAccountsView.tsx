@@ -24,6 +24,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "./OperationsUI";
 import { usePermissions } from "../context/PermissionContext";
 
 export function BankAccountsView() {
@@ -223,7 +224,7 @@ export function BankAccountsView() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <Loader2 className="w-8 h-8 text-[#1a5cff] animate-spin" />
@@ -232,19 +233,8 @@ export function BankAccountsView() {
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-[#1a5cff]" />
-            Bank Accounts
-          </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage your bank accounts for withdrawals
-          </p>
-        </div>
-        {canCreate && (
+    <div className="operations-page">
+      <PageHeader eyebrow="Finance" title="Bank accounts" description="Manage verified payout accounts for withdrawals." actions={canCreate ? (
           <button
             onClick={() => {
               setEditingAccount(null);
@@ -263,11 +253,10 @@ export function BankAccountsView() {
             <Plus className="w-4 h-4" />
             Add Bank Account
           </button>
-        )}
-      </div>
+        ) : undefined} />
 
       {/* Search */}
-      <div className="mb-4">
+      <div className="operations-toolbar">
         <div className="relative max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -286,7 +275,7 @@ export function BankAccountsView() {
       {/* Accounts Grid */}
       {filteredAccounts.length === 0 ? (
         <div
-          className="bg-white border rounded-xl p-12 text-center"
+          className="operations-surface p-12 text-center"
           style={{ borderColor: "var(--color-border)" }}
         >
           <Wallet className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -298,15 +287,15 @@ export function BankAccountsView() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           {filteredAccounts.map((account: any) => (
             <div
               key={account.id}
               className={cn(
-                "bg-white border rounded-xl p-5 transition-all duration-200",
+                "operations-surface p-5",
                 account.isDefault
-                  ? "border-blue-300 shadow-md shadow-blue-50"
-                  : "hover:shadow-lg hover:-translate-y-0.5",
+                  ? "border-blue-300"
+                  : "",
               )}
               style={{
                 borderColor: account.isDefault

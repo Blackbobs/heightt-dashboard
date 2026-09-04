@@ -1,143 +1,44 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Loader2, LockKeyhole } from "lucide-react";
 import { useAdminLogin } from "@/hooks/admin/useAdminAuth";
-import { Eye, EyeOff, Lock, Mail, LogIn, Building2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/error";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
-  const loginMutation = useAdminLogin();
+  const login = useAdminLogin();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError(null);
+    if (!identifier.trim() || !password) { setError("Enter your email or username and password."); return; }
+    try { await login.mutateAsync({ identifier: identifier.trim(), password }); }
+    catch (requestError) { setError(getApiErrorMessage(requestError, "We couldn’t sign you in. Check your details and try again.")); }
+  }
 
-    if (!identifier || !password) {
-      setError("Please fill in all fields");
-      return;
-    }
-
-    try {
-      await loginMutation.mutateAsync({ identifier, password });
-    } catch (err: any) {
-      setError(err.message || "Invalid credentials. Please try again.");
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8faff] p-4">
-      <div className="w-full max-w-[420px]">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-[#1a5cff] flex items-center justify-center text-white">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <span className="text-xl font-bold text-[#0b1a33]">
-              Heightt Admin
-            </span>
-          </div>
-          <p className="text-sm text-[#5b6d89] mt-2">
-            Organization Management Dashboard
-          </p>
-        </div>
-
-        {/* Login Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_20px_60px_rgba(0,20,40,0.08)] p-8">
-          <h1 className="text-2xl font-bold text-[#0b1a33] mb-1.5">
-            Welcome Back
-          </h1>
-          <p className="text-sm text-[#5b6d89] mb-6">
-            Sign in to manage your organization
-          </p>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* Email/Username */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold text-[#1f2a44] uppercase tracking-wider opacity-70 mb-1.5">
-                Email or Username
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aabbf]" />
-                <input
-                  type="text"
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="john@example.com or john_doe"
-                  className="w-full pl-10 pr-4 py-3 bg-[#f8faff] border-[1.5px] border-[#e2e8f0] rounded-xl text-sm font-medium text-[#0b1a33] placeholder:text-[#9aabbf] outline-none transition-all focus:border-[#1a5cff] focus:bg-white focus:ring-4 focus:ring-[#1a5cff]/10"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="mb-6">
-              <label className="block text-xs font-semibold text-[#1f2a44] uppercase tracking-wider opacity-70 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9aabbf]" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-3 bg-[#f8faff] border-[1.5px] border-[#e2e8f0] rounded-xl text-sm font-medium text-[#0b1a33] placeholder:text-[#9aabbf] outline-none transition-all focus:border-[#1a5cff] focus:bg-white focus:ring-4 focus:ring-[#1a5cff]/10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9aabbf] hover:text-[#5b6d89]"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loginMutation.isPending}
-              className={cn(
-                "w-full py-3.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]",
-                loginMutation.isPending
-                  ? "bg-[#93b4ff] cursor-not-allowed"
-                  : "bg-[#1a5cff] hover:bg-[#0f4ad0] shadow-[0_8px_24px_rgba(26,92,255,0.25)] hover:shadow-[0_12px_28px_rgba(26,92,255,0.3)]",
-              )}
-            >
-              {loginMutation.isPending ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4" />
-                  Sign In
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center text-xs text-[#7a8ba3]">
-            Secure admin access for organization management
-          </div>
-        </div>
+  return <main className="min-h-screen bg-[#F8FAFC] grid lg:grid-cols-[minmax(360px,0.8fr)_minmax(560px,1.2fr)]">
+    <section className="hidden lg:flex bg-[#0B1020] text-white p-12 xl:p-16 flex-col justify-between">
+      <Image src="/heightt-logo.png" alt="Heightt" width={142} height={80} className="w-[142px] h-auto brightness-0 invert" priority />
+      <div className="max-w-md"><p className="text-xs font-semibold uppercase tracking-[.16em] text-blue-400 mb-4">Financial operations</p><h1 className="text-4xl leading-[1.15] font-semibold tracking-tight">Manage your organization’s finances with clarity.</h1><p className="text-sm leading-6 text-slate-400 mt-5">Secure access for dues, collections, students, withdrawals, and reporting.</p></div>
+      <p className="text-xs text-slate-500">Heightt organization administration</p>
+    </section>
+    <section className="flex items-center justify-center px-5 py-10 sm:px-10">
+      <div className="w-full max-w-[430px]">
+        <Image src="/heightt-logo.png" alt="Heightt" width={126} height={71} className="lg:hidden w-[126px] h-auto mb-10" priority />
+        <div className="mb-8"><div className="w-10 h-10 border border-slate-200 rounded-lg bg-white flex items-center justify-center mb-5"><LockKeyhole className="w-[18px] h-[18px] text-blue-600" /></div><h2 className="text-[28px] leading-9 font-bold tracking-tight text-slate-950">Sign in to Heightt</h2><p className="text-sm text-slate-500 mt-2">Use your administrator credentials to continue.</p></div>
+        <form onSubmit={handleSubmit} aria-busy={login.isPending} className="space-y-5">
+          {error && <div role="alert" className="px-3.5 py-3 rounded-md border border-red-200 bg-red-50 text-sm text-red-700">{error}</div>}
+          <div><label htmlFor="identifier" className="block text-xs font-semibold text-slate-700 mb-2">Email or username</label><input id="identifier" name="identifier" autoComplete="username" value={identifier} onChange={e => setIdentifier(e.target.value)} disabled={login.isPending} className="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-md text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:bg-slate-50 disabled:text-slate-500" /></div>
+          <div><label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-2">Password</label><div className="relative"><input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} disabled={login.isPending} className="w-full h-11 pl-3.5 pr-11 bg-white border border-slate-300 rounded-md text-sm text-slate-950 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:bg-slate-50" /><button type="button" onClick={() => setShowPassword(value => !value)} disabled={login.isPending} className="absolute right-0 top-0 h-11 w-11 border-0 bg-transparent text-slate-400 hover:text-slate-700 flex items-center justify-center" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+          <button type="submit" disabled={login.isPending} className="w-full h-11 rounded-md border-0 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-500 text-white text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer disabled:cursor-wait transition-colors">{login.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}<span>{login.isPending ? "Signing in…" : "Sign in"}</span></button>
+        </form>
+        <p className="text-xs text-slate-400 mt-7">Access is restricted to authorized organization administrators.</p>
       </div>
-    </div>
-  );
+    </section>
+  </main>;
 }

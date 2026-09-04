@@ -9,6 +9,7 @@ import { useApp } from "../context/AppContext";
 import { usePlatformLogout } from "@/hooks/platform/usePlatformAuth";
 import { Role } from "../types";
 import * as Lucide from "lucide-react";
+import Image from "next/image";
 
 const {
   LayoutDashboard,
@@ -271,10 +272,10 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
       >
         <div className="brand-header">
           <Link href="/platform" className="logo">
-            <Globe className="w-5 h-5" />
+            <Image src="/heightt-logo.png" alt="Heightt" width={86} height={48} priority />
           </Link>
           <div className="brand-title">
-            <span className="name">Heightt Platform</span>
+            <span className="name">Platform Console</span>
             <span className="tag">Platform Admin</span>
           </div>
         </div>
@@ -344,7 +345,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
             </div>
 
             {/* Platform Badge */}
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full border border-blue-200">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 border border-slate-200 rounded-md">
               <Globe className="w-4 h-4 text-blue-600" />
               <span className="text-xs font-semibold text-blue-700">
                 Platform-wide View

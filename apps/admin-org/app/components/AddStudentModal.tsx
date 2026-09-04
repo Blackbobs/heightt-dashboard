@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAdminContext } from "./AdminContext";
 import { useCreateStudent } from "@/hooks/admin/useAdminStudents";
+import { getApiErrorMessage } from "@/lib/api/error";
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export default function AddStudentModal({
   const [level, setLevel] = useState("");
   const [status, setStatus] = useState("ACTIVE");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   const createStudentMutation = useCreateStudent();
@@ -58,11 +60,11 @@ export default function AddStudentModal({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !isSubmitting) onClose();
     };
     if (isOpen) window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSubmitting]);
 
   if (!isOpen) return null;
 
@@ -71,6 +73,7 @@ export default function AddStudentModal({
     if (!name || !email) return;
 
     setIsSubmitting(true);
+    setFormError(null);
 
     try {
       // Split name into first and last
@@ -79,7 +82,6 @@ export default function AddStudentModal({
       const lastName = nameParts.slice(1).join(" ") || "";
 
       const studentData = {
-        userId: "", // This would be a new user ID or the user ID to link
         firstName,
         lastName,
         email,
@@ -95,8 +97,7 @@ export default function AddStudentModal({
       await createStudentMutation.mutateAsync(studentData);
       onClose();
     } catch (error) {
-      console.error("Failed to create student:", error);
-      alert("Failed to create student. Please try again.");
+      setFormError(getApiErrorMessage(error, "The student could not be added. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -106,7 +107,7 @@ export default function AddStudentModal({
     <div
       className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div className="bg-white rounded-2xl w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
@@ -117,6 +118,7 @@ export default function AddStudentModal({
           </h2>
           <button
             onClick={onClose}
+            disabled={isSubmitting}
             className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-400 hover:bg-slate-100"
             aria-label="Close"
           >
@@ -125,6 +127,7 @@ export default function AddStudentModal({
         </div>
 
         <form onSubmit={handleSubmit}>
+          {formError && <div role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{formError}</div>}
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">

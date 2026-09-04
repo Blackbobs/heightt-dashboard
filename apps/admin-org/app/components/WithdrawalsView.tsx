@@ -23,6 +23,7 @@ import {
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import { usePermissions } from "../context/PermissionContext";
 import RequestWithdrawalModal from "./RequestWithdrawalModal";
+import { PageHeader } from "./OperationsUI";
 
 const WITHDRAWAL_STATUSES = [
   "PENDING",
@@ -138,8 +139,7 @@ export function WithdrawalsView() {
 
   const handleSubmitWithdrawalRequest = async (data: any) => {
     if (!organizationId) {
-      alert("No organization selected for this withdrawal request.");
-      return;
+      throw new Error("No organization is selected for this withdrawal request.");
     }
     try {
       await requestMutation.mutateAsync({
@@ -151,8 +151,6 @@ export function WithdrawalsView() {
       console.error("Failed to request withdrawal:", error);
       const code = (error as { response?: { data?: { code?: string } } }).response?.data?.code;
       if (code === "INSUFFICIENT_AVAILABLE_BALANCE") throw error;
-      const { getApiErrorMessage } = await import("@/lib/api/error");
-      alert(getApiErrorMessage(error, "Failed to submit withdrawal request."));
       throw error;
     }
   };
@@ -170,7 +168,7 @@ export function WithdrawalsView() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <div className="flex flex-col items-center gap-3">
@@ -184,18 +182,8 @@ export function WithdrawalsView() {
   }
 
   return (
-    <div>
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <ArrowUpRight className="w-5 h-5 text-[#1a5cff]" />
-            Withdrawals
-          </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            View and manage your organization's withdrawal requests
-          </p>
-        </div>
-        {canRequest && (
+    <div className="operations-page">
+      <PageHeader eyebrow="Finance" title="Withdrawals" description="Review and manage your organization’s withdrawal requests." actions={canRequest ? (
           <button
             onClick={handleOpenRequestModal}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
@@ -203,10 +191,9 @@ export function WithdrawalsView() {
             <Plus className="w-4 h-4" />
             Request Withdrawal
           </button>
-        )}
-      </div>
+        ) : undefined} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="operations-stats grid grid-cols-2 md:grid-cols-4">
         <div
           className="bg-white border rounded-xl p-4"
           style={{ borderColor: "var(--color-border)" }}
@@ -245,7 +232,7 @@ export function WithdrawalsView() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="operations-toolbar flex flex-col sm:flex-row">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -291,7 +278,7 @@ export function WithdrawalsView() {
       </div>
 
       <div
-        className="bg-white border rounded-xl overflow-hidden"
+        className="operations-surface"
         style={{ borderColor: "var(--color-border)" }}
       >
         {filteredWithdrawals.length === 0 ? (

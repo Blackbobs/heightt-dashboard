@@ -60,6 +60,10 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isLoading, user, token, pathname, router, _hasHydrated]);
 
+  if (pathname === "/signin" && _hasHydrated !== false) {
+    return <>{children}</>;
+  }
+
   if (isLoading || isChecking || _hasHydrated === false) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8faff]">
@@ -72,10 +76,6 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   }
 
   // If on login page, render without auth
-  if (pathname === "/signin") {
-    return <>{children}</>;
-  }
-
   // If not authenticated or no admin access, don't render
   const adminTypes = (user as any)?.adminTypes || [];
   const isPlatformAdmin = (user as any)?.isPlatformAdmin || false;

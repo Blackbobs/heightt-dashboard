@@ -13,7 +13,6 @@ import {
   TrendingDown,
   CreditCard,
   ArrowUpRight,
-  Download,
   Loader2,
   AlertCircle,
   Building2,
@@ -21,13 +20,13 @@ import {
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import RequestWithdrawalModal from "./RequestWithdrawalModal";
 import { usePermissions } from "../context/PermissionContext";
+import { PageHeader } from "./OperationsUI";
 
 export function FinanceView() {
   const { hasPermission } = usePermissions();
   const { selectedScope } = useAdminContext();
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false);
 
-  const canExport = hasPermission("FINANCE_EXPORT");
   const canRequestWithdrawal = hasPermission("WITHDRAWAL_REQUEST");
 
   const organizationId = selectedScope?.organizationId || "";
@@ -44,32 +43,22 @@ export function FinanceView() {
 
   const isLoading = overviewLoading || transactionsLoading;
 
-  const handleExportReport = () => {
-    alert("📄 Exporting financial report (CSV/PDF)...");
-  };
-
   const handleWithdrawal = async (data: any) => {
     try {
       await withdrawalMutation.mutateAsync({
         ...data,
         organizationId,
       });
-      alert("✅ Withdrawal request submitted and is awaiting approval.");
       setIsWithdrawalModalOpen(false);
     } catch (error) {
       console.error("Failed to submit withdrawal:", error);
       const code = (error as { response?: { data?: { code?: string } } }).response?.data?.code;
       if (code === "INSUFFICIENT_AVAILABLE_BALANCE") throw error;
-      const { getApiErrorMessage } = await import("@/lib/api/error");
-      alert(
-        `❌ ${getApiErrorMessage(error, "Failed to submit withdrawal request.")}`,
-      );
-      throw error;
       throw error;
     }
   };
 
-  if (isLoading) {
+  if (isLoading && !overview && !transactions) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
@@ -116,28 +105,8 @@ export function FinanceView() {
   const recentTransactions = transactions?.data || [];
 
   return (
-    <div>
-      {/* Page Header */}
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-            Finance
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Financial overview for {organizationName}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {canExport && (
-            <button
-              onClick={handleExportReport}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold border-2 cursor-pointer transition-all duration-200 bg-white border-slate-200 text-[#1a5cff] hover:border-[#1a5cff] hover:bg-[#f0f4ff]"
-            >
-              <Download className="w-4 h-4" />
-              Export Report
-            </button>
-          )}
-          {canRequestWithdrawal && (
+    <div className="operations-page">
+      <PageHeader eyebrow="Finance" title="Financial overview" description={<>Balances, collections, and recent transactions for {organizationName}.</>} actions={canRequestWithdrawal ? (
             <button
               onClick={() => setIsWithdrawalModalOpen(true)}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
@@ -145,12 +114,10 @@ export function FinanceView() {
               <ArrowUpRight className="w-4 h-4" />
               Request Withdrawal
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined} />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div className="operations-stats grid grid-cols-2 sm:grid-cols-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -182,7 +149,7 @@ export function FinanceView() {
 
       {/* Organization Info Card */}
       <div
-        className="bg-white border rounded-xl p-5 mb-6 flex items-center justify-between flex-wrap gap-4"
+        className="operations-surface p-5 mb-5 flex items-center justify-between flex-wrap gap-4"
         style={{ borderColor: "var(--color-border)" }}
       >
         <div className="flex items-center gap-3">
@@ -213,7 +180,7 @@ export function FinanceView() {
 
       {/* Recent Transactions */}
       <div
-        className="bg-white border rounded-xl overflow-hidden"
+        className="operations-surface"
         style={{ borderColor: "var(--color-border)" }}
       >
         <div

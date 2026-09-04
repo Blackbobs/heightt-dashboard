@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Coins, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/error";
 
 interface CreateDueModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => Promise<void>;
 }
 
 export default function CreateDueModal({
@@ -21,6 +22,7 @@ export default function CreateDueModal({
   const [isRequired, setIsRequired] = useState(true);
   const [status, setStatus] = useState("DRAFT");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -44,11 +46,11 @@ export default function CreateDueModal({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !isSubmitting) onClose();
     };
     if (isOpen) window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSubmitting]);
 
   if (!isOpen) return null;
 
@@ -60,25 +62,21 @@ export default function CreateDueModal({
     if (!Number.isSafeInteger(amountInKobo) || amountInKobo <= 0) return;
 
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 400));
-
-    onSubmit({
-      name,
-      description,
-      amount: amountInKobo,
-      isRequired,
-      status,
-    });
-
-    setIsSubmitting(false);
-    onClose();
+    setFormError(null);
+    try {
+      await onSubmit({ name, description, amount: amountInKobo, isRequired, status });
+    } catch (error) {
+      setFormError(getApiErrorMessage(error, "The due could not be created. Please try again."));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <div
       className="fixed inset-0 bg-black/35 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div className="bg-white rounded-2xl w-full max-w-[560px] max-h-[90vh] overflow-y-auto shadow-2xl p-6 animate-slide-up">
@@ -90,6 +88,7 @@ export default function CreateDueModal({
           </h2>
           <button
             onClick={onClose}
+            disabled={isSubmitting}
             className="w-8 h-8 rounded-full border flex items-center justify-center text-sm cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-400 hover:bg-slate-100"
             aria-label="Close"
           >
@@ -99,6 +98,7 @@ export default function CreateDueModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
+          {formError && <div role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{formError}</div>}
           <div className="space-y-4">
             {/* Title */}
             <div>
@@ -210,6 +210,7 @@ export default function CreateDueModal({
             <button
               type="button"
               onClick={onClose}
+              disabled={isSubmitting}
               className="order-2 sm:order-1 px-5 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 bg-transparent border-slate-200 text-slate-600 hover:border-[#1a5cff] hover:text-[#1a5cff]"
             >
               Cancel

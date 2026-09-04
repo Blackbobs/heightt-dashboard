@@ -6,14 +6,17 @@ import { PaymentHistoryRecord, PaymentHistoryStatus } from "@/lib/api/admin";
 import {
   Search,
   CreditCard,
-  Download,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Download,
 } from "lucide-react";
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import { useAdminContext } from "./AdminContext";
+import { PageHeader } from "./OperationsUI";
+import { adminApi } from "@/lib/api/admin";
+import { downloadAxiosBlob } from "@/lib/download";
+import { getApiErrorMessage } from "@/lib/api/error";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -72,12 +75,40 @@ const STATUS_COLORS: Record<
 };
 
 export function PaymentsView() {
-  const { selectedScope } = useAdminContext();
+  const { selectedScope, hasPermission } = useAdminContext();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PaymentHistoryStatus | "">(
     "",
   );
   const [currentPage, setCurrentPage] = useState(1);
+  const [payerId, setPayerId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!selectedScope?.organizationId) return;
+    setIsExporting(true);
+    try {
+      const response = await adminApi.exportPaymentsCsv({
+        organizationId: selectedScope.organizationId,
+        status: statusFilter || undefined,
+        payerId: payerId.trim() || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      });
+      downloadAxiosBlob(
+        response,
+        `payments-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+    } catch (error) {
+      alert(
+        getApiErrorMessage(error, "The payment report could not be exported."),
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const { data, isLoading } = useAdminPaymentHistory({
     page: currentPage,
@@ -126,11 +157,7 @@ export function PaymentsView() {
     });
   };
 
-  const handleDownload = (id: string, ref: string) => {
-    alert(`Downloading receipt ${ref}...`);
-  };
-
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
@@ -144,21 +171,31 @@ export function PaymentsView() {
   }
 
   return (
-    <div>
-      {/* Page Header */}
-      <div className="flex items-start justify-between gap-3 mb-6 flex-wrap">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">
-            Payments
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            View completed, pending, and failed due payments
-          </p>
-        </div>
-      </div>
+    <div className="operations-page">
+      <PageHeader
+        eyebrow="Finance"
+        title="Payments"
+        description="Review completed, pending, and failed due payments."
+        actions={
+          hasPermission("finance:export") && (
+            <button
+              className="btn btn-secondary"
+              onClick={handleExport}
+              disabled={isExporting || !selectedScope?.organizationId}
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isExporting ? "Exporting…" : "Export CSV"}
+            </button>
+          )
+        }
+      />
 
       {/* Filter Bar */}
-      <div className="flex gap-3 mb-6 flex-wrap items-center">
+      <div className="operations-toolbar">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -190,11 +227,39 @@ export function PaymentsView() {
           <option value="CANCELLED">Cancelled</option>
         </select>
 
-        {(search || statusFilter) && (
+        <input
+          type="text"
+          value={payerId}
+          onChange={(e) => setPayerId(e.target.value)}
+          placeholder="Payer ID"
+          aria-label="Payer ID"
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none bg-white border-slate-200 focus:border-[#1a5cff]"
+        />
+        <input
+          type="date"
+          value={startDate}
+          max={endDate || undefined}
+          onChange={(e) => setStartDate(e.target.value)}
+          aria-label="Start date"
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none bg-white border-slate-200 focus:border-[#1a5cff]"
+        />
+        <input
+          type="date"
+          value={endDate}
+          min={startDate || undefined}
+          onChange={(e) => setEndDate(e.target.value)}
+          aria-label="End date"
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none bg-white border-slate-200 focus:border-[#1a5cff]"
+        />
+
+        {(search || statusFilter || payerId || startDate || endDate) && (
           <button
             onClick={() => {
               setSearch("");
               setStatusFilter("");
+              setPayerId("");
+              setStartDate("");
+              setEndDate("");
               setCurrentPage(1);
             }}
             className="px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"
@@ -206,7 +271,7 @@ export function PaymentsView() {
 
       {/* Payments Table */}
       <div
-        className="bg-white border rounded-xl overflow-hidden"
+        className="operations-surface"
         style={{ borderColor: "var(--color-border)" }}
       >
         {filteredPayments.length === 0 ? (
@@ -245,9 +310,6 @@ export function PaymentsView() {
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Status
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">
-                    Actions
                   </th>
                 </tr>
               </thead>
@@ -332,28 +394,6 @@ export function PaymentsView() {
                           />
                           {statusColor.label}
                         </span>
-                      </td>
-                      <td className="px-4 py-3.5 align-middle text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => alert(`View payment: ${reference}`)}
-                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-blue-50 text-slate-400 hover:text-blue-600 cursor-pointer flex items-center justify-center transition-colors"
-                            title="View Receipt"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              receipt &&
-                              handleDownload(receipt.id, receipt.receiptNumber)
-                            }
-                            disabled={!receipt}
-                            className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 cursor-pointer flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Download Receipt"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   );
