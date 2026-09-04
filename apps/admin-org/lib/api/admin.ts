@@ -732,6 +732,18 @@ export const adminApi = {
     return response.data;
   },
 
+  exportPaymentsCsv: async (params?: {
+    organizationId?: string;
+    status?: PaymentHistoryStatus;
+    payerId?: string;
+    startDate?: string;
+    endDate?: string;
+  }) =>
+    axiosConfig.get<Blob>("/v1/finance/reports/payments.csv", {
+      params,
+      responseType: "blob",
+    }),
+
   getOrganizationFinanceOverview: async (
     organizationId: string,
     academicSessionId?: string,

@@ -35,6 +35,11 @@ import {
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import DataTable from "./DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
+import { usePlatformOrganizations } from "@/hooks/platform/usePlatformOrganizations";
+import { platformApi } from "@/lib/api/platform";
+import { downloadAxiosBlob } from "@/lib/download";
+import { getApiErrorMessage } from "@/lib/api/error";
+import { useApp } from "@/app/context/AppContext";
 
 // Import the new components
 import BankAccountsView from "./BankAccountsView";
@@ -43,9 +48,42 @@ import WithdrawalsView from "./WithdrawalsView";
 type FinanceTab = "overview" | "bank-accounts" | "withdrawals";
 
 export default function FinanceView() {
+  const { showToast } = useApp();
   const [period, setPeriod] = useState("monthly");
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<FinanceTab>("overview");
+  const [organizationId, setOrganizationId] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("");
+  const [payerId, setPayerId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+  const { data: organizationsData } = usePlatformOrganizations({ limit: 100 });
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const response = await platformApi.exportPaymentsCsv({
+        organizationId: organizationId || undefined,
+        status: paymentStatus || undefined,
+        payerId: payerId.trim() || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      });
+      downloadAxiosBlob(
+        response,
+        `payments-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+      showToast("Payment report downloaded.");
+    } catch (error) {
+      showToast(
+        getApiErrorMessage(error, "The payment report could not be exported."),
+        "danger",
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const {
     data: overview,
@@ -230,21 +268,40 @@ export default function FinanceView() {
             </div>
             <div className="card-body grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <div className="text-xs font-medium text-slate-500">Gross earnings</div>
-                <div className="mt-1 text-xl font-bold text-slate-900">{overview.platformEarnings.grossAmountFormatted}</div>
+                <div className="text-xs font-medium text-slate-500">
+                  Gross earnings
+                </div>
+                <div className="mt-1 text-xl font-bold text-slate-900">
+                  {overview.platformEarnings.grossAmountFormatted}
+                </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-500">Withdrawn</div>
-                <div className="mt-1 text-xl font-bold text-slate-900">{overview.platformEarnings.withdrawnAmountFormatted}</div>
-                <div className="text-xs text-slate-400">{overview.platformEarnings.withdrawalCount} withdrawal{overview.platformEarnings.withdrawalCount === 1 ? "" : "s"}</div>
+                <div className="text-xs font-medium text-slate-500">
+                  Withdrawn
+                </div>
+                <div className="mt-1 text-xl font-bold text-slate-900">
+                  {overview.platformEarnings.withdrawnAmountFormatted}
+                </div>
+                <div className="text-xs text-slate-400">
+                  {overview.platformEarnings.withdrawalCount} withdrawal
+                  {overview.platformEarnings.withdrawalCount === 1 ? "" : "s"}
+                </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-500">Provider fees</div>
-                <div className="mt-1 text-xl font-bold text-amber-600">{overview.platformEarnings.payoutProviderFeesFormatted}</div>
+                <div className="text-xs font-medium text-slate-500">
+                  Provider fees
+                </div>
+                <div className="mt-1 text-xl font-bold text-amber-600">
+                  {overview.platformEarnings.payoutProviderFeesFormatted}
+                </div>
               </div>
               <div>
-                <div className="text-xs font-medium text-slate-500">Available net earnings</div>
-                <div className="mt-1 text-xl font-bold text-emerald-600">{overview.platformEarnings.amountFormatted}</div>
+                <div className="text-xs font-medium text-slate-500">
+                  Available net earnings
+                </div>
+                <div className="mt-1 text-xl font-bold text-emerald-600">
+                  {overview.platformEarnings.amountFormatted}
+                </div>
               </div>
             </div>
           </div>
@@ -319,58 +376,53 @@ export default function FinanceView() {
         </div>
 
         {/* Recent Payments */}
-        {overview?.recentPayments &&
-          overview.recentPayments.length > 0 && (
-            <div className="card mb-6">
-              <div className="card-header">
-                <h3>Recent Payments</h3>
-                <button className="action">View all →</button>
-              </div>
-              <div className="card-body p-0">
-                <div className="table-responsive">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Amount</th>
-                        <th>Payer</th>
-                        <th>Organization</th>
-                        <th>Date</th>
-                        <th>Status</th>
+        {overview?.recentPayments && overview.recentPayments.length > 0 && (
+          <div className="card mb-6">
+            <div className="card-header">
+              <h3>Recent Payments</h3>
+              <button className="action">View all →</button>
+            </div>
+            <div className="card-body p-0">
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Amount</th>
+                      <th>Payer</th>
+                      <th>Organization</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overview.recentPayments.map((payment, index) => (
+                      <tr key={payment.id || index}>
+                        <td className="font-bold">
+                          {payment.amountFormatted ||
+                            formatKoboCurrency(payment.amount)}
+                        </td>
+                        <td>{payment.payer || "Unknown"}</td>
+                        <td>{payment.organization || "Unknown"}</td>
+                        <td>
+                          {payment.createdAt
+                            ? new Date(payment.createdAt).toLocaleDateString()
+                            : "N/A"}
+                        </td>
+                        <td>
+                          <span
+                            className={`status-badge ${(payment.status || "COMPLETED").toLowerCase()}`}
+                          >
+                            {payment.status || "COMPLETED"}
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {overview.recentPayments.map(
-                        (payment, index) => (
-                          <tr key={payment.id || index}>
-                            <td className="font-bold">
-                              {payment.amountFormatted ||
-                                formatKoboCurrency(payment.amount)}
-                            </td>
-                            <td>{payment.payer || "Unknown"}</td>
-                            <td>{payment.organization || "Unknown"}</td>
-                            <td>
-                              {payment.createdAt
-                                ? new Date(
-                                    payment.createdAt,
-                                  ).toLocaleDateString()
-                                : "N/A"}
-                            </td>
-                            <td>
-                              <span
-                                className={`status-badge ${(payment.status || "COMPLETED").toLowerCase()}`}
-                              >
-                                {payment.status || "COMPLETED"}
-                              </span>
-                            </td>
-                          </tr>
-                        ),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
         {/* Transactions Table */}
         <div className="card">
@@ -443,11 +495,82 @@ export default function FinanceView() {
           </select>
           <button
             className="btn btn-secondary"
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            {isExporting ? "Exporting…" : "Export CSV"}
+          </button>
+          <button
+            className="btn btn-secondary"
             onClick={() => refetchOverview()}
           >
-            <Download className="w-4 h-4" /> Refresh
+            <RefreshCw className="w-4 h-4" /> Refresh
           </button>
         </div>
+      </div>
+
+      <div className="operations-toolbar mb-6 flex flex-wrap gap-3">
+        <select
+          value={organizationId}
+          onChange={(e) => setOrganizationId(e.target.value)}
+          aria-label="Organization"
+          className="px-3 py-2 border rounded-lg text-sm bg-white border-slate-200"
+        >
+          <option value="">All organizations</option>
+          {(organizationsData?.data || []).map((organization) => (
+            <option key={organization.id} value={organization.id}>
+              {organization.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={paymentStatus}
+          onChange={(e) => setPaymentStatus(e.target.value)}
+          aria-label="Payment status"
+          className="px-3 py-2 border rounded-lg text-sm bg-white border-slate-200"
+        >
+          <option value="">All statuses</option>
+          {[
+            "PENDING",
+            "PROCESSING",
+            "COMPLETED",
+            "FAILED",
+            "EXPIRED",
+            "CANCELLED",
+          ].map((status) => (
+            <option key={status} value={status}>
+              {status[0] + status.slice(1).toLowerCase()}
+            </option>
+          ))}
+        </select>
+        <input
+          value={payerId}
+          onChange={(e) => setPayerId(e.target.value)}
+          placeholder="Payer ID"
+          aria-label="Payer ID"
+          className="px-3 py-2 border rounded-lg text-sm bg-white border-slate-200"
+        />
+        <input
+          type="date"
+          value={startDate}
+          max={endDate || undefined}
+          onChange={(e) => setStartDate(e.target.value)}
+          aria-label="Start date"
+          className="px-3 py-2 border rounded-lg text-sm bg-white border-slate-200"
+        />
+        <input
+          type="date"
+          value={endDate}
+          min={startDate || undefined}
+          onChange={(e) => setEndDate(e.target.value)}
+          aria-label="End date"
+          className="px-3 py-2 border rounded-lg text-sm bg-white border-slate-200"
+        />
       </div>
 
       {/* Finance Tabs */}

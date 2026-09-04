@@ -9,10 +9,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Download,
 } from "lucide-react";
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import { useAdminContext } from "./AdminContext";
 import { PageHeader } from "./OperationsUI";
+import { adminApi } from "@/lib/api/admin";
+import { downloadAxiosBlob } from "@/lib/download";
+import { getApiErrorMessage } from "@/lib/api/error";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -71,12 +75,40 @@ const STATUS_COLORS: Record<
 };
 
 export function PaymentsView() {
-  const { selectedScope } = useAdminContext();
+  const { selectedScope, hasPermission } = useAdminContext();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PaymentHistoryStatus | "">(
     "",
   );
   const [currentPage, setCurrentPage] = useState(1);
+  const [payerId, setPayerId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!selectedScope?.organizationId) return;
+    setIsExporting(true);
+    try {
+      const response = await adminApi.exportPaymentsCsv({
+        organizationId: selectedScope.organizationId,
+        status: statusFilter || undefined,
+        payerId: payerId.trim() || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      });
+      downloadAxiosBlob(
+        response,
+        `payments-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
+    } catch (error) {
+      alert(
+        getApiErrorMessage(error, "The payment report could not be exported."),
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const { data, isLoading } = useAdminPaymentHistory({
     page: currentPage,
@@ -140,7 +172,27 @@ export function PaymentsView() {
 
   return (
     <div className="operations-page">
-      <PageHeader eyebrow="Finance" title="Payments" description="Review completed, pending, and failed due payments." />
+      <PageHeader
+        eyebrow="Finance"
+        title="Payments"
+        description="Review completed, pending, and failed due payments."
+        actions={
+          hasPermission("finance:export") && (
+            <button
+              className="btn btn-secondary"
+              onClick={handleExport}
+              disabled={isExporting || !selectedScope?.organizationId}
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {isExporting ? "Exporting…" : "Export CSV"}
+            </button>
+          )
+        }
+      />
 
       {/* Filter Bar */}
       <div className="operations-toolbar">
@@ -175,11 +227,39 @@ export function PaymentsView() {
           <option value="CANCELLED">Cancelled</option>
         </select>
 
-        {(search || statusFilter) && (
+        <input
+          type="text"
+          value={payerId}
+          onChange={(e) => setPayerId(e.target.value)}
+          placeholder="Payer ID"
+          aria-label="Payer ID"
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none bg-white border-slate-200 focus:border-[#1a5cff]"
+        />
+        <input
+          type="date"
+          value={startDate}
+          max={endDate || undefined}
+          onChange={(e) => setStartDate(e.target.value)}
+          aria-label="Start date"
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none bg-white border-slate-200 focus:border-[#1a5cff]"
+        />
+        <input
+          type="date"
+          value={endDate}
+          min={startDate || undefined}
+          onChange={(e) => setEndDate(e.target.value)}
+          aria-label="End date"
+          className="px-3 py-2.5 border-2 rounded-lg text-sm outline-none bg-white border-slate-200 focus:border-[#1a5cff]"
+        />
+
+        {(search || statusFilter || payerId || startDate || endDate) && (
           <button
             onClick={() => {
               setSearch("");
               setStatusFilter("");
+              setPayerId("");
+              setStartDate("");
+              setEndDate("");
               setCurrentPage(1);
             }}
             className="px-3 py-2.5 border-2 rounded-lg text-sm font-medium text-slate-500 hover:text-red-600 hover:border-red-300 transition-all bg-white border-slate-200"

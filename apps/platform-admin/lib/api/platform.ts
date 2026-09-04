@@ -530,6 +530,18 @@ export const platformApi = {
     return response.data;
   },
 
+  exportPaymentsCsv: async (params?: {
+    organizationId?: string;
+    status?: string;
+    payerId?: string;
+    startDate?: string;
+    endDate?: string;
+  }) =>
+    axiosConfig.get<Blob>("/v1/finance/reports/payments.csv", {
+      params,
+      responseType: "blob",
+    }),
+
   // ============ Announcements ============
   getAnnouncements: async (params?: {
     organizationId?: string;
