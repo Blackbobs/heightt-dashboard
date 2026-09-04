@@ -128,7 +128,12 @@ export interface InstitutionPromotionResult {
   institution: { id: string; name: string };
   previousSession: { id: string; name: string };
   currentSession: { id: string; name: string; generated: boolean };
-  summary: { eligible: number; promoted: number; graduated: number; skipped: number };
+  summary: {
+    eligible: number;
+    promoted: number;
+    graduated: number;
+    skipped: number;
+  };
 }
 
 export interface InstitutionResponseDto {
@@ -267,10 +272,11 @@ export interface CreateOrganizationDto {
     | "CROSS_DEPARTMENT"
     | "CROSS_LEVEL"
     | "CUSTOM";
-  institutionId: string;
+  institutionId?: string;
   facultyId?: string;
   departmentId?: string;
   academicLevelId?: string;
+  academicSessionId?: string;
   parentOrganizationId?: string;
 }
 
@@ -313,7 +319,8 @@ export interface OrganizationMemberResponseDto {
   userId: string;
   userName: string;
   userEmail: string;
-  membershipType: "STUDENT" | "ADMIN" | "STAFF" | "ALUMNI" | "HONORARY";
+  membershipType:
+    "MEMBER" | "STUDENT" | "ADMIN" | "STAFF" | "ALUMNI" | "HONORARY";
   status: "INVITED" | "PENDING" | "ACTIVE" | "SUSPENDED" | "LEFT" | "REMOVED";
   isPrimary: boolean;
   joinedAt: string;
@@ -350,7 +357,8 @@ export interface OrganizationResponseDto {
     | "INACTIVE"
     | "SUSPENDED"
     | "ARCHIVED";
-  institutionId: string;
+  institutionId: string | null;
+  institution?: InstitutionResponseDto | null;
   facultyId?: string;
   departmentId?: string;
   academicLevelId?: string;
@@ -373,7 +381,8 @@ export interface OrganizationListResponseDto {
 
 export interface AddMemberDto {
   userId: string;
-  membershipType: "STUDENT" | "ADMIN" | "STAFF" | "ALUMNI" | "HONORARY";
+  membershipType:
+    "MEMBER" | "STUDENT" | "ADMIN" | "STAFF" | "ALUMNI" | "HONORARY";
   status?: "INVITED" | "PENDING" | "ACTIVE" | "SUSPENDED" | "LEFT" | "REMOVED";
   isPrimary?: boolean;
   sessionId?: string;
@@ -381,7 +390,8 @@ export interface AddMemberDto {
 
 export interface UpdateMemberDto {
   status?: "INVITED" | "PENDING" | "ACTIVE" | "SUSPENDED" | "LEFT" | "REMOVED";
-  membershipType?: "STUDENT" | "ADMIN" | "STAFF" | "ALUMNI" | "HONORARY";
+  membershipType?:
+    "MEMBER" | "STUDENT" | "ADMIN" | "STAFF" | "ALUMNI" | "HONORARY";
   isPrimary?: boolean;
 }
 
@@ -1070,7 +1080,9 @@ export interface WithdrawalQuoteDto {
   totalDebit: number;
   maxWithdrawable: number;
   canWithdraw: boolean;
-  feePolicy: "WITHDRAWAL_FEE_APPLIES" | "FEE_FREE";
+  feePolicy: "PROVIDER_FEE_ONLY" | "WITHDRAWAL_FEE_APPLIES";
+  platformFee: number;
+  providerFee: number;
   currency: "NGN";
   currencyUnit: "KOBO";
 }

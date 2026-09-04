@@ -69,6 +69,7 @@ export default function OrganizationsView() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
+    affiliationMode: "INDEPENDENT" as "INDEPENDENT" | "INSTITUTION",
     name: "",
     slug: "",
     description: "",
@@ -184,8 +185,31 @@ export default function OrganizationsView() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.institutionId) {
+    const isIndependent = formData.affiliationMode === "INDEPENDENT";
+    const academicType = [
+      "INSTITUTION",
+      "FACULTY",
+      "DEPARTMENT",
+      "LEVEL",
+    ].includes(formData.type);
+    const academicScope = [
+      "INSTITUTION",
+      "FACULTY",
+      "DEPARTMENT",
+      "LEVEL",
+      "CROSS_DEPARTMENT",
+      "CROSS_LEVEL",
+    ].includes(formData.scope);
+
+    if (!isIndependent && !formData.institutionId) {
       alert("Please select an institution");
+      return;
+    }
+
+    if (isIndependent && (academicType || academicScope)) {
+      alert(
+        "Independent organizations must use a non-academic type and custom scope.",
+      );
       return;
     }
 
@@ -206,25 +230,27 @@ export default function OrganizationsView() {
       name: formData.name,
       slug: formData.slug,
       type: formData.type,
-      scope: formData.scope,
-      institutionId: formData.institutionId,
+      scope: isIndependent ? "CUSTOM" : formData.scope,
     };
+
+    if (!isIndependent) data.institutionId = formData.institutionId;
 
     if (formData.description) data.description = formData.description;
     if (formData.logo) data.logo = formData.logo;
-    if (formData.facultyId && showFacultyField)
+    if (!isIndependent && formData.facultyId && showFacultyField)
       data.facultyId = formData.facultyId;
-    if (formData.departmentId && showDepartmentField)
+    if (!isIndependent && formData.departmentId && showDepartmentField)
       data.departmentId = formData.departmentId;
-    if (formData.academicLevelId && showLevelField)
+    if (!isIndependent && formData.academicLevelId && showLevelField)
       data.academicLevelId = formData.academicLevelId;
-    if (formData.academicSessionId)
+    if (!isIndependent && formData.academicSessionId)
       data.academicSessionId = formData.academicSessionId;
 
     try {
       await createMutation.mutateAsync(data);
       setIsModalOpen(false);
       setFormData({
+        affiliationMode: "INDEPENDENT",
         name: "",
         slug: "",
         description: "",
@@ -290,7 +316,8 @@ export default function OrganizationsView() {
       },
       { accessorFn: (r) => r.type, id: "type", header: "Type" },
       {
-        accessorFn: (r) => r.institution?.name || r.institutionId,
+        accessorFn: (r) =>
+          r.institution?.name || r.institutionId || "Independent organization",
         id: "institution",
         header: "Institution",
       },
@@ -513,6 +540,35 @@ export default function OrganizationsView() {
             </div>
             <form onSubmit={handleCreate}>
               <div className="form-group">
+                <label className="form-label">Affiliation *</label>
+                <select
+                  className="form-select"
+                  value={formData.affiliationMode}
+                  onChange={(e) => {
+                    const affiliationMode = e.target.value as
+                      "INDEPENDENT" | "INSTITUTION";
+                    setFormData({
+                      ...formData,
+                      affiliationMode,
+                      ...(affiliationMode === "INDEPENDENT"
+                        ? {
+                            type: "ASSOCIATION",
+                            scope: "CUSTOM",
+                            institutionId: "",
+                            facultyId: "",
+                            departmentId: "",
+                            academicLevelId: "",
+                            academicSessionId: "",
+                          }
+                        : {}),
+                    });
+                  }}
+                >
+                  <option value="INDEPENDENT">Independent organization</option>
+                  <option value="INSTITUTION">Institution-affiliated</option>
+                </select>
+              </div>
+              <div className="form-group">
                 <label className="form-label">Organization Name *</label>
                 <input
                   type="text"
@@ -560,7 +616,17 @@ export default function OrganizationsView() {
                   }}
                   required
                 >
-                  {ORGANIZATION_TYPES.map((type) => (
+                  {ORGANIZATION_TYPES.filter((type) =>
+                    formData.affiliationMode === "INDEPENDENT"
+                      ? [
+                          "ASSOCIATION",
+                          "CLUB",
+                          "RELIGIOUS",
+                          "SPORTS",
+                          "SPECIAL",
+                        ].includes(type.value)
+                      : true,
+                  ).map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>
@@ -568,124 +634,130 @@ export default function OrganizationsView() {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Scope *</label>
-                <select
-                  className="form-select"
-                  value={formData.scope}
-                  onChange={(e) =>
-                    setFormData({ ...formData, scope: e.target.value })
-                  }
-                  required
-                >
-                  {ORGANIZATION_SCOPES.map((scope) => (
-                    <option key={scope.value} value={scope.value}>
-                      {scope.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Institution *</label>
-                <select
-                  className="form-select"
-                  value={formData.institutionId}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData({
-                      ...formData,
-                      institutionId: value,
-                      facultyId: "",
-                      departmentId: "",
-                      academicSessionId: "",
-                    });
-                  }}
-                  required
-                >
-                  <option value="">Select Institution</option>
-                  {institutions.map((inst: any) => (
-                    <option key={inst.id} value={inst.id}>
-                      {inst.name} ({inst.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {showFacultyField && (
+              {formData.affiliationMode === "INSTITUTION" && (
                 <div className="form-group">
-                  <label className="form-label">
-                    Faculty {formData.type !== "FACULTY" ? "(Optional)" : "*"}
-                  </label>
+                  <label className="form-label">Scope *</label>
                   <select
                     className="form-select"
-                    value={formData.facultyId}
+                    value={formData.scope}
+                    onChange={(e) =>
+                      setFormData({ ...formData, scope: e.target.value })
+                    }
+                    required
+                  >
+                    {ORGANIZATION_SCOPES.map((scope) => (
+                      <option key={scope.value} value={scope.value}>
+                        {scope.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {formData.affiliationMode === "INSTITUTION" && (
+                <div className="form-group">
+                  <label className="form-label">Institution *</label>
+                  <select
+                    className="form-select"
+                    value={formData.institutionId}
                     onChange={(e) => {
                       const value = e.target.value;
                       setFormData({
                         ...formData,
-                        facultyId: value,
+                        institutionId: value,
+                        facultyId: "",
                         departmentId: "",
+                        academicSessionId: "",
                       });
                     }}
-                    disabled={!formData.institutionId || facultiesLoading}
-                    required={formData.type === "FACULTY"}
+                    required
                   >
-                    <option value="">
-                      {!formData.institutionId
-                        ? "Please select an institution first"
-                        : facultiesLoading
-                          ? "Loading faculties..."
-                          : formData.type === "FACULTY"
-                            ? "Select Faculty"
-                            : "None"}
-                    </option>
-                    {filteredFaculties.map((faculty: any) => (
-                      <option key={faculty.id} value={faculty.id}>
-                        {faculty.name} ({faculty.code})
+                    <option value="">Select Institution</option>
+                    {institutions.map((inst: any) => (
+                      <option key={inst.id} value={inst.id}>
+                        {inst.name} ({inst.code})
                       </option>
                     ))}
                   </select>
                 </div>
               )}
 
-              {showDepartmentField && (
-                <div className="form-group">
-                  <label className="form-label">
-                    Department{" "}
-                    {formData.type !== "DEPARTMENT" ? "(Optional)" : "*"}
-                  </label>
-                  <select
-                    className="form-select"
-                    value={formData.departmentId}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        departmentId: e.target.value,
-                      })
-                    }
-                    disabled={!formData.facultyId || departmentsLoading}
-                    required={formData.type === "DEPARTMENT"}
-                  >
-                    <option value="">
-                      {!formData.facultyId
-                        ? "Please select a faculty first"
-                        : departmentsLoading
-                          ? "Loading departments..."
-                          : formData.type === "DEPARTMENT"
-                            ? "Select Department"
-                            : "None"}
-                    </option>
-                    {filteredDepartments.map((dept: any) => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name} ({dept.code})
+              {formData.affiliationMode === "INSTITUTION" &&
+                showFacultyField && (
+                  <div className="form-group">
+                    <label className="form-label">
+                      Faculty {formData.type !== "FACULTY" ? "(Optional)" : "*"}
+                    </label>
+                    <select
+                      className="form-select"
+                      value={formData.facultyId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          facultyId: value,
+                          departmentId: "",
+                        });
+                      }}
+                      disabled={!formData.institutionId || facultiesLoading}
+                      required={formData.type === "FACULTY"}
+                    >
+                      <option value="">
+                        {!formData.institutionId
+                          ? "Please select an institution first"
+                          : facultiesLoading
+                            ? "Loading faculties..."
+                            : formData.type === "FACULTY"
+                              ? "Select Faculty"
+                              : "None"}
                       </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                      {filteredFaculties.map((faculty: any) => (
+                        <option key={faculty.id} value={faculty.id}>
+                          {faculty.name} ({faculty.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-              {showLevelField && (
+              {formData.affiliationMode === "INSTITUTION" &&
+                showDepartmentField && (
+                  <div className="form-group">
+                    <label className="form-label">
+                      Department{" "}
+                      {formData.type !== "DEPARTMENT" ? "(Optional)" : "*"}
+                    </label>
+                    <select
+                      className="form-select"
+                      value={formData.departmentId}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          departmentId: e.target.value,
+                        })
+                      }
+                      disabled={!formData.facultyId || departmentsLoading}
+                      required={formData.type === "DEPARTMENT"}
+                    >
+                      <option value="">
+                        {!formData.facultyId
+                          ? "Please select a faculty first"
+                          : departmentsLoading
+                            ? "Loading departments..."
+                            : formData.type === "DEPARTMENT"
+                              ? "Select Department"
+                              : "None"}
+                      </option>
+                      {filteredDepartments.map((dept: any) => (
+                        <option key={dept.id} value={dept.id}>
+                          {dept.name} ({dept.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+              {formData.affiliationMode === "INSTITUTION" && showLevelField && (
                 <div className="form-group">
                   <label className="form-label">Academic Level *</label>
                   <select
@@ -709,36 +781,38 @@ export default function OrganizationsView() {
                 </div>
               )}
 
-              <div className="form-group">
-                <label className="form-label">Academic Session</label>
-                <select
-                  className="form-select"
-                  value={formData.academicSessionId}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      academicSessionId: e.target.value,
-                    })
-                  }
-                  disabled={!formData.institutionId || sessionsLoading}
-                >
-                  <option value="">
-                    {!formData.institutionId
-                      ? "Please select an institution first"
-                      : sessionsLoading
-                        ? "Loading sessions..."
-                        : "Select Academic Session (Optional)"}
-                  </option>
-                  {sessions.map((session: any) => (
-                    <option key={session.id} value={session.id}>
-                      {session.name} {session.isCurrent ? "(Current)" : ""}
+              {formData.affiliationMode === "INSTITUTION" && (
+                <div className="form-group">
+                  <label className="form-label">Academic Session</label>
+                  <select
+                    className="form-select"
+                    value={formData.academicSessionId}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        academicSessionId: e.target.value,
+                      })
+                    }
+                    disabled={!formData.institutionId || sessionsLoading}
+                  >
+                    <option value="">
+                      {!formData.institutionId
+                        ? "Please select an institution first"
+                        : sessionsLoading
+                          ? "Loading sessions..."
+                          : "Select Academic Session (Optional)"}
                     </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-400 mt-1">
-                  Assign this organization to a specific academic session
-                </p>
-              </div>
+                    {sessions.map((session: any) => (
+                      <option key={session.id} value={session.id}>
+                        {session.name} {session.isCurrent ? "(Current)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Assign this organization to a specific academic session
+                  </p>
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label">Description</label>
@@ -755,7 +829,9 @@ export default function OrganizationsView() {
 
               <LogoUploader
                 value={formData.logo}
-                onChange={(url) => setFormData({ ...formData, logo: url || "" })}
+                onChange={(url) =>
+                  setFormData({ ...formData, logo: url || "" })
+                }
                 folder="logos"
                 label="Organization Logo"
               />

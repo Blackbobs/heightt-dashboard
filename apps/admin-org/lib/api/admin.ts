@@ -102,7 +102,12 @@ export interface AdminScope {
   departmentId?: string;
   academicLevelId?: string;
   academicSessionId?: string;
-  academicSession?: { id: string; name: string; status?: string; isCurrent?: boolean };
+  academicSession?: {
+    id: string;
+    name: string;
+    status?: string;
+    isCurrent?: boolean;
+  };
   organization?: {
     id: string;
     name: string;
@@ -150,7 +155,12 @@ export interface InstitutionPromotionResult {
   institution: { id: string; name: string };
   previousSession: { id: string; name: string };
   currentSession: { id: string; name: string; generated: boolean };
-  summary: { eligible: number; promoted: number; graduated: number; skipped: number };
+  summary: {
+    eligible: number;
+    promoted: number;
+    graduated: number;
+    skipped: number;
+  };
 }
 
 // ============ Student Types ============
@@ -460,7 +470,9 @@ export interface WithdrawalQuote {
   totalDebit: number;
   maxWithdrawable: number;
   canWithdraw: boolean;
-  feePolicy: "WITHDRAWAL_FEE_APPLIES" | "FEE_FREE";
+  feePolicy: "PROVIDER_FEE_ONLY" | "WITHDRAWAL_FEE_APPLIES";
+  platformFee: number;
+  providerFee: number;
   currency: "NGN";
   currencyUnit: "KOBO";
 }
@@ -573,8 +585,13 @@ export const adminApi = {
     return response.data;
   },
 
-  getStudent: async (id: string, academicSessionId?: string): Promise<Student> => {
-    const response = await axiosConfig.get(`/v1/students/${id}`, { params: { academicSessionId } });
+  getStudent: async (
+    id: string,
+    academicSessionId?: string,
+  ): Promise<Student> => {
+    const response = await axiosConfig.get(`/v1/students/${id}`, {
+      params: { academicSessionId },
+    });
     return response.data;
   },
 
@@ -597,16 +614,27 @@ export const adminApi = {
     return response.data;
   },
 
-  getInstitutionSessions: async (institutionId: string): Promise<AcademicSession[]> => {
-    const response = await axiosConfig.get(`/v1/institutions/${encodeURIComponent(institutionId)}/academic-sessions`);
+  getInstitutionSessions: async (
+    institutionId: string,
+  ): Promise<AcademicSession[]> => {
+    const response = await axiosConfig.get(
+      `/v1/institutions/${encodeURIComponent(institutionId)}/academic-sessions`,
+    );
     return response.data;
   },
 
-  promoteInstitution: async (institutionId: string, currentSessionId: string, notes?: string): Promise<InstitutionPromotionResult> => {
-    const response = await axiosConfig.post(`/v1/students/institutions/${encodeURIComponent(institutionId)}/promote`, {
-      currentSessionId,
-      ...(notes?.trim() ? { notes: notes.trim() } : {}),
-    });
+  promoteInstitution: async (
+    institutionId: string,
+    currentSessionId: string,
+    notes?: string,
+  ): Promise<InstitutionPromotionResult> => {
+    const response = await axiosConfig.post(
+      `/v1/students/institutions/${encodeURIComponent(institutionId)}/promote`,
+      {
+        currentSessionId,
+        ...(notes?.trim() ? { notes: notes.trim() } : {}),
+      },
+    );
     return response.data;
   },
 
@@ -625,7 +653,10 @@ export const adminApi = {
   },
 
   // ============ Finance ============
-  getWallet: async (organizationId: string, academicSessionId?: string): Promise<Wallet> => {
+  getWallet: async (
+    organizationId: string,
+    academicSessionId?: string,
+  ): Promise<Wallet> => {
     const response = await axiosConfig.get(
       `/v1/finance/wallet/organization/${organizationId}`,
       { params: { academicSessionId } },
@@ -1019,7 +1050,11 @@ export const adminQueryKeys = {
   auth: {
     user: ["admin", "auth", "user"],
   },
-  academicSessions: (institutionId: string) => ["admin", "academic-sessions", institutionId],
+  academicSessions: (institutionId: string) => [
+    "admin",
+    "academic-sessions",
+    institutionId,
+  ],
   dashboard: {
     stats: (organizationId: string) => [
       "admin",

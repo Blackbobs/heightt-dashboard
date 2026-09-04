@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   usePlatformWithdrawals,
   useApproveUserWithdrawal,
@@ -58,9 +58,9 @@ export default function WithdrawalsView() {
   const [statusFilter, setStatusFilter] = useState("PENDING");
   const [typeFilter, setTypeFilter] = useState("ORGANIZATION");
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedWithdrawalSnapshot, setSelectedWithdrawal] = useState<any | null>(
-    null,
-  );
+  const [selectedWithdrawalSnapshot, setSelectedWithdrawal] = useState<
+    any | null
+  >(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [requestType, setRequestType] = useState<
@@ -70,6 +70,7 @@ export default function WithdrawalsView() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [balanceError, setBalanceError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [formData, setFormData] = useState({
     bankAccountId: "",
@@ -96,11 +97,28 @@ export default function WithdrawalsView() {
   const requestUserMutation = useRequestUserWithdrawal();
   const requestOrgMutation = useRequestOrganizationWithdrawal();
   const requestPlatformMutation = useRequestPlatformWithdrawal();
-  const requestedAmountInKobo = formData.amount > 0 ? Math.round(formData.amount * 100) : undefined;
-  const quoteQuery = usePlatformWithdrawalQuote(requestedAmountInKobo);
+  const requestedAmountInKobo =
+    formData.amount > 0 ? Math.round(formData.amount * 100) : undefined;
+  const [debouncedAmountInKobo, setDebouncedAmountInKobo] = useState<
+    number | undefined
+  >();
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedAmountInKobo(requestedAmountInKobo),
+      350,
+    );
+    return () => window.clearTimeout(timer);
+  }, [requestedAmountInKobo]);
+  const quoteQuery = usePlatformWithdrawalQuote(debouncedAmountInKobo);
   const quote = quoteQuery.data;
-  const selectedWithdrawalQuery = usePlatformWithdrawal(isDetailModalOpen ? selectedWithdrawalSnapshot?.id || "" : "");
-  const selectedWithdrawal = selectedWithdrawalQuery.data || selectedWithdrawalSnapshot;
+  const quoteMatchesAmount =
+    requestedAmountInKobo === undefined ||
+    quote?.requestedAmount === requestedAmountInKobo;
+  const selectedWithdrawalQuery = usePlatformWithdrawal(
+    isDetailModalOpen ? selectedWithdrawalSnapshot?.id || "" : "",
+  );
+  const selectedWithdrawal =
+    selectedWithdrawalQuery.data || selectedWithdrawalSnapshot;
 
   const withdrawals = data?.data || [];
   const meta = data?.meta;
@@ -162,7 +180,11 @@ export default function WithdrawalsView() {
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     const amountInKobo = Math.round(formData.amount * 100);
-    if (!Number.isSafeInteger(amountInKobo) || amountInKobo <= 0) return;
+    if (!Number.isSafeInteger(amountInKobo) || amountInKobo < 100) return;
+    if (!quote || !quoteMatchesAmount || !quote.canWithdraw) {
+      setBalanceError("Please wait for the withdrawal amount to be validated.");
+      return;
+    }
     try {
       await requestPlatformMutation.mutateAsync({
         bankAccountId: formData.bankAccountId,
@@ -171,6 +193,9 @@ export default function WithdrawalsView() {
       });
       setIsRequestModalOpen(false);
       setBalanceError("");
+      setSuccessMessage(
+        "Your withdrawal has been submitted to Bachs and is processing.",
+      );
       setFormData({
         bankAccountId: "",
         organizationId: "",
@@ -179,10 +204,16 @@ export default function WithdrawalsView() {
       });
       refetch();
     } catch (error) {
-      const response = (error as { response?: { data?: { code?: string; maxWithdrawable?: number } } }).response?.data;
+      const response = (
+        error as {
+          response?: { data?: { code?: string; maxWithdrawable?: number } };
+        }
+      ).response?.data;
       if (response?.code === "INSUFFICIENT_AVAILABLE_BALANCE") {
         await quoteQuery.refetch();
-        setBalanceError(`Your available balance changed. The maximum you can now withdraw is ₦${((response.maxWithdrawable || 0) / 100).toLocaleString()}.`);
+        setBalanceError(
+          `Your available balance changed. The maximum you can now withdraw is ₦${((response.maxWithdrawable || 0) / 100).toLocaleString()}.`,
+        );
         return;
       }
       console.error("Failed to request withdrawal:", error);
@@ -195,10 +226,10 @@ export default function WithdrawalsView() {
 
   const getStatusLabel = (status: string) =>
     ({
-      PENDING: "Awaiting approval",
-      PROCESSING: "Processing payout",
-      COMPLETED: "Paid",
-      FAILED: "Failed / Rejected",
+      PENDING: "Pending approval",
+      PROCESSING: "Processing",
+      COMPLETED: "Completed",
+      FAILED: "Failed",
       CANCELLED: "Cancelled",
     })[status] || status;
 
@@ -398,6 +429,15 @@ export default function WithdrawalsView() {
           </button>
         </div>
       </div>
+
+      {successMessage && (
+        <div
+          role="status"
+          className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
+        >
+          {successMessage}
+        </div>
+      )}
 
       <div className="toolbar">
         <div className="toolbar-left">
@@ -626,7 +666,7 @@ export default function WithdrawalsView() {
                     })
                   }
                   required
-                  min="0.01"
+                  min="1"
                   step="0.01"
                   max={(quote?.maxWithdrawable || 0) / 100}
                 />
@@ -654,15 +694,59 @@ export default function WithdrawalsView() {
                   <div className="text-xs text-blue-700">
                     <p className="font-semibold">Summary:</p>
                     <div className="mt-2 space-y-1">
-                      <div className="flex justify-between"><span>Available balance</span><strong>{quote ? `₦${(quote.availableBalance / 100).toLocaleString()}` : "—"}</strong></div>
-                      <div className="flex justify-between"><span>Withdrawal amount</span><strong>{quote ? `₦${((quote.requestedAmount || 0) / 100).toLocaleString()}` : "—"}</strong></div>
-                      <div className="flex justify-between"><span>Fee</span><strong>{quote ? `₦${(quote.fee / 100).toLocaleString()}` : "—"}</strong></div>
-                      <div className="flex justify-between border-t border-blue-200 pt-1"><span>Total debit</span><strong>{quote ? `₦${(quote.totalDebit / 100).toLocaleString()}` : "—"}</strong></div>
+                      <div className="flex justify-between">
+                        <span>Available balance</span>
+                        <strong>
+                          {quote
+                            ? `₦${(quote.availableBalance / 100).toLocaleString()}`
+                            : "—"}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Withdrawal amount</span>
+                        <strong>
+                          {quote
+                            ? `₦${((quote.requestedAmount || 0) / 100).toLocaleString()}`
+                            : "—"}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Heightt fee</span>
+                        <strong>
+                          {quote
+                            ? `₦${(quote.platformFee / 100).toLocaleString()}`
+                            : "—"}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Bachs payout fee</span>
+                        <strong>
+                          {quote
+                            ? `₦${(quote.providerFee / 100).toLocaleString()}`
+                            : "—"}
+                        </strong>
+                      </div>
+                      <div className="flex justify-between border-t border-blue-200 pt-1">
+                        <span>Total debit</span>
+                        <strong>
+                          {quote
+                            ? `₦${(quote.totalDebit / 100).toLocaleString()}`
+                            : "—"}
+                        </strong>
+                      </div>
+                      <p className="pt-1 text-blue-600">
+                        The bank receives the withdrawal amount; the Bachs fee
+                        is debited separately.
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
-              {balanceError && <p role="alert" className="mb-4 text-sm text-red-600">{balanceError}</p>}
+              {balanceError && (
+                <p role="alert" className="mb-4 text-sm text-red-600">
+                  {balanceError}
+                </p>
+              )}
 
               <div className="modal-actions">
                 <button
@@ -678,6 +762,7 @@ export default function WithdrawalsView() {
                   disabled={
                     usableBankAccounts.length === 0 ||
                     !quote?.canWithdraw ||
+                    !quoteMatchesAmount ||
                     quoteQuery.isFetching ||
                     requestUserMutation.isPending ||
                     requestOrgMutation.isPending ||
@@ -734,12 +819,20 @@ export default function WithdrawalsView() {
                   {getStatusLabel(selectedWithdrawal.status)}
                 </span>
               </div>
-              <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800" aria-live="polite">
-                {selectedWithdrawal.status === "PENDING" && "This withdrawal is waiting for approval."}
-                {selectedWithdrawal.status === "PROCESSING" && "The payout has been submitted. This status refreshes automatically until the provider confirms it."}
-                {selectedWithdrawal.status === "COMPLETED" && "The payout provider confirmed this transfer as completed."}
-                {selectedWithdrawal.status === "FAILED" && "The payout failed. Review the failure reason below."}
-                {selectedWithdrawal.status === "CANCELLED" && "This withdrawal was cancelled."}
+              <p
+                className="rounded-lg bg-blue-50 p-3 text-sm text-blue-800"
+                aria-live="polite"
+              >
+                {selectedWithdrawal.status === "PENDING" &&
+                  "This withdrawal is waiting for approval."}
+                {selectedWithdrawal.status === "PROCESSING" &&
+                  "The payout has been submitted. This status refreshes automatically until the provider confirms it."}
+                {selectedWithdrawal.status === "COMPLETED" &&
+                  "The payout provider confirmed this transfer as completed."}
+                {selectedWithdrawal.status === "FAILED" &&
+                  "The payout failed. Review the failure reason below."}
+                {selectedWithdrawal.status === "CANCELLED" &&
+                  "This withdrawal was cancelled."}
               </p>
 
               {/* Amount */}
@@ -749,9 +842,8 @@ export default function WithdrawalsView() {
                   ₦{(selectedWithdrawal.amount / 100).toLocaleString()}
                 </div>
                 <div className="text-sm text-slate-400">
-                  Fee: ₦
-                  {((selectedWithdrawal.fee || 0) / 100).toLocaleString()} •
-                  Total wallet debit: ₦
+                  Fee: ₦{((selectedWithdrawal.fee || 0) / 100).toLocaleString()}{" "}
+                  • Total wallet debit: ₦
                   {(
                     (selectedWithdrawal.amount +
                       (selectedWithdrawal.fee || 0)) /
@@ -834,17 +926,20 @@ export default function WithdrawalsView() {
                 {selectedWithdrawal.failedAt && (
                   <div className="p-3 bg-slate-50 rounded-lg">
                     <div className="text-xs text-slate-500">Failed</div>
-                    <div className="text-sm font-medium">{new Date(selectedWithdrawal.failedAt).toLocaleString()}</div>
-                  </div>
-                )}
-                {selectedWithdrawal.status === "FAILED" && selectedWithdrawal.failureReason && (
-                  <div className="p-3 bg-red-50 rounded-lg border border-red-200 col-span-2">
-                    <div className="text-xs text-red-600">Failure Reason</div>
-                    <div className="text-sm text-red-800">
-                      {selectedWithdrawal.failureReason}
+                    <div className="text-sm font-medium">
+                      {new Date(selectedWithdrawal.failedAt).toLocaleString()}
                     </div>
                   </div>
                 )}
+                {selectedWithdrawal.status === "FAILED" &&
+                  selectedWithdrawal.failureReason && (
+                    <div className="p-3 bg-red-50 rounded-lg border border-red-200 col-span-2">
+                      <div className="text-xs text-red-600">Failure Reason</div>
+                      <div className="text-sm text-red-800">
+                        {selectedWithdrawal.failureReason}
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {/* Reason */}
@@ -859,8 +954,18 @@ export default function WithdrawalsView() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => selectedWithdrawalQuery.refetch()} disabled={selectedWithdrawalQuery.isFetching}>
-                <RefreshCw className={cn("h-4 w-4", selectedWithdrawalQuery.isFetching && "animate-spin")} /> Refresh status
+              <button
+                className="btn btn-secondary"
+                onClick={() => selectedWithdrawalQuery.refetch()}
+                disabled={selectedWithdrawalQuery.isFetching}
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-4 w-4",
+                    selectedWithdrawalQuery.isFetching && "animate-spin",
+                  )}
+                />{" "}
+                Refresh status
               </button>
               <button
                 className="btn btn-secondary"

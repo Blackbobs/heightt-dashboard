@@ -45,7 +45,12 @@ export default function RequestWithdrawalModal({
       limit: 100,
     });
 
-  const amountInKobo = amount ? Math.round(Number(amount) * 100) : undefined;
+  const normalizedAmount = amount.replace(/,/g, "").trim();
+  const numericAmount = Number(normalizedAmount);
+  const amountInKobo =
+    normalizedAmount && Number.isFinite(numericAmount)
+      ? Math.round(numericAmount * 100)
+      : undefined;
   const debouncedAmountInKobo = useDebouncedValue(amountInKobo, 350);
   const quoteQuery = useOrganizationWithdrawalQuote(
     organizationId,
@@ -54,6 +59,8 @@ export default function RequestWithdrawalModal({
       : undefined,
   );
   const quote = quoteQuery.data;
+  const quoteMatchesAmount =
+    amountInKobo === undefined || quote?.requestedAmount === amountInKobo;
 
   const bankAccounts = bankAccountsData?.data || [];
   const usableBankAccounts = bankAccounts.filter((account: any) => {
@@ -94,10 +101,14 @@ export default function RequestWithdrawalModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bankAccountId || !amount || parseFloat(amount) <= 0) return;
+    if (!bankAccountId || !amountInKobo || amountInKobo < 100) return;
 
-    const requestedAmount = Math.round(Number(amount) * 100);
+    const requestedAmount = amountInKobo;
     if (!Number.isSafeInteger(requestedAmount) || requestedAmount <= 0) return;
+    if (!quote || !quoteMatchesAmount || !quote.canWithdraw) {
+      setBalanceError("Please wait for the withdrawal amount to be validated.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -119,7 +130,12 @@ export default function RequestWithdrawalModal({
           `Your available balance changed. The maximum you can now withdraw is ${formatKoboCurrency(response.maxWithdrawable || 0)}.`,
         );
       } else {
-        setBalanceError(getApiErrorMessage(error, "The withdrawal request could not be submitted."));
+        setBalanceError(
+          getApiErrorMessage(
+            error,
+            "The withdrawal request could not be submitted.",
+          ),
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -213,7 +229,7 @@ export default function RequestWithdrawalModal({
                     placeholder="5000.00"
                     className="w-full pl-8 pr-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] focus:ring-4 focus:ring-[#1a5cff]/10"
                     required
-                    min="0.01"
+                    min="1"
                     step="0.01"
                     max={(quote?.maxWithdrawable || 0) / 100}
                   />
@@ -237,13 +253,21 @@ export default function RequestWithdrawalModal({
                   </strong>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span>Fee</span>
-                  <strong>{formatKoboCurrency(quote?.fee || 0)}</strong>
+                  <span>Heightt fee</span>
+                  <strong>{formatKoboCurrency(quote?.platformFee || 0)}</strong>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Bachs payout fee</span>
+                  <strong>{formatKoboCurrency(quote?.providerFee || 0)}</strong>
                 </div>
                 <div className="mt-1 flex justify-between border-t border-slate-200 pt-2">
                   <span>Total debit</span>
                   <strong>{formatKoboCurrency(quote?.totalDebit || 0)}</strong>
                 </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  The bank account receives the withdrawal amount. Heightt
+                  charges ₦0; the Bachs fee is debited separately.
+                </p>
               </div>
               {balanceError && (
                 <p role="alert" className="text-xs font-medium text-red-600">
@@ -292,13 +316,17 @@ export default function RequestWithdrawalModal({
                 disabled={
                   isSubmitting ||
                   usableBankAccounts.length === 0 ||
-                  !quote?.canWithdraw
+                  !quote?.canWithdraw ||
+                  quoteQuery.isFetching ||
+                  !quoteMatchesAmount
                 }
                 className={cn(
                   "order-1 sm:order-2 flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all duration-200 border-none",
                   isSubmitting ||
                     usableBankAccounts.length === 0 ||
-                    !quote?.canWithdraw
+                    !quote?.canWithdraw ||
+                    quoteQuery.isFetching ||
+                    !quoteMatchesAmount
                     ? "bg-slate-400 cursor-not-allowed"
                     : "bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]",
                 )}

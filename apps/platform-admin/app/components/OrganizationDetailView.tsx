@@ -46,7 +46,14 @@ import { getApiErrorMessage } from "@/lib/api/error";
 import DataTable from "./DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 
-const MEMBERSHIP_TYPES = ["STUDENT", "ADMIN", "STAFF", "ALUMNI", "HONORARY"];
+const MEMBERSHIP_TYPES = [
+  "MEMBER",
+  "STUDENT",
+  "ADMIN",
+  "STAFF",
+  "ALUMNI",
+  "HONORARY",
+];
 const MEMBERSHIP_STATUSES = [
   "INVITED",
   "PENDING",
@@ -109,6 +116,8 @@ export default function OrganizationDetailView() {
   const sessions = sessionsData || [];
 
   const isLoading = orgLoading || membersLoading;
+  const defaultMembershipType =
+    organization?.institutionId === null ? "MEMBER" : "STUDENT";
 
   const filteredMembers = useMemo(() => {
     if (!search) return members;
@@ -136,7 +145,7 @@ export default function OrganizationDetailView() {
       setIsAddMemberModalOpen(false);
       setFormData({
         userId: "",
-        membershipType: "STUDENT",
+        membershipType: defaultMembershipType,
         status: "ACTIVE",
         isPrimary: false,
         sessionId: "",
@@ -566,7 +575,14 @@ export default function OrganizationDetailView() {
             </div>
             <button
               className="btn btn-primary"
-              onClick={() => setIsAddMemberModalOpen(true)}
+              onClick={() => {
+                setFormData((current) => ({
+                  ...current,
+                  membershipType:
+                    organization?.institutionId === null ? "MEMBER" : "STUDENT",
+                }));
+                setIsAddMemberModalOpen(true);
+              }}
             >
               <UserPlus className="w-4 h-4" /> Add Member
             </button>
