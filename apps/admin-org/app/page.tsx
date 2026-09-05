@@ -17,7 +17,6 @@ import { AnnouncementsView } from "./components/AnnouncementsView";
 import { FinanceView } from "./components/FinanceView";
 import { SettingsView } from "./components/SettingsView";
 import { PaymentsView } from "./components/PaymentsView";
-import { BottomNav } from "./components/BottomNav";
 import { WithdrawalsView } from "./components/WithdrawalsView";
 import { BankAccountsView } from "./components/BankAccountsView";
 import { InstitutionPromotionView } from "./components/InstitutionPromotionView";
@@ -117,7 +116,17 @@ export default function AdminDashboard() {
       case "Dashboard":
         return (
           <>
-            <div className="mb-6"><p className="text-xs font-semibold text-blue-600 uppercase tracking-[.12em] mb-2">Organization overview</p><h1 className="text-[28px] leading-9 font-bold tracking-tight text-slate-950">Welcome back, {resolvedUser?.profile?.firstName || "Admin"}</h1><p className="text-sm text-slate-500 mt-1">Here’s the latest activity for your organization.</p></div>
+            <div className="mb-8">
+              <p className="text-xs font-semibold text-blue-600 uppercase tracking-[.12em] mb-2">
+                Organization overview
+              </p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+                Welcome back, {resolvedUser?.profile?.firstName || "Admin"}
+              </h1>
+              <p className="text-sm text-slate-500 mt-2">
+                Here's the latest activity for your organization.
+              </p>
+            </div>
             <StatsGrid />
             <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
               <TransactionsList />
@@ -182,15 +191,10 @@ export default function AdminDashboard() {
           onMenuToggle={() => setSidebarOpen((v) => !v)}
         />
 
-        <div className="flex-1 p-4 md:p-6 lg:p-8 pb-24 lg:pb-8 max-w-[1600px] w-full mx-auto">
+        <div className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
           {renderView()}
         </div>
       </main>
-
-      <BottomNav activeNav={activeNav} onNavChange={(nav) => {
-        const route = nav === "Dashboard" ? "/" : `/${nav.toLowerCase().replaceAll(" ", "-")}`;
-        router.push(route);
-      }} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Menu, Bell, ChevronDown, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { useState } from "react";
+import { Menu, Bell, ChevronDown, LogOut, Settings as SettingsIcon, Search } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useAdminLogout } from '@/hooks/admin/useAdminAuth';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
@@ -39,7 +39,7 @@ export function Header({ pageTitle, onMenuToggle }: HeaderProps) {
   return (
     <header
       className="sticky top-0 z-40 min-h-[64px] bg-white border-b flex items-center justify-between px-3 sm:px-6 py-2"
-      style={{ borderColor: 'var(--color-border)' }}
+      style={{ borderColor: "var(--color-border)" }}
     >
       {/* Left Column: Menu Button & Title */}
       <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 pr-2">
@@ -50,7 +50,11 @@ export function Header({ pageTitle, onMenuToggle }: HeaderProps) {
         >
           <Menu className="w-4 h-4" />
         </button>
-        <div className="min-w-0 flex items-center gap-2 text-sm"><span className="hidden sm:inline text-slate-400">Organization</span><span className="hidden sm:inline text-slate-300">/</span><span className="font-semibold text-slate-800 truncate">{pageTitle}</span></div>
+        <div className="min-w-0 flex items-center gap-2 text-sm">
+          <span className="hidden sm:inline text-slate-400">Organization</span>
+          <span className="hidden sm:inline text-slate-300">/</span>
+          <span className="font-semibold text-slate-800 truncate">{pageTitle}</span>
+        </div>
       </div>
 
       {/* Center: Organization Switcher */}
@@ -82,17 +86,18 @@ export function Header({ pageTitle, onMenuToggle }: HeaderProps) {
           aria-label="Notifications"
         >
           <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full" />
         </button>
 
         {/* Profile Dropdown */}
         <div className="relative">
           <button
             onClick={() => setProfileDropdownOpen((v) => !v)}
-            className="flex items-center gap-2 py-1 pl-1 pr-2 rounded-lg border-none hover:bg-slate-50 cursor-pointer transition-colors"
+            className="flex items-center gap-2 py-1.5 pl-1.5 pr-2 rounded-lg border-none hover:bg-slate-50 cursor-pointer transition-colors"
           >
             <div
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-sm"
-              style={{ background: 'var(--color-primary)' }}
+              style={{ background: "var(--color-primary)" }}
             >
               {getInitials()}
             </div>
@@ -100,7 +105,7 @@ export function Header({ pageTitle, onMenuToggle }: HeaderProps) {
               <div className="text-xs font-bold text-slate-900 leading-tight">
                 {getDisplayName()}
               </div>
-              <div className="text-[10px] text-slate-400">Administrator</div>
+              <div className="text-[10px] text-slate-400">Admin</div>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden lg:block" />
           </button>
@@ -109,8 +114,11 @@ export function Header({ pageTitle, onMenuToggle }: HeaderProps) {
           {profileDropdownOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setProfileDropdownOpen(false)} />
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border p-1.5 z-20 animate-fade-in" style={{ borderColor: 'var(--color-border)' }}>
-                <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--color-border)' }}>
+              <div
+                className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border p-1.5 z-20 animate-fade-in"
+                style={{ borderColor: "var(--color-border)" }}
+              >
+                <div className="px-3 py-2 border-b" style={{ borderColor: "var(--color-border)" }}>
                   <div className="text-sm font-bold text-slate-900">{getDisplayName()}</div>
                   {user?.email && <div className="text-xs text-slate-500">{user.email}</div>}
                 </div>
@@ -126,7 +134,7 @@ export function Header({ pageTitle, onMenuToggle }: HeaderProps) {
                   <span>Settings</span>
                 </button>
 
-                <div className="border-t my-1" style={{ borderColor: 'var(--color-border)' }} />
+                <div className="border-t my-1" style={{ borderColor: "var(--color-border)" }} />
 
                 <button
                   onClick={handleLogout}
