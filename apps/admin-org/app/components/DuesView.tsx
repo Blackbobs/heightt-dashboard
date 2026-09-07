@@ -172,8 +172,12 @@ export function DuesView() {
   };
 
   const handleAssignDue = async (due: Due) => {
-    const audience = due.isFresher ? "100 level students" : "students at 200 level and above";
-    if (confirm(`Assign this due to eligible ${audience} in the selected scope?`)) {
+    const audience = due.isFresher
+      ? "100 level students"
+      : "students at 200 level and above";
+    if (
+      confirm(`Assign this due to eligible ${audience} in the selected scope?`)
+    ) {
       setAssignmentError(null);
       try {
         await assignDueMutation.mutateAsync({
@@ -186,7 +190,12 @@ export function DuesView() {
         });
         refetch();
       } catch (error) {
-        setAssignmentError(getApiErrorMessage(error, "The due could not be assigned. Please try again."));
+        setAssignmentError(
+          getApiErrorMessage(
+            error,
+            "The due could not be assigned. Please try again.",
+          ),
+        );
       }
     }
   };
@@ -194,12 +203,11 @@ export function DuesView() {
   const handleDeleteDue = async (id: string, name: string) => {
     if (
       confirm(
-        `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+        `Delete "${name}"? It will no longer be available for assignment or payment. Historical financial records will be retained.`,
       )
     ) {
       try {
         await deleteDueMutation.mutateAsync(id);
-        refetch();
       } catch (error) {
         console.error("Failed to delete due:", error);
       }
@@ -225,17 +233,36 @@ export function DuesView() {
 
   return (
     <div className="operations-page">
-      <PageHeader eyebrow="Finance" title="Dues" description={<>Create, assign, and track dues for {selectedScope?.organization?.name || "your organization"}.</>} actions={canCreateDue ? (
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            Create Due
-          </button>
-        ) : undefined} />
+      <PageHeader
+        eyebrow="Finance"
+        title="Dues"
+        description={
+          <>
+            Create, assign, and track dues for{" "}
+            {selectedScope?.organization?.name || "your organization"}.
+          </>
+        }
+        actions={
+          canCreateDue ? (
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
+            >
+              <Plus className="w-4 h-4" />
+              Create Due
+            </button>
+          ) : undefined
+        }
+      />
 
-      {assignmentError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{assignmentError}</div>}
+      {assignmentError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+        >
+          {assignmentError}
+        </div>
+      )}
 
       <div className="operations-stats grid grid-cols-1 sm:grid-cols-3">
         <div
@@ -371,7 +398,9 @@ export function DuesView() {
                             {due.description || "No description"}
                           </div>
                           <div className="mt-1 text-xs font-medium text-slate-600">
-                            {due.isFresher ? "100 level students" : "200 level and above"}
+                            {due.isFresher
+                              ? "100 level students"
+                              : "200 level and above"}
                           </div>
                           {due.isRequired && (
                             <span className="inline-flex mt-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
@@ -490,11 +519,13 @@ export function DuesView() {
         )}
       </div>
 
-      {isCreateModalOpen && <CreateDueModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateDue}
-      />}
+      {isCreateModalOpen && (
+        <CreateDueModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSubmit={handleCreateDue}
+        />
+      )}
     </div>
   );
 }

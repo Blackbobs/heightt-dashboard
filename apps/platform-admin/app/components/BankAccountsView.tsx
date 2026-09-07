@@ -143,11 +143,12 @@ export default function BankAccountsView() {
 
   const handleDelete = async (id: string, accountName: string) => {
     if (
-      confirm(`Are you sure you want to delete bank account "${accountName}"?`)
+      confirm(
+        `Remove bank account "${accountName}"? This bank account will be removed from your payout options. Financial audit records will be retained.`,
+      )
     ) {
       try {
         await deleteMutation.mutateAsync(id);
-        refetch();
       } catch (error) {
         console.error("Failed to delete bank account:", error);
       }

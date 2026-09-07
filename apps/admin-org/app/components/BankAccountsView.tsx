@@ -154,11 +154,12 @@ export function BankAccountsView() {
 
   const handleDelete = async (id: string, accountName: string) => {
     if (
-      confirm(`Are you sure you want to delete bank account "${accountName}"?`)
+      confirm(
+        `Remove bank account "${accountName}"? This bank account will be removed from your payout options. Financial audit records will be retained.`,
+      )
     ) {
       try {
         await deleteMutation.mutateAsync(id);
-        refetch();
       } catch (error) {
         console.error("Failed to delete bank account:", error);
       }
@@ -234,26 +235,33 @@ export function BankAccountsView() {
 
   return (
     <div className="operations-page">
-      <PageHeader eyebrow="Finance" title="Bank accounts" description="Manage verified payout accounts for withdrawals." actions={canCreate ? (
-          <button
-            onClick={() => {
-              setEditingAccount(null);
-              setFormData({
-                bankName: "",
-                accountNumber: "",
-                accountName: "",
-                bankCode: "",
-                isDefault: false,
-              });
-              setResolvedAccount(null);
-              setIsModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            Add Bank Account
-          </button>
-        ) : undefined} />
+      <PageHeader
+        eyebrow="Finance"
+        title="Bank accounts"
+        description="Manage verified payout accounts for withdrawals."
+        actions={
+          canCreate ? (
+            <button
+              onClick={() => {
+                setEditingAccount(null);
+                setFormData({
+                  bankName: "",
+                  accountNumber: "",
+                  accountName: "",
+                  bankCode: "",
+                  isDefault: false,
+                });
+                setResolvedAccount(null);
+                setIsModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
+            >
+              <Plus className="w-4 h-4" />
+              Add Bank Account
+            </button>
+          ) : undefined
+        }
+      />
 
       {/* Search */}
       <div className="operations-toolbar">
@@ -293,9 +301,7 @@ export function BankAccountsView() {
               key={account.id}
               className={cn(
                 "operations-surface p-5",
-                account.isDefault
-                  ? "border-blue-300"
-                  : "",
+                account.isDefault ? "border-blue-300" : "",
               )}
               style={{
                 borderColor: account.isDefault
