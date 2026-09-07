@@ -5,10 +5,14 @@ import { X, Coins, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api/error";
 
+import type { CreateDueInput } from "@/lib/api/admin";
+
+export type CreateDueFormValues = Omit<CreateDueInput, "organizationId" | "sessionId">;
+
 interface CreateDueModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: CreateDueFormValues) => Promise<void>;
 }
 
 export default function CreateDueModal({
@@ -20,7 +24,8 @@ export default function CreateDueModal({
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [isRequired, setIsRequired] = useState(true);
-  const [status, setStatus] = useState("DRAFT");
+  const [isFresher, setIsFresher] = useState(false);
+  const [status, setStatus] = useState<"DRAFT" | "ACTIVE">("DRAFT");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
@@ -30,13 +35,6 @@ export default function CreateDueModal({
     if (isOpen) {
       focusTimeout = setTimeout(() => firstInputRef.current?.focus(), 120);
       document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-      setName("");
-      setDescription("");
-      setAmount("");
-      setIsRequired(true);
-      setStatus("DRAFT");
     }
     return () => {
       if (focusTimeout) clearTimeout(focusTimeout);
@@ -64,7 +62,7 @@ export default function CreateDueModal({
     setIsSubmitting(true);
     setFormError(null);
     try {
-      await onSubmit({ name, description, amount: amountInKobo, isRequired, status });
+      await onSubmit({ name, description, amount: amountInKobo, isRequired, isFresher, status });
     } catch (error) {
       setFormError(getApiErrorMessage(error, "The due could not be created. Please try again."));
     } finally {
@@ -159,13 +157,28 @@ export default function CreateDueModal({
                 </label>
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value)}
+                  onChange={(e) => setStatus(e.target.value === "ACTIVE" ? "ACTIVE" : "DRAFT")}
                   className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
                 >
                   <option value="DRAFT">Draft</option>
                   <option value="ACTIVE">Active</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="due-audience" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Due audience
+              </label>
+              <select
+                id="due-audience"
+                value={isFresher ? "100_LEVEL" : "200_AND_ABOVE"}
+                onChange={(e) => setIsFresher(e.target.value === "100_LEVEL")}
+                className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
+              >
+                <option value="200_AND_ABOVE">200 level and above</option>
+                <option value="100_LEVEL">100 level students</option>
+              </select>
             </div>
 
             {/* Required Toggle */}
@@ -188,7 +201,7 @@ export default function CreateDueModal({
                 />
               </button>
               <span className="text-sm font-medium text-slate-700">
-                Required for all students
+                Required for eligible students
               </span>
             </div>
 
@@ -198,8 +211,8 @@ export default function CreateDueModal({
               <div className="text-xs text-amber-700">
                 <p className="font-semibold">Important</p>
                 <p>
-                  Dues marked as "Required" will be assigned to all students.
-                  You can assign to specific students later.
+                  Only students in the selected audience are eligible for this due.
+                  Assignments also follow organization and academic-session rules.
                 </p>
               </div>
             </div>

@@ -492,6 +492,7 @@ export interface BulkPromoteDto {
 // ============================================
 
 export interface CreateDueDto {
+  isFresher?: boolean;
   organizationId: string;
   sessionId?: string;
   name: string;
@@ -512,6 +513,7 @@ export interface WithdrawalRequestDto {
 }
 
 export interface DueResponseDto {
+  isFresher: boolean;
   id: string;
   organizationId: string;
   sessionId?: string;

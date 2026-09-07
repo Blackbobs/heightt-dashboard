@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   adminApi,
+  type CreateDueInput,
   adminQueryKeys,
   PaymentHistoryStatus,
 } from "@/lib/api/admin";
@@ -132,7 +133,7 @@ export function useCreateDue() {
   const { selectedScope } = useAdminContext();
 
   return useMutation({
-    mutationFn: (data: any) => adminApi.createDue({ ...data, sessionId: selectedScope?.academicSessionId }),
+    mutationFn: (data: CreateDueInput) => adminApi.createDue({ ...data, sessionId: selectedScope?.academicSessionId }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.dues(),

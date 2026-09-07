@@ -27,7 +27,9 @@ import {
 } from "lucide-react";
 import { cn, formatKoboCurrency } from "@/lib/utils";
 import { usePermissions } from "../context/PermissionContext";
-import CreateDueModal from "./CreateDueModal";
+import CreateDueModal, { type CreateDueFormValues } from "./CreateDueModal";
+import type { Due } from "@/lib/api/admin";
+import { getApiErrorMessage } from "@/lib/api/error";
 import { PageHeader } from "./OperationsUI";
 
 const ITEMS_PER_PAGE = 10;
@@ -111,6 +113,8 @@ export function DuesView() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+
   const canCreateDue = hasPermission("DUE_CREATE");
   const canDeleteDue = hasPermission("DUE_DELETE");
 
@@ -135,7 +139,7 @@ export function DuesView() {
     if (search) {
       const searchLower = search.trim().toLocaleLowerCase();
       filtered = filtered.filter(
-        (due: any) =>
+        (due) =>
           due.name?.toLowerCase().includes(searchLower) ||
           due.description?.toLowerCase().includes(searchLower) ||
           due.organization?.name?.toLowerCase().includes(searchLower),
@@ -143,7 +147,7 @@ export function DuesView() {
     }
 
     if (statusFilter) {
-      filtered = filtered.filter((due: any) => due.status === statusFilter);
+      filtered = filtered.filter((due) => due.status === statusFilter);
     }
 
     return filtered;
@@ -153,7 +157,7 @@ export function DuesView() {
     setCurrentPage(page);
   };
 
-  const handleCreateDue = async (dueData: any) => {
+  const handleCreateDue = async (dueData: CreateDueFormValues) => {
     try {
       await createDueMutation.mutateAsync({
         ...dueData,
@@ -167,11 +171,13 @@ export function DuesView() {
     }
   };
 
-  const handleAssignDue = async (dueId: string) => {
-    if (confirm("Assign this due to all students in the organization?")) {
+  const handleAssignDue = async (due: Due) => {
+    const audience = due.isFresher ? "100 level students" : "students at 200 level and above";
+    if (confirm(`Assign this due to eligible ${audience} in the selected scope?`)) {
+      setAssignmentError(null);
       try {
         await assignDueMutation.mutateAsync({
-          id: dueId,
+          id: due.id,
           data: {
             departmentId: selectedScope?.departmentId,
             levelId: selectedScope?.academicLevelId,
@@ -180,7 +186,7 @@ export function DuesView() {
         });
         refetch();
       } catch (error) {
-        console.error("Failed to assign due:", error);
+        setAssignmentError(getApiErrorMessage(error, "The due could not be assigned. Please try again."));
       }
     }
   };
@@ -229,6 +235,8 @@ export function DuesView() {
           </button>
         ) : undefined} />
 
+      {assignmentError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{assignmentError}</div>}
+
       <div className="operations-stats grid grid-cols-1 sm:grid-cols-3">
         <div
           className="bg-white border rounded-xl p-4"
@@ -243,7 +251,7 @@ export function DuesView() {
         >
           <div className="text-xs text-slate-500 font-medium">Active</div>
           <div className="text-lg font-bold text-emerald-600">
-            {dues.filter((d: any) => d.status === "ACTIVE").length}
+            {dues.filter((d) => d.status === "ACTIVE").length}
           </div>
         </div>
         <div
@@ -252,7 +260,7 @@ export function DuesView() {
         >
           <div className="text-xs text-slate-500 font-medium">Draft</div>
           <div className="text-lg font-bold text-amber-600">
-            {dues.filter((d: any) => d.status === "DRAFT").length}
+            {dues.filter((d) => d.status === "DRAFT").length}
           </div>
         </div>
       </div>
@@ -346,7 +354,7 @@ export function DuesView() {
                 className="divide-y"
                 style={{ borderColor: "var(--color-border)" }}
               >
-                {filteredDues.map((due: any) => {
+                {filteredDues.map((due) => {
                   const statusConfig = getStatusConfig(due.status);
 
                   return (
@@ -361,6 +369,9 @@ export function DuesView() {
                           </div>
                           <div className="text-xs text-slate-400 truncate max-w-[200px]">
                             {due.description || "No description"}
+                          </div>
+                          <div className="mt-1 text-xs font-medium text-slate-600">
+                            {due.isFresher ? "100 level students" : "200 level and above"}
                           </div>
                           {due.isRequired && (
                             <span className="inline-flex mt-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
@@ -392,9 +403,10 @@ export function DuesView() {
                         <div className="flex items-center justify-end gap-1">
                           {due.status === "DRAFT" && (
                             <button
-                              onClick={() => handleAssignDue(due.id)}
+                              onClick={() => handleAssignDue(due)}
                               className="w-8 h-8 rounded-lg border-none bg-transparent hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 cursor-pointer flex items-center justify-center transition-colors"
-                              title="Assign to Students"
+                              title="Assign to eligible students"
+                              disabled={assignDueMutation.isPending}
                             >
                               <Users className="w-4 h-4" />
                             </button>
@@ -478,11 +490,11 @@ export function DuesView() {
         )}
       </div>
 
-      <CreateDueModal
+      {isCreateModalOpen && <CreateDueModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateDue}
-      />
+      />}
     </div>
   );
 }

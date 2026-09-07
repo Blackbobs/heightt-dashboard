@@ -208,6 +208,17 @@ export interface Wallet {
   status: string;
 }
 
+export interface CreateDueInput {
+  organizationId: string;
+  sessionId?: string;
+  name: string;
+  description?: string;
+  amount: number;
+  isRequired: boolean;
+  isFresher?: boolean;
+  status: "DRAFT" | "ACTIVE";
+}
+
 export interface Due {
   id: string;
   organizationId: string;
@@ -216,7 +227,8 @@ export interface Due {
   description?: string;
   amount: number;
   isRequired: boolean;
-  status: "ACTIVE" | "INACTIVE" | "COMPLETED" | "CANCELLED";
+  isFresher: boolean;
+  status: "DRAFT" | "PAUSED" | "EXPIRED" | "ACTIVE" | "INACTIVE" | "COMPLETED" | "CANCELLED";
   createdAt: string;
   updatedAt: string;
   organization?: { id: string; name: string; slug: string };
@@ -674,7 +686,7 @@ export const adminApi = {
     return response.data;
   },
 
-  createDue: async (data: any): Promise<Due> => {
+  createDue: async (data: CreateDueInput): Promise<Due> => {
     const response = await axiosConfig.post("/v1/finance/dues", data);
     return response.data;
   },
