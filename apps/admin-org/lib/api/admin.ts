@@ -228,7 +228,14 @@ export interface Due {
   amount: number;
   isRequired: boolean;
   isFresher: boolean;
-  status: "DRAFT" | "PAUSED" | "EXPIRED" | "ACTIVE" | "INACTIVE" | "COMPLETED" | "CANCELLED";
+  status:
+    | "DRAFT"
+    | "PAUSED"
+    | "EXPIRED"
+    | "ACTIVE"
+    | "INACTIVE"
+    | "COMPLETED"
+    | "CANCELLED";
   createdAt: string;
   updatedAt: string;
   organization?: { id: string; name: string; slug: string };
@@ -272,6 +279,14 @@ export interface Receipt {
 export type PaymentHistoryStatus =
   "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "EXPIRED" | "CANCELLED";
 
+export interface PaymentMetadata {
+  guestName?: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  guestMatricNumber?: string;
+  [key: string]: unknown;
+}
+
 export interface PaymentHistoryRecord {
   id: string;
   amount: number;
@@ -279,6 +294,7 @@ export interface PaymentHistoryRecord {
   reference?: string;
   createdAt: string;
   updatedAt?: string;
+  metadata?: PaymentMetadata | null;
   transaction?: Transaction | null;
   organization?: {
     id: string;

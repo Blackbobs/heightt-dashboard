@@ -134,6 +134,10 @@ export function PaymentsView() {
             payment.payer?.username,
             payment.payer?.profile?.firstName,
             payment.payer?.profile?.lastName,
+            payment.metadata?.guestName,
+            payment.metadata?.guestEmail,
+            payment.metadata?.guestPhone,
+            payment.metadata?.guestMatricNumber,
             payment.organization?.name,
             payment.duePayment?.assignment?.due?.name,
           ].some((value) => value?.toLocaleLowerCase().includes(query)),
@@ -321,12 +325,21 @@ export function PaymentsView() {
                   const statusColor = getStatusColor(payment.status);
                   const receipt = payment.receipt;
                   const due = payment.duePayment?.assignment?.due;
+                  const guestName = payment.metadata?.guestName;
                   const payerName = [
                     payment.payer?.profile?.firstName,
                     payment.payer?.profile?.lastName,
                   ]
                     .filter(Boolean)
                     .join(" ");
+                  const displayName =
+                    guestName ||
+                    payerName ||
+                    payment.payer?.username ||
+                    "Unknown";
+                  const displayEmail = guestName
+                    ? payment.metadata?.guestEmail
+                    : payment.payer?.email;
                   const reference =
                     receipt?.receiptNumber ||
                     payment.reference ||
@@ -362,10 +375,10 @@ export function PaymentsView() {
                       <td className="px-4 py-3.5 align-middle">
                         <div>
                           <div className="text-sm text-slate-700">
-                            {payerName || payment.payer?.username || "Unknown"}
+                            {displayName}
                           </div>
                           <div className="text-xs text-slate-400">
-                            {payment.payer?.email || "No email"}
+                            {displayEmail || "No email"}
                           </div>
                         </div>
                       </td>
