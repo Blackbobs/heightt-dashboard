@@ -9,7 +9,8 @@ export type Permission =
   | "ANNOUNCEMENT_MANAGE"
   | "USER_MANAGE";
 
-export type Role = "Full Platform Admin" | "Operations Admin" | "Auditor / Read-Only";
+export type Role =
+  "Full Platform Admin" | "Operations Admin" | "Auditor / Read-Only";
 
 export interface UserContextType {
   name: string;
@@ -56,17 +57,14 @@ export interface Department {
   logo?: string;
   headName: string;
   generatedLevels: string[];
+  numberOfLevels?: 4 | 5 | 6 | 7;
+  customLevelNames?: string[];
   organizationsCount: number;
   status: "Active" | "Inactive";
 }
 
 export type OrganizationType =
-  | "Institution"
-  | "Faculty"
-  | "Department"
-  | "Level"
-  | "External"
-  | "Other";
+  "Institution" | "Faculty" | "Department" | "Level" | "External" | "Other";
 
 export interface Organization {
   id: string;
@@ -80,7 +78,8 @@ export interface Organization {
   status: "Active" | "Pending" | "Inactive";
   createdAt: string;
   academicSessionId?: string; // NEW
-  academicSession?: { // NEW
+  academicSession?: {
+    // NEW
     id: string;
     name: string;
   };

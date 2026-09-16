@@ -189,6 +189,8 @@ export interface CreateDepartmentDto {
   facultyId: string;
   logo?: string;
   promotionType?: "AUTOMATIC" | "MANUAL";
+  numberOfLevels?: 4 | 5 | 6 | 7;
+  customLevelNames?: string[];
 }
 
 export interface UpdateDepartmentDto {
@@ -205,6 +207,7 @@ export interface DepartmentResponseDto {
   code: string;
   facultyId: string;
   promotionType: "AUTOMATIC" | "MANUAL";
+  academicLevels?: AcademicLevelResponseDto[];
   status: "ACTIVE" | "INACTIVE" | "ARCHIVED";
   createdAt: string;
   updatedAt: string;
