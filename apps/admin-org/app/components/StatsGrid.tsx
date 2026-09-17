@@ -21,18 +21,21 @@ function StatCard({
 }: StatCardProps) {
   return (
     <div
-      className="relative bg-white border rounded-lg p-5"
-      style={{ borderColor: "var(--color-border)" }}
+      className="relative bg-white p-5 transition-shadow duration-200"
     >
-      {accent && <span className="absolute top-0 left-5 right-5 h-0.5 bg-blue-600" />}
-      <div className="mb-3">
-        <span className="text-xs font-semibold text-slate-500">
+      {accent && (
+        <span className="absolute top-0 left-6 right-6 h-[3px] bg-gradient-to-r from-blue-500 to-blue-600 rounded-b-full" />
+      )}
+      <div className="mb-2">
+        <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
           {label}
         </span>
       </div>
-      <div className="text-[26px] leading-8 font-bold tracking-tight tabular-nums text-slate-950">{value}</div>
+      <div className="text-2xl font-bold tracking-tight tabular-nums text-slate-900">
+        {value}
+      </div>
       {subtitle && (
-        <div className="text-xs text-slate-400 mt-0.5">{subtitle}</div>
+        <div className="text-xs text-slate-400 mt-1">{subtitle}</div>
       )}
     </div>
   );
@@ -99,7 +102,10 @@ export function StatsGrid() {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden mb-6">
+    <div
+      className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-slate-200 border border-slate-200 rounded-xl overflow-hidden mb-6"
+      style={{ borderColor: "var(--color-border)" }}
+    >
       {stats.map((stat) => (
         <StatCard key={stat.label} {...stat} />
       ))}

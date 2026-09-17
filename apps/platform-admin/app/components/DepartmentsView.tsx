@@ -33,7 +33,8 @@ export default function DepartmentsView() {
   const [selectedFacultyId, setSelectedFacultyId] = useState(
     faculties[0]?.id || "",
   );
-  const [generate500L, setGenerate500L] = useState(true);
+  const [numberOfLevels, setNumberOfLevels] = useState<4 | 5 | 6 | 7>(4);
+  const [levelNames, setLevelNames] = useState<string[]>(Array(4).fill(""));
 
   // Auto-select first faculty when institution changes
   useEffect(() => {
@@ -168,11 +169,28 @@ export default function DepartmentsView() {
     const parentInst = institutions.find((i) => i.id === selectedInstId);
     const parentFac = faculties.find((f) => f.id === selectedFacultyId);
 
-    const levels = generate500L
-      ? ["100L", "200L", "300L", "400L", "500L", "Postgraduate"]
-      : ["100L", "200L", "300L", "400L", "Postgraduate"];
+    const customLevelNames = levelNames.map((level) => level.trim());
+    const hasCustomLevelNames = customLevelNames.some(Boolean);
+    if (hasCustomLevelNames && customLevelNames.some((level) => !level)) {
+      showToast("Please provide a name for every academic level.", "warning");
+      return;
+    }
+    if (hasCustomLevelNames && customLevelNames.length !== numberOfLevels) {
+      showToast(
+        "Academic level names must match the selected level count.",
+        "warning",
+      );
+      return;
+    }
 
-    createDepartment({
+    const levels = hasCustomLevelNames
+      ? customLevelNames
+      : Array.from(
+          { length: numberOfLevels },
+          (_, index) => `${(index + 1) * 100} Level`,
+        );
+
+    void createDepartment({
       institutionId: selectedInstId,
       institutionName: parentInst
         ? `${parentInst.name} (${parentInst.code})`
@@ -185,6 +203,8 @@ export default function DepartmentsView() {
       headName: headName || "TBD",
       generatedLevels: levels,
       organizationsCount: levels.length,
+      numberOfLevels,
+      ...(hasCustomLevelNames ? { customLevelNames } : {}),
       status: "Active",
     });
 
@@ -192,6 +212,8 @@ export default function DepartmentsView() {
     setCode("");
     setHeadName("");
     setLogo("");
+    setNumberOfLevels(4);
+    setLevelNames(Array(4).fill(""));
     setIsModalOpen(false);
   };
 
@@ -352,31 +374,56 @@ export default function DepartmentsView() {
               label="Department Logo"
             />
 
-            <div
-              className="form-group"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginTop: "12px",
-              }}
-            >
-              <input
-                type="checkbox"
-                id="lvlCheck"
-                checked={generate500L}
-                onChange={(e) => setGenerate500L(e.target.checked)}
-              />
-              <label
-                htmlFor="lvlCheck"
-                style={{
-                  fontSize: "12px",
-                  color: "var(--text-secondary)",
-                  fontWeight: 600,
-                }}
-              >
-                Include 500-Level Organization Node (5-year degree program)
+            <div className="form-group">
+              <label className="form-label" htmlFor="numberOfLevels">
+                Number of Academic Levels
               </label>
+              <select
+                id="numberOfLevels"
+                className="form-select"
+                value={numberOfLevels}
+                onChange={(e) => {
+                  const nextNumberOfLevels = Number(e.target.value) as
+                    4 | 5 | 6 | 7;
+                  setNumberOfLevels(nextNumberOfLevels);
+                  setLevelNames((current) =>
+                    Array.from(
+                      { length: nextNumberOfLevels },
+                      (_, index) => current[index] || "",
+                    ),
+                  );
+                }}
+                required
+              >
+                {[4, 5, 6, 7].map((value) => (
+                  <option key={value} value={value}>
+                    {value} levels
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                Academic Level Names (optional)
+              </label>
+              {levelNames.map((levelName, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  className="form-input"
+                  placeholder={`${(index + 1) * 100} Level`}
+                  value={levelName}
+                  onChange={(e) =>
+                    setLevelNames((current) =>
+                      current.map((name, nameIndex) =>
+                        nameIndex === index ? e.target.value : name,
+                      ),
+                    )
+                  }
+                  style={{ marginTop: index === 0 ? 0 : "8px" }}
+                />
+              ))}
             </div>
 
             <div className="modal-actions">

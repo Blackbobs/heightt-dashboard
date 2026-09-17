@@ -189,6 +189,8 @@ export interface CreateDepartmentDto {
   facultyId: string;
   logo?: string;
   promotionType?: "AUTOMATIC" | "MANUAL";
+  numberOfLevels?: 4 | 5 | 6 | 7;
+  customLevelNames?: string[];
 }
 
 export interface UpdateDepartmentDto {
@@ -205,6 +207,7 @@ export interface DepartmentResponseDto {
   code: string;
   facultyId: string;
   promotionType: "AUTOMATIC" | "MANUAL";
+  academicLevels?: AcademicLevelResponseDto[];
   status: "ACTIVE" | "INACTIVE" | "ARCHIVED";
   createdAt: string;
   updatedAt: string;
@@ -492,6 +495,7 @@ export interface BulkPromoteDto {
 // ============================================
 
 export interface CreateDueDto {
+  isFresher?: boolean;
   organizationId: string;
   sessionId?: string;
   name: string;
@@ -512,6 +516,7 @@ export interface WithdrawalRequestDto {
 }
 
 export interface DueResponseDto {
+  isFresher: boolean;
   id: string;
   organizationId: string;
   sessionId?: string;

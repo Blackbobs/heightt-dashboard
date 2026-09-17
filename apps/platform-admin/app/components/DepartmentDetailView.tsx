@@ -411,7 +411,22 @@ export default function DepartmentDetailView() {
                 </div>
                 <div>
                   <div className="text-sm text-slate-500">Levels</div>
-                  <div>{(department as any).academicLevels?.length || 0}</div>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {((department as any).academicLevels || [])
+                      .slice()
+                      .sort((a: any, b: any) => a.order - b.order)
+                      .map((level: any) => (
+                        <span
+                          key={level.id}
+                          className="px-2 py-1 rounded bg-slate-100 text-xs text-slate-700"
+                        >
+                          {level.name}
+                        </span>
+                      ))}
+                    {!(department as any).academicLevels?.length && (
+                      <span>0</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

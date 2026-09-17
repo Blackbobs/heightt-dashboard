@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   adminApi,
+  type CreateDueInput,
   adminQueryKeys,
   PaymentHistoryStatus,
 } from "@/lib/api/admin";
@@ -16,7 +17,10 @@ export function useAdminDues(params?: {
 }) {
   const { token } = useAuthStore();
   const { selectedScope } = useAdminContext();
-  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
+  const scopedParams = {
+    ...params,
+    academicSessionId: selectedScope?.academicSessionId,
+  };
 
   return useQuery({
     queryKey: adminQueryKeys.finance.dues(scopedParams),
@@ -39,7 +43,10 @@ export function useAdminTransactions(params?: {
 }) {
   const { token } = useAuthStore();
   const { selectedScope } = useAdminContext();
-  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
+  const scopedParams = {
+    ...params,
+    academicSessionId: selectedScope?.academicSessionId,
+  };
 
   return useQuery({
     queryKey: adminQueryKeys.finance.transactions(scopedParams),
@@ -60,7 +67,10 @@ export function useAdminReceipts(params?: {
 }) {
   const { token } = useAuthStore();
   const { selectedScope } = useAdminContext();
-  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
+  const scopedParams = {
+    ...params,
+    academicSessionId: selectedScope?.academicSessionId,
+  };
 
   return useQuery({
     queryKey: adminQueryKeys.finance.receipts(scopedParams),
@@ -80,7 +90,10 @@ export function useAdminPaymentHistory(params?: {
 }) {
   const { token } = useAuthStore();
   const { selectedScope } = useAdminContext();
-  const scopedParams = { ...params, academicSessionId: selectedScope?.academicSessionId };
+  const scopedParams = {
+    ...params,
+    academicSessionId: selectedScope?.academicSessionId,
+  };
 
   return useQuery({
     queryKey: adminQueryKeys.finance.paymentHistory(scopedParams),
@@ -107,8 +120,15 @@ export function useOrganizationFinanceOverview(organizationId: string) {
   const academicSessionId = selectedScope?.academicSessionId;
 
   return useQuery({
-    queryKey: [...adminQueryKeys.finance.organizationOverview(organizationId), academicSessionId],
-    queryFn: () => adminApi.getOrganizationFinanceOverview(organizationId, academicSessionId),
+    queryKey: [
+      ...adminQueryKeys.finance.organizationOverview(organizationId),
+      academicSessionId,
+    ],
+    queryFn: () =>
+      adminApi.getOrganizationFinanceOverview(
+        organizationId,
+        academicSessionId,
+      ),
     enabled: !!token && !!organizationId,
     staleTime: 30 * 1000,
   });
@@ -120,7 +140,10 @@ export function useAdminWallet(organizationId: string) {
   const academicSessionId = selectedScope?.academicSessionId;
 
   return useQuery({
-    queryKey: [...adminQueryKeys.finance.wallet(organizationId), academicSessionId],
+    queryKey: [
+      ...adminQueryKeys.finance.wallet(organizationId),
+      academicSessionId,
+    ],
     queryFn: () => adminApi.getWallet(organizationId, academicSessionId),
     enabled: !!token && !!organizationId,
     staleTime: 60 * 1000,
@@ -132,7 +155,11 @@ export function useCreateDue() {
   const { selectedScope } = useAdminContext();
 
   return useMutation({
-    mutationFn: (data: any) => adminApi.createDue({ ...data, sessionId: selectedScope?.academicSessionId }),
+    mutationFn: (data: CreateDueInput) =>
+      adminApi.createDue({
+        ...data,
+        sessionId: selectedScope?.academicSessionId,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.dues(),
@@ -166,9 +193,32 @@ export function useDeleteDue() {
 
   return useMutation({
     mutationFn: (id: string) => adminApi.deleteDue(id),
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
+      queryClient.setQueriesData(
+        { queryKey: ["admin", "finance", "dues"] },
+        (current: unknown) => {
+          if (!current || typeof current !== "object" || !("data" in current)) {
+            return current;
+          }
+
+          const result = current as {
+            data: Array<{ id: string }>;
+            meta?: { total: number };
+          };
+          const data = result.data.filter((due) => due.id !== deletedId);
+          if (data.length === result.data.length) return current;
+
+          return {
+            ...result,
+            data,
+            meta: result.meta
+              ? { ...result.meta, total: Math.max(0, result.meta.total - 1) }
+              : result.meta,
+          };
+        },
+      );
       queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.finance.dues(),
+        queryKey: ["admin", "finance", "dues"],
       });
       queryClient.invalidateQueries({
         queryKey: ["admin", "finance", "organization-overview"],

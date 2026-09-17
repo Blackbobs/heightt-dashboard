@@ -83,9 +83,38 @@ export function useDeleteBankAccount() {
 
   return useMutation({
     mutationFn: (id: string) => platformApi.deleteBankAccount(id),
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
+      queryClient.setQueriesData(
+        { queryKey: ["platform", "finance", "bank-accounts"] },
+        (current: unknown) => {
+          if (!current || typeof current !== "object" || !("data" in current)) {
+            return current;
+          }
+
+          const result = current as {
+            data: Array<{ id: string }>;
+            meta?: { total: number };
+          };
+          const data = result.data.filter(
+            (account) => account.id !== deletedId,
+          );
+          if (data.length === result.data.length) return current;
+
+          return {
+            ...result,
+            data,
+            meta: result.meta
+              ? { ...result.meta, total: Math.max(0, result.meta.total - 1) }
+              : result.meta,
+          };
+        },
+      );
+      queryClient.removeQueries({
+        queryKey: platformQueryKeys.finance.bankAccount(deletedId),
+        exact: true,
+      });
       queryClient.invalidateQueries({
-        queryKey: platformQueryKeys.finance.bankAccounts(),
+        queryKey: ["platform", "finance", "bank-accounts"],
       });
     },
   });

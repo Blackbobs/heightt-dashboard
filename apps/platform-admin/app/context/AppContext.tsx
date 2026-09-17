@@ -55,7 +55,7 @@ interface AppContextType {
   toggleFacultyStatus: (id: string) => void;
 
   departments: Department[];
-  createDepartment: (data: Omit<Department, "id">) => void;
+  createDepartment: (data: Omit<Department, "id">) => Promise<void>;
   toggleDepartmentStatus: (id: string) => void;
 
   organizations: Organization[];
@@ -278,8 +278,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 name: item.name,
                 code: item.code,
                 headName: "—",
-                generatedLevels: [],
-                organizationsCount: 0,
+                generatedLevels:
+                  item.academicLevels
+                    ?.slice()
+                    .sort((a: any, b: any) => a.order - b.order)
+                    .map((level: any) => level.name) || [],
+                organizationsCount: item.academicLevels?.length || 0,
+                numberOfLevels: item.academicLevels?.length || undefined,
                 status:
                   item.status === "ACTIVE"
                     ? ("Active" as const)
@@ -536,12 +541,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         code: data.code,
         facultyId: data.facultyId,
         logo: data.logo || undefined,
+        numberOfLevels: data.numberOfLevels,
+        ...(data.customLevelNames?.length
+          ? { customLevelNames: data.customLevelNames }
+          : {}),
       });
       setDepartments((current) => [
         ...current,
         {
           ...data,
           id: department.id,
+          generatedLevels:
+            department.academicLevels?.map((level) => level.name) ||
+            data.generatedLevels,
+          organizationsCount:
+            department.academicLevels?.length || data.organizationsCount,
           status: department.status === "ACTIVE" ? "Active" : "Inactive",
         },
       ]);
