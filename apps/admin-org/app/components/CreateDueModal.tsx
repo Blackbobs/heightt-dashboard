@@ -25,6 +25,7 @@ export default function CreateDueModal({
   const [amount, setAmount] = useState("");
   const [isRequired, setIsRequired] = useState(true);
   const [isFresher, setIsFresher] = useState(false);
+  const [isDirectEntryEligible, setIsDirectEntryEligible] = useState(false);
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE">("DRAFT");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -62,9 +63,27 @@ export default function CreateDueModal({
     setIsSubmitting(true);
     setFormError(null);
     try {
-      await onSubmit({ name, description, amount: amountInKobo, isRequired, isFresher, status });
+      await onSubmit({
+        name,
+        description,
+        amount: amountInKobo,
+        isRequired,
+        isFresher,
+        isDirectEntryEligible: isFresher && isDirectEntryEligible,
+        status,
+      });
     } catch (error) {
-      setFormError(getApiErrorMessage(error, "The due could not be created. Please try again."));
+      const message = getApiErrorMessage(
+        error,
+        "The due could not be created. Please try again.",
+      );
+      if (
+        message ===
+        "Only 100 level dues can be made available to direct entry students"
+      ) {
+        setIsDirectEntryEligible(false);
+      }
+      setFormError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -173,12 +192,38 @@ export default function CreateDueModal({
               <select
                 id="due-audience"
                 value={isFresher ? "100_LEVEL" : "200_AND_ABOVE"}
-                onChange={(e) => setIsFresher(e.target.value === "100_LEVEL")}
+                onChange={(e) => {
+                  const is100Level = e.target.value === "100_LEVEL";
+                  setIsFresher(is100Level);
+                  if (!is100Level) setIsDirectEntryEligible(false);
+                }}
                 className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
               >
                 <option value="200_AND_ABOVE">200 level and above</option>
                 <option value="100_LEVEL">100 level students</option>
               </select>
+
+              {isFresher && (
+                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <input
+                    type="checkbox"
+                    checked={isDirectEntryEligible}
+                    onChange={(e) =>
+                      setIsDirectEntryEligible(e.target.checked)
+                    }
+                    className="mt-0.5 h-4 w-4 accent-[#1a5cff]"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-slate-700">
+                      Also make this due available to direct entry students
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">
+                      Direct entry students at 200 level or above will also see
+                      and be able to pay this 100 level due.
+                    </span>
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* Required Toggle */}

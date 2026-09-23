@@ -215,7 +215,8 @@ export interface CreateDueInput {
   description?: string;
   amount: number;
   isRequired: boolean;
-  isFresher?: boolean;
+  isFresher: boolean;
+  isDirectEntryEligible: boolean;
   status: "DRAFT" | "ACTIVE";
 }
 
@@ -228,6 +229,7 @@ export interface Due {
   amount: number;
   isRequired: boolean;
   isFresher: boolean;
+  isDirectEntryEligible: boolean;
   status:
     | "DRAFT"
     | "PAUSED"

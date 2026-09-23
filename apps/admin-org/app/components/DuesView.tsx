@@ -105,6 +105,14 @@ const STATUS_OPTIONS = [
   { value: "CANCELLED", label: "Cancelled" },
 ];
 
+function getDueAudienceLabel(due: Due): string {
+  if (due.isFresher && due.isDirectEntryEligible) {
+    return "100 level and direct entry";
+  }
+
+  return due.isFresher ? "100 level only" : "200 level and above";
+}
+
 export function DuesView() {
   const { selectedScope } = useAdminContext();
   const { hasPermission } = usePermissions();
@@ -172,9 +180,7 @@ export function DuesView() {
   };
 
   const handleAssignDue = async (due: Due) => {
-    const audience = due.isFresher
-      ? "100 level students"
-      : "students at 200 level and above";
+    const audience = getDueAudienceLabel(due);
     if (
       confirm(`Assign this due to eligible ${audience} in the selected scope?`)
     ) {
@@ -370,6 +376,9 @@ export function DuesView() {
                     Amount
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Audience
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Status
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">
@@ -397,11 +406,6 @@ export function DuesView() {
                           <div className="text-xs text-slate-400 truncate max-w-[200px]">
                             {due.description || "No description"}
                           </div>
-                          <div className="mt-1 text-xs font-medium text-slate-600">
-                            {due.isFresher
-                              ? "100 level students"
-                              : "200 level and above"}
-                          </div>
                           {due.isRequired && (
                             <span className="inline-flex mt-1 text-[10px] font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                               Required
@@ -415,6 +419,9 @@ export function DuesView() {
                             {formatKoboCurrency(due.amount)}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle text-sm font-medium text-slate-600">
+                        {getDueAudienceLabel(due)}
                       </td>
                       <td className="px-4 py-3.5 align-middle">
                         <span
