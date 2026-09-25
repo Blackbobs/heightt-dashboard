@@ -378,6 +378,26 @@ export interface OrganizationListResponseDto {
   meta: PaginationMeta;
 }
 
+export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface ApprovalRequestDto {
+  id: string;
+  entityType: "ORGANIZATION";
+  entityId: string;
+  entityName: string;
+  submittedBy: string;
+  status: ApprovalStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReviewApprovalDto =
+  | { status: "APPROVED" }
+  | { status: "REJECTED"; rejectionReason: string };
+
 // ============================================
 // MEMBERSHIP TYPES
 // ============================================

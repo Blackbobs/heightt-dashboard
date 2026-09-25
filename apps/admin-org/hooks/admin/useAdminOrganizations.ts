@@ -91,3 +91,27 @@ export function useRemoveMember() {
     },
   });
 }
+
+export function useAppointOrganizationAdmin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      organizationId,
+      userId,
+    }: {
+      organizationId: string;
+      userId: string;
+    }) => adminApi.appointOrganizationAdmin(organizationId, userId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.organizations.members(
+          variables.organizationId,
+        ),
+      });
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.organizations.userOrgs,
+      });
+    },
+  });
+}

@@ -113,6 +113,7 @@ export interface AdminScope {
     name: string;
     slug: string;
     type: string;
+    status?: string;
   };
   institution?: {
     id: string;
@@ -1067,6 +1068,15 @@ export const adminApi = {
     },
   ): Promise<void> => {
     await axiosConfig.post(`/v1/organizations/${organizationId}/members`, data);
+  },
+
+  appointOrganizationAdmin: async (
+    organizationId: string,
+    userId: string,
+  ): Promise<void> => {
+    await axiosConfig.post(`/v1/rbac/organizations/${organizationId}/admins`, {
+      userId,
+    });
   },
 
   updateMember: async (membershipId: string, data: any): Promise<void> => {

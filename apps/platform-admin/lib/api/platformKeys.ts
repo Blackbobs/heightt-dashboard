@@ -39,6 +39,9 @@ export const platformQueryKeys = {
       params,
     ],
   },
+  approvals: {
+    all: (status: string) => ["platform", "approvals", status],
+  },
   announcements: {
     all: (params?: any) => ["platform", "announcements", params],
     one: (id: string) => ["platform", "announcements", id],

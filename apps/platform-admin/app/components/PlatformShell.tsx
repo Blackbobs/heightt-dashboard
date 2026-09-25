@@ -72,6 +72,12 @@ const navItems = [
     highlight: true,
   },
   {
+    path: "/platform/organization-approvals",
+    label: "Organization approvals",
+    icon: Lucide.ClipboardCheck,
+    badge: null,
+  },
+  {
     path: "/platform/administrators",
     label: "Administrators",
     icon: Shield,

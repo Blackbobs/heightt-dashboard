@@ -34,6 +34,9 @@ import {
   OrganizationMemberResponseDto,
   AddMemberDto,
   UpdateMemberDto,
+  ApprovalRequestDto,
+  ApprovalStatus,
+  ReviewApprovalDto,
   // Student types
   CreateStudentDto,
   UpdateStudentDto,
@@ -408,6 +411,27 @@ export const platformApi = {
 
   removeOrganizationMember: async (membershipId: string): Promise<void> => {
     await axiosConfig.delete(`/v1/organizations/members/${membershipId}`);
+  },
+
+  // ============ Organization Approvals ============
+  getApprovalRequests: async (
+    status: ApprovalStatus,
+  ): Promise<ApprovalRequestDto[]> => {
+    const response = await axiosConfig.get("/v1/approvals", {
+      params: { status },
+    });
+    return response.data;
+  },
+
+  reviewApprovalRequest: async (
+    approvalId: string,
+    data: ReviewApprovalDto,
+  ): Promise<ApprovalRequestDto> => {
+    const response = await axiosConfig.patch(
+      `/v1/approvals/${approvalId}/review`,
+      data,
+    );
+    return response.data;
   },
 
   // ============ Students ============

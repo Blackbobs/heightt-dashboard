@@ -299,6 +299,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
               name: membership.organization.name,
               slug: membership.organization.slug,
               type: organizationType,
+              status: membership.organization.status,
             },
           }) satisfies AdminScope,
       );
