@@ -1084,6 +1084,15 @@ export const adminApi = {
 };
 
 // ============ Query Keys ============
+
+/**
+ * Builds a key for a list endpoint, dropping the trailing filter segment when
+ * the caller passes none. A key that ends in `undefined` matches nothing, so
+ * `all()` would silently fail to invalidate any filtered list query.
+ */
+const keyWithFilters = (base: string[], params?: unknown): unknown[] =>
+  params === undefined ? base : [...base, params];
+
 export const adminQueryKeys = {
   auth: {
     user: ["admin", "auth", "user"],
@@ -1102,23 +1111,21 @@ export const adminQueryKeys = {
     ],
   },
   students: {
-    all: (params?: any) => ["admin", "students", params],
+    all: (params?: any) => keyWithFilters(["admin", "students"], params),
     one: (id: string) => ["admin", "students", id],
     dashboard: ["admin", "students", "dashboard"],
-    adminDashboard: (params?: any) => [
-      "admin",
-      "students",
-      "admin-dashboard",
-      params,
-    ],
+    adminDashboard: (params?: any) =>
+      keyWithFilters(["admin", "students", "admin-dashboard"], params),
     promotions: (id: string) => ["admin", "students", id, "promotions"],
   },
   bankAccounts: {
-    all: (params?: any) => ["admin", "finance", "bank-accounts", params],
+    all: (params?: any) =>
+      keyWithFilters(["admin", "finance", "bank-accounts"], params),
     one: (id: string) => ["admin", "finance", "bank-accounts", id],
   },
   withdrawals: {
-    all: (params?: any) => ["admin", "finance", "withdrawals", params],
+    all: (params?: any) =>
+      keyWithFilters(["admin", "finance", "withdrawals"], params),
     one: (id: string) => ["admin", "finance", "withdrawals", id],
   },
   finance: {
@@ -1128,20 +1135,13 @@ export const adminQueryKeys = {
       "wallet",
       organizationId,
     ],
-    dues: (params?: any) => ["admin", "finance", "dues", params],
-    transactions: (params?: any) => [
-      "admin",
-      "finance",
-      "transactions",
-      params,
-    ],
-    receipts: (params?: any) => ["admin", "finance", "receipts", params],
-    paymentHistory: (params?: unknown) => [
-      "admin",
-      "finance",
-      "payment-history",
-      params,
-    ],
+    dues: (params?: any) => keyWithFilters(["admin", "finance", "dues"], params),
+    transactions: (params?: any) =>
+      keyWithFilters(["admin", "finance", "transactions"], params),
+    receipts: (params?: any) =>
+      keyWithFilters(["admin", "finance", "receipts"], params),
+    paymentHistory: (params?: unknown) =>
+      keyWithFilters(["admin", "finance", "payment-history"], params),
     overview: (organizationId: string) => [
       "admin",
       "finance",
@@ -1162,18 +1162,14 @@ export const adminQueryKeys = {
     ],
   },
   announcements: {
-    all: (params?: any) => ["admin", "announcements", params],
+    all: (params?: any) => keyWithFilters(["admin", "announcements"], params),
     one: (id: string) => ["admin", "announcements", id],
   },
   organizations: {
-    members: (id: string, params?: any) => [
-      "admin",
-      "organizations",
-      id,
-      "members",
-      params,
-    ],
-    stats: (params?: any) => ["admin", "organizations", "stats", params],
+    members: (id: string, params?: any) =>
+      keyWithFilters(["admin", "organizations", id, "members"], params),
+    stats: (params?: any) =>
+      keyWithFilters(["admin", "organizations", "stats"], params),
     userOrgs: ["admin", "organizations", "user"],
   },
 };

@@ -1,4 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { platformApi } from "@/lib/api/platform";
 import {
   UserWithdrawalRequestDto,
@@ -9,6 +15,19 @@ import {
 } from "@/lib/api/types";
 import { platformQueryKeys } from "@/lib/api/platformKeys";
 import { useAuthStore } from "@/store/auth-store";
+
+/**
+ * Views a withdrawal changes: every withdrawal queue and the platform finance
+ * overview, which carries the platform earnings balance.
+ */
+function invalidateWithdrawalViews(queryClient: QueryClient) {
+  queryClient.invalidateQueries({
+    queryKey: platformQueryKeys.finance.withdrawals(),
+  });
+  queryClient.invalidateQueries({
+    queryKey: platformQueryKeys.finance.overview(),
+  });
+}
 
 export function usePlatformWithdrawals(params?: WithdrawalFiltersDto) {
   const { token } = useAuthStore();
@@ -31,15 +50,9 @@ export function usePlatformWithdrawal(id: string) {
   const { token } = useAuthStore();
   const queryClient = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: platformQueryKeys.finance.withdrawal(id),
-    queryFn: async () => {
-      const withdrawal = await platformApi.getWithdrawal(id);
-      queryClient.invalidateQueries({ queryKey: platformQueryKeys.finance.withdrawals() });
-      queryClient.invalidateQueries({ queryKey: platformQueryKeys.finance.overview() });
-      queryClient.invalidateQueries({ queryKey: ["platform", "finance", "wallet"] });
-      return withdrawal;
-    },
+    queryFn: () => platformApi.getWithdrawal(id),
     enabled: !!token && !!id,
     staleTime: 0,
     refetchInterval: (query) => {
@@ -48,6 +61,20 @@ export function usePlatformWithdrawal(id: string) {
     },
     refetchIntervalInBackground: false,
   });
+
+  // Refresh the queues and earnings when the payout moves on. This lives here
+  // rather than in the query function, which would invalidate this same query
+  // and refetch it in a loop.
+  const status = query.data?.status;
+  const previousStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (status && previousStatus.current && previousStatus.current !== status) {
+      invalidateWithdrawalViews(queryClient);
+    }
+    previousStatus.current = status;
+  }, [status, queryClient]);
+
+  return query;
 }
 
 export function usePlatformWithdrawalQuote(amount?: number) {

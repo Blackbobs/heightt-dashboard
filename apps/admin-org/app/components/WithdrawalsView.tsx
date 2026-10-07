@@ -92,7 +92,7 @@ export function WithdrawalsView() {
   const canRequest = hasPermission("WITHDRAWAL_REQUEST");
   const organizationId = selectedScope?.organizationId;
 
-  const { data, isLoading, refetch } = useAdminWithdrawals({
+  const { data, isLoading } = useAdminWithdrawals({
     page: currentPage,
     limit: 10,
     status: statusFilter || undefined,
@@ -137,22 +137,16 @@ export function WithdrawalsView() {
     setIsRequestModalOpen(true);
   };
 
+  // The mutation refreshes the list and wallet once it settles, so a payout the
+  // provider rejected still shows up as a failed withdrawal right away.
   const handleSubmitWithdrawalRequest = async (data: any) => {
     if (!organizationId) {
       throw new Error("No organization is selected for this withdrawal request.");
     }
-    try {
-      await requestMutation.mutateAsync({
-        ...data,
-        organizationId,
-      });
-      refetch();
-    } catch (error) {
-      console.error("Failed to request withdrawal:", error);
-      const code = (error as { response?: { data?: { code?: string } } }).response?.data?.code;
-      if (code === "INSUFFICIENT_AVAILABLE_BALANCE") throw error;
-      throw error;
-    }
+    await requestMutation.mutateAsync({
+      ...data,
+      organizationId,
+    });
   };
 
   const getStatusConfig = (status: string) => {

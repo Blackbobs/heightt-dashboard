@@ -1,17 +1,25 @@
+/**
+ * Builds a key for a list endpoint, dropping the trailing filter segment when
+ * the caller passes none. A key that ends in `undefined` matches nothing, so
+ * `all()` would silently fail to invalidate any filtered list query.
+ */
+const keyWithFilters = (base: string[], params?: unknown): unknown[] =>
+  params === undefined ? base : [...base, params];
+
 export const platformQueryKeys = {
   auth: {
     user: ["platform", "auth", "user"],
   },
   institutions: {
-    all: (params?: any) => ["platform", "institutions", params],
+    all: (params?: any) => keyWithFilters(["platform", "institutions"], params),
     one: (id: string) => ["platform", "institutions", id],
   },
   faculties: {
-    all: (params?: any) => ["platform", "faculties", params],
+    all: (params?: any) => keyWithFilters(["platform", "faculties"], params),
     one: (id: string) => ["platform", "faculties", id],
   },
   departments: {
-    all: (params?: any) => ["platform", "departments", params],
+    all: (params?: any) => keyWithFilters(["platform", "departments"], params),
     one: (id: string) => ["platform", "departments", id],
   },
   academicLevels: {
@@ -29,22 +37,17 @@ export const platformQueryKeys = {
     ],
   },
   organizations: {
-    all: (params?: any) => ["platform", "organizations", params],
+    all: (params?: any) => keyWithFilters(["platform", "organizations"], params),
     one: (id: string) => ["platform", "organizations", id],
-    members: (id: string, params?: any) => [
-      "platform",
-      "organizations",
-      id,
-      "members",
-      params,
-    ],
+    members: (id: string, params?: any) =>
+      keyWithFilters(["platform", "organizations", id, "members"], params),
   },
   announcements: {
-    all: (params?: any) => ["platform", "announcements", params],
+    all: (params?: any) => keyWithFilters(["platform", "announcements"], params),
     one: (id: string) => ["platform", "announcements", id],
   },
   users: {
-    all: (params?: any) => ["platform", "users", params],
+    all: (params?: any) => keyWithFilters(["platform", "users"], params),
     one: (id: string) => ["platform", "users", id],
   },
   administrators: {
@@ -57,67 +60,50 @@ export const platformQueryKeys = {
     status: ["platform", "maintenance"],
   },
   auditLogs: {
-    all: (params?: any) => ["platform", "audit-logs", params],
-    summary: (params?: any) => ["platform", "audit-logs", "summary", params],
+    all: (params?: any) => keyWithFilters(["platform", "audit-logs"], params),
+    summary: (params?: any) =>
+      keyWithFilters(["platform", "audit-logs", "summary"], params),
   },
   analytics: {
-    dashboard: (params?: any) => ["platform", "analytics", "dashboard", params],
-    revenue: (params?: any) => ["platform", "analytics", "revenue", params],
-    growth: (params?: any) => ["platform", "analytics", "growth", params],
+    dashboard: (params?: any) =>
+      keyWithFilters(["platform", "analytics", "dashboard"], params),
+    revenue: (params?: any) =>
+      keyWithFilters(["platform", "analytics", "revenue"], params),
+    growth: (params?: any) =>
+      keyWithFilters(["platform", "analytics", "growth"], params),
   },
   finance: {
-    overview: (params?: any) => ["platform", "finance", "overview", params],
-    transactions: (params?: any) => [
-      "platform",
-      "finance",
-      "transactions",
-      params,
-    ],
-    dues: (params?: any) => ["platform", "finance", "dues", params],
-    receipts: (params?: any) => ["platform", "finance", "receipts", params],
+    overview: (params?: any) =>
+      keyWithFilters(["platform", "finance", "overview"], params),
+    transactions: (params?: any) =>
+      keyWithFilters(["platform", "finance", "transactions"], params),
+    dues: (params?: any) => keyWithFilters(["platform", "finance", "dues"], params),
+    receipts: (params?: any) =>
+      keyWithFilters(["platform", "finance", "receipts"], params),
     // NEW: Bank Accounts
-    bankAccounts: (params?: any) => [
-      "platform",
-      "finance",
-      "bank-accounts",
-      params,
-    ],
+    bankAccounts: (params?: any) =>
+      keyWithFilters(["platform", "finance", "bank-accounts"], params),
     bankAccount: (id: string) => ["platform", "finance", "bank-accounts", id],
     // NEW: Withdrawals
-    withdrawals: (params?: any) => [
-      "platform",
-      "finance",
-      "withdrawals",
-      params,
-    ],
+    withdrawals: (params?: any) =>
+      keyWithFilters(["platform", "finance", "withdrawals"], params),
     withdrawal: (id: string) => ["platform", "finance", "withdrawals", id],
-    userWithdrawals: (params?: any) => [
-      "platform",
-      "finance",
-      "withdrawals",
-      "user",
-      params,
-    ],
-    organizationWithdrawals: (params?: any) => [
-      "platform",
-      "finance",
-      "withdrawals",
-      "organization",
-      params,
-    ],
-    platformWithdrawals: (params?: any) => [
-      "platform",
-      "finance",
-      "withdrawals",
-      "platform",
-      params,
-    ],
+    userWithdrawals: (params?: any) =>
+      keyWithFilters(["platform", "finance", "withdrawals", "user"], params),
+    organizationWithdrawals: (params?: any) =>
+      keyWithFilters(
+        ["platform", "finance", "withdrawals", "organization"],
+        params,
+      ),
+    platformWithdrawals: (params?: any) =>
+      keyWithFilters(["platform", "finance", "withdrawals", "platform"], params),
   },
   students: {
-    all: (params?: any) => ["platform", "students", params],
+    all: (params?: any) => keyWithFilters(["platform", "students"], params),
     one: (id: string) => ["platform", "students", id],
     promotions: (id: string) => ["platform", "students", id, "promotions"],
-    eligible: (params?: any) => ["platform", "students", "eligible", params],
+    eligible: (params?: any) =>
+      keyWithFilters(["platform", "students", "eligible"], params),
   },
   roles: {
     all: (organizationId: string) => ["platform", "roles", organizationId],
