@@ -253,20 +253,15 @@ export default function RequestWithdrawalModal({
                   </strong>
                 </div>
                 <div className="flex justify-between py-1">
-                  <span>Heightt fee</span>
-                  <strong>{formatKoboCurrency(quote?.platformFee || 0)}</strong>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span>Bachs payout fee</span>
-                  <strong>{formatKoboCurrency(quote?.providerFee || 0)}</strong>
+                  <span>Withdrawal fee</span>
+                  <strong>{formatKoboCurrency(quote?.fee || 0)}</strong>
                 </div>
                 <div className="mt-1 flex justify-between border-t border-slate-200 pt-2">
                   <span>Total debit</span>
                   <strong>{formatKoboCurrency(quote?.totalDebit || 0)}</strong>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  The bank account receives the withdrawal amount. Heightt
-                  charges ₦0; the Bachs fee is debited separately.
+                  The ₦100 withdrawal fee is debited separately.
                 </p>
               </div>
               {balanceError && (
@@ -295,8 +290,9 @@ export default function RequestWithdrawalModal({
                 <div className="text-xs text-amber-700">
                   <p className="font-semibold">Important</p>
                   <p>
-                    Withdrawal requests are subject to review and approval.
-                    Processing may take 1-2 business days.
+                    Your withdrawal is submitted to the payout provider
+                    immediately. No platform approval is required. The transfer
+                    may take a few minutes to complete.
                   </p>
                 </div>
               </div>

@@ -1086,8 +1086,6 @@ export interface WithdrawalQuoteDto {
   maxWithdrawable: number;
   canWithdraw: boolean;
   feePolicy: "PROVIDER_FEE_ONLY" | "WITHDRAWAL_FEE_APPLIES";
-  platformFee: number;
-  providerFee: number;
   currency: "NGN";
   currencyUnit: "KOBO";
 }
