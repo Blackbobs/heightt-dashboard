@@ -1,7 +1,23 @@
 // apps/admin-org/hooks/admin/useAdminWithdrawals.ts
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { adminApi, adminQueryKeys } from "@/lib/api/admin";
 import { useAuthStore } from "@/store/auth-store";
+
+/** Views a withdrawal changes: the list, the held wallet balance, and the
+ * organisation finance overview. */
+function invalidateWithdrawalViews(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: adminQueryKeys.withdrawals.all() });
+  queryClient.invalidateQueries({ queryKey: ["admin", "finance", "wallet"] });
+  queryClient.invalidateQueries({
+    queryKey: ["admin", "finance", "organization-overview"],
+  });
+}
 
 export function useAdminWithdrawals(params?: {
   status?: string;
@@ -33,15 +49,9 @@ export function useAdminWithdrawal(id: string) {
   const { token } = useAuthStore();
   const queryClient = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: adminQueryKeys.withdrawals.one(id),
-    queryFn: async () => {
-      const withdrawal = await adminApi.getWithdrawal(id);
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.withdrawals.all() });
-      queryClient.invalidateQueries({ queryKey: ["admin", "finance", "wallet"] });
-      queryClient.invalidateQueries({ queryKey: ["admin", "finance", "organization-overview"] });
-      return withdrawal;
-    },
+    queryFn: () => adminApi.getWithdrawal(id),
     enabled: !!token && !!id,
     staleTime: 0,
     refetchInterval: (query) => {
@@ -50,6 +60,20 @@ export function useAdminWithdrawal(id: string) {
     },
     refetchIntervalInBackground: false,
   });
+
+  // Refresh the list and wallet when the payout moves on. This lives here
+  // rather than in the query function, which would invalidate this same query
+  // and refetch it in a loop.
+  const status = query.data?.status;
+  const previousStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (status && previousStatus.current && previousStatus.current !== status) {
+      invalidateWithdrawalViews(queryClient);
+    }
+    previousStatus.current = status;
+  }, [status, queryClient]);
+
+  return query;
 }
 
 export function useOrganizationWithdrawalQuote(
@@ -81,18 +105,12 @@ export function useRequestOrganizationWithdrawal() {
       reason?: string;
     }) => adminApi.requestWithdrawal(data),
     retry: false,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.withdrawals.all(),
-      });
+    // A payout the provider rejects still leaves a FAILED withdrawal and a
+    // refunded wallet behind, so the failure path refreshes the same views.
+    onSettled: () => {
+      invalidateWithdrawalViews(queryClient);
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.transactions(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["admin", "finance", "organization-overview"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["admin", "finance", "wallet"],
       });
       queryClient.invalidateQueries({
         queryKey: ["admin", "finance", "withdrawal-quote"],
