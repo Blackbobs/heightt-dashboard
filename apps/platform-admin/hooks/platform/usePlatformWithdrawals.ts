@@ -61,21 +61,6 @@ export function usePlatformWithdrawalQuote(amount?: number) {
   });
 }
 
-export function usePendingOrganizationWithdrawals(params?: {
-  status?: WithdrawalFiltersDto["status"];
-  page?: number;
-  limit?: number;
-}) {
-  const { token } = useAuthStore();
-  return useQuery({
-    queryKey: ["platform", "finance", "withdrawals", "admin", params],
-    queryFn: () => platformApi.getPendingOrganizationWithdrawals(params),
-    enabled: !!token,
-    staleTime: 0,
-    refetchInterval: 30_000,
-  });
-}
-
 export function useRequestUserWithdrawal() {
   const queryClient = useQueryClient();
 

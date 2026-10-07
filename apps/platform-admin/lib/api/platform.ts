@@ -1092,17 +1092,6 @@ export const platformApi = {
     return response.data;
   },
 
-  getPendingOrganizationWithdrawals: async (params?: {
-    status?: WithdrawalFiltersDto["status"];
-    page?: number;
-    limit?: number;
-  }): Promise<WithdrawalListResponseDto> => {
-    const response = await axiosConfig.get("/v1/finance/withdrawals/admin", {
-      params: { ...params, type: "ORGANIZATION" },
-    });
-    return response.data;
-  },
-
   getWithdrawal: async (id: string): Promise<WithdrawalResponseDto> => {
     const response = await axiosConfig.get(`/v1/finance/withdrawals/${id}`);
     return response.data;

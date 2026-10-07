@@ -183,7 +183,7 @@ export function WithdrawalsView() {
 
   return (
     <div className="operations-page">
-      <PageHeader eyebrow="Finance" title="Withdrawals" description="Review and manage your organization’s withdrawal requests." actions={canRequest ? (
+      <PageHeader eyebrow="Finance" title="Withdrawals" description="Review and manage your organization’s withdrawals." actions={canRequest ? (
           <button
             onClick={handleOpenRequestModal}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white border-none cursor-pointer transition-all duration-200 bg-[#1a5cff] hover:bg-[#0f4ad0] hover:shadow-lg active:scale-[0.98]"
@@ -207,9 +207,9 @@ export function WithdrawalsView() {
           className="bg-white border rounded-xl p-4"
           style={{ borderColor: "var(--color-border)" }}
         >
-          <div className="text-xs text-slate-500 font-medium">Pending</div>
-          <div className="text-lg font-bold text-amber-600">
-            {withdrawals.filter((w: any) => w.status === "PENDING").length}
+          <div className="text-xs text-slate-500 font-medium">Processing</div>
+          <div className="text-lg font-bold text-blue-600">
+            {withdrawals.filter((w: any) => w.status === "PROCESSING").length}
           </div>
         </div>
         <div
@@ -416,7 +416,7 @@ export function WithdrawalsView() {
             </div>
             <div className={cn("mt-4 rounded-lg p-3 text-sm", getStatusConfig(selectedWithdrawal.status).bg, getStatusConfig(selectedWithdrawal.status).text)} aria-live="polite">
               <strong>{STATUS_LABELS[selectedWithdrawal.status] || selectedWithdrawal.status}</strong>
-              <p className="mt-1">{selectedWithdrawal.status === "PENDING" ? "This withdrawal is waiting for approval." : selectedWithdrawal.status === "PROCESSING" ? "The payout has been submitted. This page refreshes automatically until the provider confirms it." : selectedWithdrawal.status === "COMPLETED" ? "The payout provider confirmed this transfer as completed." : selectedWithdrawal.status === "FAILED" ? "The payout failed. Review the failure reason below." : "This withdrawal was cancelled."}</p>
+              <p className="mt-1">{selectedWithdrawal.status === "PENDING" ? "This withdrawal is waiting for platform approval." : selectedWithdrawal.status === "PROCESSING" ? "The payout has been submitted. This page refreshes automatically until the provider confirms it." : selectedWithdrawal.status === "COMPLETED" ? "The payout provider confirmed this transfer as completed." : selectedWithdrawal.status === "FAILED" ? "The payout failed. Review the failure reason below." : "This withdrawal was cancelled."}</p>
             </div>
             <div className="mt-4 rounded-lg bg-slate-50 p-4"><div className="text-xs text-slate-500">Withdrawal amount</div><div className="text-2xl font-bold">{formatKoboCurrency(selectedWithdrawal.amount)}</div><div className="mt-1 text-xs text-slate-500">Fee: {formatKoboCurrency(selectedWithdrawal.fee)} · Total debit: {formatKoboCurrency(selectedWithdrawal.amount + selectedWithdrawal.fee)}</div></div>
             <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

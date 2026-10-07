@@ -55,8 +55,8 @@ const maskAccountNumber = (value?: string) => {
 
 export default function WithdrawalsView() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("PENDING");
-  const [typeFilter, setTypeFilter] = useState("ORGANIZATION");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedWithdrawalSnapshot, setSelectedWithdrawal] = useState<
     any | null
@@ -137,14 +137,32 @@ export default function WithdrawalsView() {
     setIsDetailModalOpen(true);
   };
 
+  // User withdrawals are the only ones that still wait for platform approval.
+  // Organization withdrawals settle on request, but one can still sit in
+  // PENDING if settlement failed, so approving it stays available as a recovery
+  // path. Platform withdrawals never reach this queue.
+  const approveWithdrawalByType = async (id: string, type: string) => {
+    if (type === "USER") return approveUserMutation.mutateAsync(id);
+    if (type === "ORGANIZATION") return approveOrgMutation.mutateAsync(id);
+    throw new Error(`${type} withdrawals are not approved manually`);
+  };
+
   const handleApprove = async (id: string, type: string) => {
-    if (confirm("Are you sure you want to approve this withdrawal?")) {
-      try {
-        if (type === "ORGANIZATION") await approveOrgMutation.mutateAsync(id);
-        refetch();
-      } catch (error) {
-        console.error("Failed to approve withdrawal:", error);
-      }
+    if (
+      !confirm(
+        `Approve this ${type.toLowerCase()} withdrawal? The payout is submitted to Bachs immediately.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await approveWithdrawalByType(id, type);
+      setSuccessMessage("Withdrawal approved and submitted for payout.");
+      refetch();
+    } catch (error) {
+      console.error("Failed to approve withdrawal:", error);
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(getApiErrorMessage(error, "Failed to approve the withdrawal."));
     }
   };
 
@@ -168,12 +186,17 @@ export default function WithdrawalsView() {
           id: rejectId,
           data: { reason: rejectReason || undefined },
         });
+      } else {
+        throw new Error("This withdrawal type cannot be rejected manually");
       }
       setShowRejectModal(false);
       setRejectId(null);
+      setSuccessMessage("Withdrawal rejected and funds released to the wallet.");
       refetch();
     } catch (error) {
       console.error("Failed to reject withdrawal:", error);
+      const { getApiErrorMessage } = await import("@/lib/api/error");
+      alert(getApiErrorMessage(error, "Failed to reject the withdrawal."));
     }
   };
 
@@ -358,7 +381,7 @@ export default function WithdrawalsView() {
               >
                 <Eye className="w-4 h-4" />
               </button>
-              {isPending && type === "ORGANIZATION" && (
+              {isPending && type !== "PLATFORM" && (
                 <>
                   <button
                     className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-colors"
@@ -711,18 +734,10 @@ export default function WithdrawalsView() {
                         </strong>
                       </div>
                       <div className="flex justify-between">
-                        <span>Heightt fee</span>
+                        <span>Payout fee</span>
                         <strong>
                           {quote
-                            ? `₦${(quote.platformFee / 100).toLocaleString()}`
-                            : "—"}
-                        </strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Bachs payout fee</span>
-                        <strong>
-                          {quote
-                            ? `₦${(quote.providerFee / 100).toLocaleString()}`
+                            ? `₦${(quote.fee / 100).toLocaleString()}`
                             : "—"}
                         </strong>
                       </div>
@@ -824,7 +839,10 @@ export default function WithdrawalsView() {
                 aria-live="polite"
               >
                 {selectedWithdrawal.status === "PENDING" &&
-                  "This withdrawal is waiting for approval."}
+                  (selectedWithdrawal.metadata?.type ===
+                  "ORGANIZATION_WITHDRAWAL"
+                    ? "This organization withdrawal was not submitted automatically, so it needs a manual approval before the payout is sent."
+                    : "This withdrawal is waiting for approval.")}
                 {selectedWithdrawal.status === "PROCESSING" &&
                   "The payout has been submitted. This status refreshes automatically until the provider confirms it."}
                 {selectedWithdrawal.status === "COMPLETED" &&
