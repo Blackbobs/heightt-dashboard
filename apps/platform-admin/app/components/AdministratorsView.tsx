@@ -42,7 +42,11 @@ import {
 import { cn } from "@/lib/utils";
 import DataTable from "./DataTable";
 import type { ColumnDef } from "@tanstack/react-table";
-import { PERMISSION_CATEGORIES, PermissionCategoryKey } from "@/lib/api/types";
+import {
+  PERMISSION_CATEGORIES,
+  PermissionCategoryKey,
+} from "@/lib/api/types";
+import type { UserResponseDto } from "@/lib/api/types";
 import { platformApi } from "@/lib/api/platform";
 
 // ============================================
@@ -497,6 +501,11 @@ function EditAdminPermissionsModal({
 
 export default function AdministratorsView() {
   const [search, setSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [debouncedUserSearch, setDebouncedUserSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<UserResponseDto | null>(
+    null,
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
@@ -517,7 +526,17 @@ export default function AdministratorsView() {
     isLoading: adminsLoading,
     refetch: refetchAdmins,
   } = usePlatformAdministrators();
-  const { data: usersData } = usePlatformUsers({ limit: 100 });
+  const {
+    data: usersData,
+    isLoading: usersLoading,
+    isFetching: usersFetching,
+  } = usePlatformUsers(
+    {
+      limit: 20,
+      search: debouncedUserSearch || undefined,
+    },
+    isModalOpen && debouncedUserSearch.length >= 2,
+  );
   const { data: institutionsData } = usePlatformInstitutions({ limit: 100 });
   const { data: allPermissions, isLoading: permissionsLoading } =
     usePlatformAllPermissions();
@@ -552,6 +571,8 @@ export default function AdministratorsView() {
 
   const administrators = admins || [];
   const users = usersData?.data || [];
+  const normalizedUserSearch = userSearch.trim();
+  const isUserSearchDebouncing = normalizedUserSearch !== debouncedUserSearch;
   const institutions = institutionsData?.data || [];
   const faculties = Array.isArray(facultiesData)
     ? facultiesData
@@ -566,6 +587,14 @@ export default function AdministratorsView() {
     (session) => session.scope === "INSTITUTION" && session.isCurrent && session.status === "ACTIVE",
   );
   const permissions = allPermissions || [];
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedUserSearch(userSearch.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [userSearch]);
 
   // Refetch faculties when institution changes
   useEffect(() => {
@@ -723,6 +752,11 @@ export default function AdministratorsView() {
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!formData.userId) {
+      alert("Please select a user");
+      return;
+    }
+
     const adminType = ADMIN_TYPES.find((t) => t.value === formData.adminType);
     if (adminType) {
       for (const required of adminType.requires) {
@@ -760,6 +794,9 @@ export default function AdministratorsView() {
         organizationId: "",
         academicSessionId: "",
       });
+      setSelectedUser(null);
+      setUserSearch("");
+      setDebouncedUserSearch("");
       setSelectedPermissions([]);
       setExpandedCategories([]);
       refetchAdmins();
@@ -1026,24 +1063,90 @@ export default function AdministratorsView() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   User <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className="w-full px-4 py-2.5 border-2 rounded-lg text-sm outline-none transition-all bg-white border-slate-200 focus:border-[#1a5cff] cursor-pointer"
-                  value={formData.userId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, userId: e.target.value })
-                  }
-                  required
-                >
-                  <option value="">Select User</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.profile?.firstName && user.profile?.lastName
-                        ? `${user.profile.firstName} ${user.profile.lastName}`
-                        : user.username}{" "}
-                      ({user.email})
-                    </option>
-                  ))}
-                </select>
+                {selectedUser ? (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-800">
+                        {selectedUser.profile?.firstName &&
+                        selectedUser.profile?.lastName
+                          ? `${selectedUser.profile.firstName} ${selectedUser.profile.lastName}`
+                          : selectedUser.username}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">
+                        {selectedUser.email}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 text-sm font-medium text-[#1a5cff] hover:underline"
+                      onClick={() => {
+                        setSelectedUser(null);
+                        setFormData({ ...formData, userId: "" });
+                      }}
+                    >
+                      Change user
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="search"
+                        className="w-full rounded-lg border-2 border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition-all focus:border-[#1a5cff]"
+                        placeholder="Search users by name or email..."
+                        value={userSearch}
+                        onChange={(event) => setUserSearch(event.target.value)}
+                        autoComplete="off"
+                        aria-label="Search users by name or email"
+                      />
+                      {usersFetching && (
+                        <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
+                      )}
+                    </div>
+                    <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-slate-200">
+                      {normalizedUserSearch.length < 2 ? (
+                        <p className="px-3 py-3 text-sm text-slate-500">
+                          Enter at least 2 characters to search.
+                        </p>
+                      ) : isUserSearchDebouncing ? (
+                        <p className="px-3 py-3 text-sm text-slate-500">
+                          Preparing search...
+                        </p>
+                      ) : usersLoading || usersFetching ? (
+                        <p className="px-3 py-3 text-sm text-slate-500">
+                          Searching users...
+                        </p>
+                      ) : users.length === 0 ? (
+                        <p className="px-3 py-3 text-sm text-slate-500">
+                          No users found.
+                        </p>
+                      ) : (
+                        users.map((user) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            className="block w-full border-b border-slate-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-slate-50"
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setFormData({ ...formData, userId: user.id });
+                            }}
+                          >
+                            <span className="block text-sm font-medium text-slate-800">
+                              {user.profile?.firstName &&
+                              user.profile?.lastName
+                                ? `${user.profile.firstName} ${user.profile.lastName}`
+                                : user.username}
+                            </span>
+                            <span className="block text-xs text-slate-500">
+                              {user.email}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Admin Type Selection */}
