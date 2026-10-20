@@ -12,13 +12,13 @@ export function usePlatformUsers(params?: {
   createdAfter?: string;
   createdBefore?: string;
   search?: string;
-}) {
+}, enabled = true) {
   const { token } = useAuthStore();
 
   return useQuery({
     queryKey: platformQueryKeys.users.all(params),
     queryFn: () => platformApi.getUsers(params),
-    enabled: !!token,
+    enabled: !!token && enabled,
     staleTime: 3 * 60 * 1000,
   });
 }
