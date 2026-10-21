@@ -363,7 +363,7 @@ export function DuesView() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[760px]">
+            <table className="w-full text-left text-sm border-collapse min-w-[880px]">
               <thead>
                 <tr
                   className="bg-slate-50 border-b"
@@ -374,6 +374,9 @@ export function DuesView() {
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Amount
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Students paid
                   </th>
                   <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Audience
@@ -418,6 +421,14 @@ export function DuesView() {
                           <span className="font-bold text-sm text-slate-900">
                             {formatKoboCurrency(due.amount)}
                           </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 align-middle">
+                        <div className="font-semibold text-sm text-slate-900">
+                          {due.paidStudentCount || 0} / {due.totalAssignments || 0}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {due.pendingAssignments || 0} unpaid
                         </div>
                       </td>
                       <td className="px-4 py-3.5 align-middle text-sm font-medium text-slate-600">

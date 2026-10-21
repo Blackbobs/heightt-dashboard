@@ -1,8 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useAdminPaymentHistory } from "@/hooks/admin/useAdminFinance";
-import { PaymentHistoryRecord, PaymentHistoryStatus } from "@/lib/api/admin";
+import { useMemo, useState, type FormEvent } from "react";
+import {
+  useAdminPaymentHistory,
+  useAdminPaymentOfferings,
+  useCreatePaymentOffering,
+} from "@/hooks/admin/useAdminFinance";
+import {
+  PaymentHistoryRecord,
+  PaymentHistoryStatus,
+  type CreatePaymentOfferingInput,
+} from "@/lib/api/admin";
 import {
   Search,
   CreditCard,
@@ -76,6 +84,11 @@ const STATUS_COLORS: Record<
 
 export function PaymentsView() {
   const { selectedScope, hasPermission } = useAdminContext();
+  const [isCreateOfferingOpen, setIsCreateOfferingOpen] = useState(false);
+  const [offeringName, setOfferingName] = useState("");
+  const [offeringDescription, setOfferingDescription] = useState("");
+  const [offeringAmount, setOfferingAmount] = useState("");
+  const [offeringError, setOfferingError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<PaymentHistoryStatus | "">(
     "",
@@ -85,6 +98,46 @@ export function PaymentsView() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const offeringsQuery = useAdminPaymentOfferings({
+    organizationId: selectedScope?.organizationId || "",
+    page: 1,
+    limit: 100,
+  });
+  const createOfferingMutation = useCreatePaymentOffering();
+
+  const handleCreateOffering = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    const amount = Math.round(Number(offeringAmount) * 100);
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      setOfferingError("Enter a valid amount.");
+      return;
+    }
+    if (!selectedScope?.organizationId) {
+      setOfferingError("Select an organization first.");
+      return;
+    }
+    setOfferingError("");
+    const input: CreatePaymentOfferingInput = {
+      organizationId: selectedScope.organizationId,
+      name: offeringName.trim(),
+      description: offeringDescription.trim() || undefined,
+      amount,
+      status: "ACTIVE",
+    };
+    try {
+      await createOfferingMutation.mutateAsync(input);
+      setOfferingName("");
+      setOfferingDescription("");
+      setOfferingAmount("");
+      setIsCreateOfferingOpen(false);
+    } catch (error) {
+      setOfferingError(
+        getApiErrorMessage(error, "The payment could not be created."),
+      );
+    }
+  };
 
   const handleExport = async () => {
     if (!selectedScope?.organizationId) return;
@@ -140,6 +193,7 @@ export function PaymentsView() {
             payment.metadata?.guestMatricNumber,
             payment.organization?.name,
             payment.duePayment?.assignment?.due?.name,
+            payment.paymentOffering?.name,
           ].some((value) => value?.toLocaleLowerCase().includes(query)),
     );
   }, [payments, search]);
@@ -179,24 +233,146 @@ export function PaymentsView() {
       <PageHeader
         eyebrow="Finance"
         title="Payments"
-        description="Review completed, pending, and failed due payments."
+        description="Create organization payments and track student collections."
         actions={
-          hasPermission("finance:export") && (
-            <button
-              className="btn btn-secondary"
-              onClick={handleExport}
-              disabled={isExporting || !selectedScope?.organizationId}
-            >
-              {isExporting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              {isExporting ? "Exporting…" : "Export CSV"}
-            </button>
-          )
+          <div className="flex flex-wrap gap-2">
+            {hasPermission("finance:create") && (
+              <button
+                className="btn btn-primary"
+                onClick={() => setIsCreateOfferingOpen(true)}
+                disabled={!selectedScope?.organizationId}
+              >
+                Create Payment
+              </button>
+            )}
+            {hasPermission("finance:export") && (
+              <button
+                className="btn btn-secondary"
+                onClick={handleExport}
+                disabled={isExporting || !selectedScope?.organizationId}
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {isExporting ? "Exporting…" : "Export CSV"}
+              </button>
+            )}
+          </div>
         }
       />
+
+      <div className="operations-surface overflow-x-auto">
+        <div className="border-b px-5 py-4" style={{ borderColor: "var(--color-border)" }}>
+          <h2 className="text-sm font-semibold text-slate-900">Organization payments</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Students in this organization pay a 3% Heightt transaction fee at checkout.
+          </p>
+        </div>
+        <table className="w-full min-w-[620px] text-left text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="px-5 py-3 text-[11px] font-bold uppercase text-slate-400">Payment</th>
+              <th className="px-5 py-3 text-[11px] font-bold uppercase text-slate-400">Amount</th>
+              <th className="px-5 py-3 text-[11px] font-bold uppercase text-slate-400">Students paid</th>
+              <th className="px-5 py-3 text-[11px] font-bold uppercase text-slate-400">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {(offeringsQuery.data?.data || []).map((offering) => (
+              <tr key={offering.id}>
+                <td className="px-5 py-3">
+                  <div className="font-semibold text-slate-900">{offering.name}</div>
+                  {offering.description && (
+                    <div className="text-xs text-slate-500">{offering.description}</div>
+                  )}
+                </td>
+                <td className="px-5 py-3 font-semibold">{formatKoboCurrency(offering.amount)}</td>
+                <td className="px-5 py-3">{offering.paidStudentCount}</td>
+                <td className="px-5 py-3">{offering.status}</td>
+              </tr>
+            ))}
+            {!offeringsQuery.isLoading && !offeringsQuery.data?.data.length && (
+              <tr>
+                <td className="px-5 py-5 text-sm text-slate-500" colSpan={4}>
+                  No organization payments created yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {isCreateOfferingOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form
+            onSubmit={handleCreateOffering}
+            className="w-full max-w-lg space-y-4 rounded-xl bg-white p-6 shadow-xl"
+          >
+            <h2 className="text-lg font-bold text-slate-900">Create payment</h2>
+            {offeringError && (
+              <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+                {offeringError}
+              </p>
+            )}
+            <label className="block text-sm font-medium text-slate-700">
+              Payment name
+              <input
+                value={offeringName}
+                onChange={(event) => setOfferingName(event.target.value)}
+                required
+                maxLength={120}
+                className="mt-1 w-full rounded-md border p-2"
+                placeholder="Department contribution"
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Description
+              <textarea
+                value={offeringDescription}
+                onChange={(event) => setOfferingDescription(event.target.value)}
+                maxLength={2000}
+                rows={3}
+                className="mt-1 w-full rounded-md border p-2"
+                placeholder="What is this contribution for?"
+              />
+            </label>
+            <label className="block text-sm font-medium text-slate-700">
+              Amount (NGN)
+              <input
+                type="number"
+                value={offeringAmount}
+                onChange={(event) => setOfferingAmount(event.target.value)}
+                required
+                min="0.01"
+                step="0.01"
+                className="mt-1 w-full rounded-md border p-2"
+              />
+            </label>
+            <p className="text-xs text-slate-500">
+              All active students in the selected organization can see this payment.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsCreateOfferingOpen(false)}
+                disabled={createOfferingMutation.isPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={createOfferingMutation.isPending}
+              >
+                {createOfferingMutation.isPending ? "Creating…" : "Create payment"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="operations-toolbar">
@@ -325,7 +501,14 @@ export function PaymentsView() {
                   const statusColor = getStatusColor(payment.status);
                   const receipt = payment.receipt;
                   const due = payment.duePayment?.assignment?.due;
-                  const guestName = payment.metadata?.guestName;
+                  const guestName =
+                    payment.metadata?.guestName ||
+                    [
+                      payment.payer?.guestPayer?.firstName,
+                      payment.payer?.guestPayer?.lastName,
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
                   const payerName = [
                     payment.payer?.profile?.firstName,
                     payment.payer?.profile?.lastName,
@@ -337,9 +520,10 @@ export function PaymentsView() {
                     payerName ||
                     payment.payer?.username ||
                     "Unknown";
-                  const displayEmail = guestName
-                    ? payment.metadata?.guestEmail
-                    : payment.payer?.email;
+                  const displayEmail =
+                    payment.payer?.guestPayer?.email ||
+                    payment.metadata?.guestEmail ||
+                    payment.payer?.email;
                   const reference =
                     receipt?.receiptNumber ||
                     payment.reference ||
@@ -358,8 +542,9 @@ export function PaymentsView() {
                           </div>
                           <div className="text-xs text-slate-400 truncate max-w-[200px]">
                             {due?.name ||
+                              payment.paymentOffering?.name ||
                               payment.organization?.name ||
-                              "Due payment"}
+                              "Payment"}
                           </div>
                         </div>
                       </td>

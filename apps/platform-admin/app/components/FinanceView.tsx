@@ -389,6 +389,7 @@ export default function FinanceView() {
                     <tr>
                       <th>Amount</th>
                       <th>Payer</th>
+                      <th>Email</th>
                       <th>Organization</th>
                       <th>Date</th>
                       <th>Status</th>
@@ -402,6 +403,7 @@ export default function FinanceView() {
                             formatKoboCurrency(payment.amount)}
                         </td>
                         <td>{payment.payer || "Unknown"}</td>
+                        <td>{payment.payerEmail || "No email"}</td>
                         <td>{payment.organization || "Unknown"}</td>
                         <td>
                           {payment.createdAt

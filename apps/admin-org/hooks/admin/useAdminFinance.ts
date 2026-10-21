@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   adminApi,
   type CreateDueInput,
+  type CreatePaymentOfferingInput,
   adminQueryKeys,
   PaymentHistoryStatus,
 } from "@/lib/api/admin";
@@ -28,6 +29,25 @@ export function useAdminDues(params?: {
     // Dues are organization-scoped; never fire with a missing/bogus org id.
     enabled: !!token && !!params?.organizationId,
     staleTime: 3 * 60 * 1000,
+  });
+}
+
+export function useAdminPaymentOfferings(params: {
+  organizationId: string;
+  page?: number;
+  limit?: number;
+}) {
+  const { token } = useAuthStore();
+  const { selectedScope } = useAdminContext();
+  const scopedParams = {
+    ...params,
+    academicSessionId: selectedScope?.academicSessionId,
+  };
+  return useQuery({
+    queryKey: adminQueryKeys.finance.paymentOfferings(scopedParams),
+    queryFn: () => adminApi.getPaymentOfferings(scopedParams),
+    enabled: !!token && !!params.organizationId,
+    staleTime: 60 * 1000,
   });
 }
 
@@ -163,6 +183,27 @@ export function useCreateDue() {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: adminQueryKeys.finance.dues(),
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "finance", "organization-overview"],
+      });
+    },
+  });
+}
+
+export function useCreatePaymentOffering() {
+  const queryClient = useQueryClient();
+  const { selectedScope } = useAdminContext();
+
+  return useMutation({
+    mutationFn: (data: CreatePaymentOfferingInput) =>
+      adminApi.createPaymentOffering({
+        ...data,
+        sessionId: selectedScope?.academicSessionId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.finance.paymentOfferings(),
       });
       queryClient.invalidateQueries({
         queryKey: ["admin", "finance", "organization-overview"],

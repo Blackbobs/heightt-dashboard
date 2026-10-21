@@ -31,6 +31,7 @@ export default function DashboardView() {
   const totalInstitutions = institutions.length;
   const totalOrganizations = orgData.totalOrganizations || organizations.length;
   const totalStudents = summary.totalStudents || 0;
+  const totalSignups = summary.totalUsers || 0;
   const totalAdministrators = administrators.length;
   const totalTransactions = revenueData.totalTransactions || 0;
   const totalRevenue = revenueData.totalRevenueFormatted || "₦0.00";
@@ -112,6 +113,11 @@ export default function DashboardView() {
           </div>
         </div>
         <div className="stat-card">
+          <div className="stat-label">Platform signups</div>
+          <div className="stat-value">{totalSignups}</div>
+          <div className="stat-change">Registered accounts</div>
+        </div>
+        <div className="stat-card">
           <div className="stat-label">Administrators</div>
           <div className="stat-value">{totalAdministrators}</div>
           <div className="stat-change">Live API total</div>
@@ -130,6 +136,61 @@ export default function DashboardView() {
             {revenueData.revenueGrowth || 0}% growth
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mb-6 xl:grid-cols-2">
+        {[
+          {
+            title: "Students by institution",
+            items: studentData.studentsByInstitution || [],
+            label: "institution",
+          },
+          {
+            title: "Students by faculty",
+            items: studentData.studentsByFaculty || [],
+            label: "faculty",
+          },
+          {
+            title: "Students by department",
+            items: studentData.studentsByDepartment || [],
+            label: "department",
+          },
+          {
+            title: "Students by organization",
+            items: studentData.studentsByOrganization || [],
+            label: "organization",
+          },
+        ].map((group) => (
+          <div className="card" key={group.title}>
+            <div className="card-body">
+              <div className="text-sm font-semibold text-slate-700">
+                {group.title}
+              </div>
+              <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                {group.items.length ? (
+                  group.items
+                    .slice()
+                    .sort((a: any, b: any) => b.count - a.count)
+                    .map((item: any) => (
+                      <div
+                        key={`${item[group.label]}-${item.count}`}
+                        className="flex justify-between gap-3 text-sm"
+                      >
+                        <span className="truncate text-slate-600">
+                          {item[group.label]}
+                        </span>
+                        <span className="font-semibold tabular-nums">
+                          {item.count}
+                        </span>
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-sm text-slate-400">No student records</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Organization Stats Breakdown */}

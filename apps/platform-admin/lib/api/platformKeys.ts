@@ -42,9 +42,6 @@ export const platformQueryKeys = {
     members: (id: string, params?: any) =>
       keyWithFilters(["platform", "organizations", id, "members"], params),
   },
-  approvals: {
-    all: (status: string) => ["platform", "approvals", status],
-  },
   announcements: {
     all: (params?: any) => keyWithFilters(["platform", "announcements"], params),
     one: (id: string) => ["platform", "announcements", id],

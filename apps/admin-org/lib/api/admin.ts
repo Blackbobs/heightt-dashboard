@@ -221,6 +221,29 @@ export interface CreateDueInput {
   status: "DRAFT" | "ACTIVE";
 }
 
+export interface CreatePaymentOfferingInput {
+  organizationId: string;
+  sessionId?: string;
+  name: string;
+  description?: string;
+  amount: number;
+  status: "ACTIVE" | "INACTIVE";
+}
+
+export interface PaymentOffering {
+  id: string;
+  organizationId: string;
+  sessionId?: string | null;
+  name: string;
+  description?: string | null;
+  amount: number;
+  status: "ACTIVE" | "INACTIVE" | "COMPLETED" | "CANCELLED";
+  paidStudentCount: number;
+  createdAt: string;
+  organization?: { id: string; name: string };
+  session?: { id: string; name: string } | null;
+}
+
 export interface Due {
   id: string;
   organizationId: string;
@@ -239,6 +262,9 @@ export interface Due {
     | "INACTIVE"
     | "COMPLETED"
     | "CANCELLED";
+  totalAssignments?: number;
+  paidStudentCount?: number;
+  pendingAssignments?: number;
   createdAt: string;
   updatedAt: string;
   organization?: { id: string; name: string; slug: string };
@@ -313,12 +339,18 @@ export interface PaymentHistoryRecord {
       firstName?: string;
       lastName?: string;
     } | null;
+    guestPayer?: {
+      email: string;
+      firstName?: string;
+      lastName?: string;
+    } | null;
   } | null;
   duePayment?: {
     assignment?: {
       due?: Due | null;
     } | null;
   } | null;
+  paymentOffering?: { id: string; name: string } | null;
   receipt?: Receipt | null;
 }
 
@@ -700,6 +732,28 @@ export const adminApi = {
     academicSessionId?: string;
   }): Promise<PaginatedResponse<Due>> => {
     const response = await axiosConfig.get("/v1/finance/dues", { params });
+    return response.data;
+  },
+
+  getPaymentOfferings: async (params: {
+    organizationId: string;
+    page?: number;
+    limit?: number;
+    academicSessionId?: string;
+  }): Promise<PaginatedResponse<PaymentOffering>> => {
+    const response = await axiosConfig.get("/v1/finance/payment-offerings", {
+      params,
+    });
+    return response.data;
+  },
+
+  createPaymentOffering: async (
+    data: CreatePaymentOfferingInput,
+  ): Promise<PaymentOffering> => {
+    const response = await axiosConfig.post(
+      "/v1/finance/payment-offerings",
+      data,
+    );
     return response.data;
   },
 
@@ -1148,6 +1202,8 @@ export const adminQueryKeys = {
       organizationId,
     ],
     dues: (params?: any) => keyWithFilters(["admin", "finance", "dues"], params),
+    paymentOfferings: (params?: any) =>
+      keyWithFilters(["admin", "finance", "payment-offerings"], params),
     transactions: (params?: any) =>
       keyWithFilters(["admin", "finance", "transactions"], params),
     receipts: (params?: any) =>
