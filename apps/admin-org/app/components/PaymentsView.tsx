@@ -236,7 +236,8 @@ export function PaymentsView() {
         description="Create organization payments and track student collections."
         actions={
           <div className="flex flex-wrap gap-2">
-            {hasPermission("finance:create") && (
+            {(hasPermission("finance:create") ||
+              hasPermission("finance:due:create")) && (
               <button
                 className="btn btn-primary"
                 onClick={() => setIsCreateOfferingOpen(true)}
