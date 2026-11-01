@@ -14,6 +14,7 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { cn, formatKoboCurrency, formatDate } from "@/lib/utils";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -39,6 +40,7 @@ export function ReceiptsView() {
     isLoading,
     isError,
     error,
+    refetch,
   } = useAdminSearchReceiptsByEmail({
     email: debouncedSearch || undefined,
     page: currentPage,
@@ -47,6 +49,7 @@ export function ReceiptsView() {
 
   const receipts = useMemo(() => data?.data || [], [data?.data]);
   const meta = data?.meta;
+  const isInitialLoad = !debouncedSearch && !data && isLoading;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -70,7 +73,8 @@ export function ReceiptsView() {
     }
   };
 
-  if (isLoading && !data) {
+  // Full-page loader only on the very first load (no search term yet)
+  if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-3">
@@ -83,7 +87,8 @@ export function ReceiptsView() {
     );
   }
 
-  if (isError) {
+  // Error state with retry (only when we have no data to show)
+  if (isError && !data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
         <AlertCircle className="w-8 h-8 text-red-500 mb-3" />
@@ -91,6 +96,13 @@ export function ReceiptsView() {
         <p className="text-xs text-slate-500 mt-1 max-w-xs">
           {error?.message || "Something went wrong"}
         </p>
+        <button
+          onClick={() => refetch()}
+          className="mt-4 text-sm font-medium text-[#1a5cff] hover:underline"
+        >
+          <RefreshCw className="w-4 h-4 inline mr-1.5" />
+          Try again
+        </button>
       </div>
     );
   }
@@ -107,7 +119,7 @@ export function ReceiptsView() {
         }
       />
 
-      {/* Search Bar */}
+      {/* Search Bar - always visible */}
       <div className="px-5 py-4 border-b" style={{ borderColor: "var(--color-border)" }}>
         <div className="relative max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -133,7 +145,7 @@ export function ReceiptsView() {
         )}
       </div>
 
-      {/* Results Table */}
+      {/* Results Area */}
       <div className="px-5 py-4">
         {!canViewReceipts && (
           <div className="rounded-lg border border-red-100 bg-red-50 p-4">
@@ -146,7 +158,19 @@ export function ReceiptsView() {
             </p>
           </div>
         )}
-        {canViewReceipts && receipts.length === 0 && debouncedSearch && (
+
+        {canViewReceipts && isLoading && receipts.length === 0 && (
+          <div className="flex items-center justify-center min-h-[300px] text-center">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-6 h-6 text-[#1a5cff] animate-spin" />
+              <span className="text-sm text-[#5b6d89] font-medium">
+                Searching receipts…
+              </span>
+            </div>
+          </div>
+        )}
+
+        {canViewReceipts && !isLoading && receipts.length === 0 && debouncedSearch && (
           <div className="py-12 text-center">
             <FileText className="w-10 h-10 text-slate-400 mx-auto mb-3" />
             <h3 className="text-sm font-medium text-slate-900">No receipts found</h3>
@@ -155,6 +179,7 @@ export function ReceiptsView() {
             </p>
           </div>
         )}
+
         {canViewReceipts && receipts.length > 0 && (
           <div className="rounded-lg border border-slate-200 overflow-hidden">
             <table className="w-full text-left border-collapse">
@@ -212,8 +237,7 @@ export function ReceiptsView() {
           </div>
         )}
 
-        {/* Pagination */}
-        {canViewReceipts && meta && meta.totalPages > 1 && (
+        {canViewReceipts && !isLoading && receipts.length > 0 && meta && meta.totalPages > 1 && (
           <div className="mt-4 px-5 py-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderColor: "var(--color-border)" }}>
             <div className="text-xs text-slate-500">
               Showing <strong className="text-slate-700">{((currentPage - 1) * ITEMS_PER_PAGE) + 1}</strong>
