@@ -741,6 +741,17 @@ export const adminApi = {
     return response.data;
   },
 
+  searchReceiptsByPayerEmail: async (params: {
+    email: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<Receipt>> => {
+    const response = await axiosConfig.get("/v1/finance/receipts/search", {
+      params,
+    });
+    return response.data;
+  },
+
   getAdminPaymentHistory: async (params?: {
     page?: number;
     limit?: number;
