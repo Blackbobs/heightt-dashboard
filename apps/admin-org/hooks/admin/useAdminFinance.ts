@@ -100,6 +100,34 @@ export function useAdminReceipts(params?: {
   });
 }
 
+export function useAdminSearchReceiptsByEmail(params?: {
+  email?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const { token } = useAuthStore();
+
+  return useQuery({
+    queryKey: [
+      "admin",
+      "finance",
+      "receipts",
+      "search",
+      params?.email,
+      params?.page,
+      params?.limit,
+    ],
+    queryFn: () =>
+      adminApi.searchReceiptsByPayerEmail({
+        email: params?.email || "",
+        page: params?.page,
+        limit: params?.limit,
+      }),
+    enabled: !!token && !!params?.email,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useAdminPaymentHistory(params?: {
   page?: number;
   limit?: number;

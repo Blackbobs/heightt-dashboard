@@ -1,5 +1,5 @@
 "use client";
-import { LayoutDashboard, Coins, HandCoins, Users, Megaphone, ChartLine, Settings, LogOut, X, Wallet, ArrowUpRight, GraduationCap, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Coins, HandCoins, Users, Megaphone, ChartLine, Settings, LogOut, X, Wallet, ArrowUpRight, GraduationCap, ChevronRight, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdminLogout } from "@/hooks/admin/useAdminAuth";
 import { useAdminContext } from "./AdminContext";
@@ -45,7 +45,7 @@ export function Sidebar({
       items: [
         ...(hasPermission("finance:create") || privileged ? [{ icon: Coins, label: "Dues" }] : []),
         { icon: HandCoins, label: "Payments" },
-        ...(canFinance ? [{ icon: ChartLine, label: "Finance" }, { icon: ArrowUpRight, label: "Withdrawals" }, { icon: Wallet, label: "Bank Accounts" }] : []),
+        ...(canFinance ? [{ icon: ChartLine, label: "Finance" }, { icon: ArrowUpRight, label: "Withdrawals" }, { icon: Wallet, label: "Bank Accounts" }, { icon: FileText, label: "Receipts" }] : []),
       ],
     },
     {

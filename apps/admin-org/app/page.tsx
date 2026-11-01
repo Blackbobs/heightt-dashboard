@@ -17,6 +17,7 @@ import { AnnouncementsView } from "./components/AnnouncementsView";
 import { FinanceView } from "./components/FinanceView";
 import { SettingsView } from "./components/SettingsView";
 import { PaymentsView } from "./components/PaymentsView";
+import { ReceiptsView } from "./components/ReceiptsView";
 import { WithdrawalsView } from "./components/WithdrawalsView";
 import { BankAccountsView } from "./components/BankAccountsView";
 import { InstitutionPromotionView } from "./components/InstitutionPromotionView";
@@ -31,6 +32,7 @@ const pageTitles: Record<string, string> = {
   Settings: "Settings",
   Withdrawals: "Withdrawals",
   "Bank Accounts": "Bank Accounts",
+  Receipts: "Receipts",
   Promotion: "Institution Promotion",
 };
 
@@ -55,7 +57,7 @@ export default function AdminDashboard() {
   const routeToNav: Record<string, string> = {
     dues: "Dues", payments: "Payments", students: "Students",
     announcements: "Announcements", finance: "Finance", settings: "Settings",
-    withdrawals: "Withdrawals", "bank-accounts": "Bank Accounts", promotion: "Promotion",
+    withdrawals: "Withdrawals", "bank-accounts": "Bank Accounts", receipts: "Receipts", promotion: "Promotion",
   };
   const routeSegment = pathname.split("/").filter(Boolean)[0] || "dashboard";
   const activeNav = routeToNav[routeSegment] || "Dashboard";
@@ -152,6 +154,8 @@ export default function AdminDashboard() {
         return <AnnouncementsView />;
       case "Finance":
         return <FinanceView />;
+      case "Receipts":
+        return <ReceiptsView />;
       case "Withdrawals":
         return <WithdrawalsView />;
       case "Bank Accounts":
@@ -171,7 +175,7 @@ export default function AdminDashboard() {
           const routes: Record<string, string> = {
             Dashboard: "/", Dues: "/dues", Payments: "/payments", Students: "/students",
             Announcements: "/announcements", Finance: "/finance", Settings: "/settings",
-            Withdrawals: "/withdrawals", "Bank Accounts": "/bank-accounts", Promotion: "/promotion",
+            Withdrawals: "/withdrawals", "Bank Accounts": "/bank-accounts", Receipts: "/receipts", Promotion: "/promotion",
           };
           router.push(routes[nav] || "/");
         }}
