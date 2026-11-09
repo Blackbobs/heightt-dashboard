@@ -181,8 +181,8 @@ export function ReceiptsView() {
         )}
 
         {canViewReceipts && receipts.length > 0 && (
-          <div className="rounded-lg border border-slate-200 overflow-hidden">
-            <table className="w-full text-left border-collapse">
+          <div className="rounded-lg border border-slate-200 overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b" style={{ borderColor: "var(--color-border)" }}>
                   <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase">Payer</th>
