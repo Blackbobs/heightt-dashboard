@@ -24,7 +24,7 @@ export function useAdminStudents(params?: {
   return useQuery({
     queryKey: adminQueryKeys.students.all(scopedParams),
     queryFn: () => adminApi.getStudents(scopedParams),
-    enabled: !!token,
+    enabled: !!token && !!params?.organizationId,
     staleTime: 2 * 60 * 1000,
   });
 }
