@@ -56,6 +56,14 @@ export function StatsGrid() {
 
   const isLoading = studentsLoading || overviewLoading;
 
+  if (!organizationId) {
+    return (
+      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+        No organization assigned to this admin account. Contact a platform admin.
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
